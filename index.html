@@ -516,7 +516,7 @@ async function joinRoom(row) {
   show("screen-room");
 
   try {
-    const { data, error } = await sb.functions.invoke("livekit-token", { body: { roomId: row.id } });
+    const { data, error } = await sb.functions.invoke("smooth-worker", { body: { roomId: row.id } });
     if (error) {
       let code = "";
       try { code = (await error.context.json()).error; } catch {}
