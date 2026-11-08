@@ -81,6 +81,32 @@ input:focus,select:focus{outline:2px solid var(--brand);outline-offset:1px}
   z-index:20;max-width:calc(100% - 32px);text-align:center}
 #toast.show{opacity:1}
 code{background:var(--brand-soft);padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+/* v2: photos, roles, chat */
+.avatar img,.mini img,.chip img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.avatar-pick{display:flex;align-items:center;gap:12px;cursor:pointer;margin:4px 0 8px}
+.avatar-pick .avatar{width:72px;height:72px;font-size:1.8rem;overflow:hidden}
+.avatar-pick span{color:var(--brand);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:6px}
+.chip .face{width:22px;height:22px;flex:0 0 22px}
+.host-line{display:flex;align-items:center;gap:6px}
+.mini{width:24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:inline-grid;
+  place-items:center;font-size:.75rem;font-weight:700;flex:0 0 24px;overflow:hidden}
+.group-title{font-weight:700;margin:16px 0 0;font-size:.95rem;color:var(--muted)}
+.avatar{overflow:visible}
+.avatar > img{position:absolute;inset:0}
+.avatar .hand{position:absolute;top:-6px;inset-inline-end:-6px;font-size:1.1rem}
+.mini-btn{border:0;border-radius:8px;padding:2px 8px;font-size:.75rem;font-weight:600;cursor:pointer;
+  background:var(--brand-soft);color:var(--brand);margin-top:2px}
+.chat{margin-top:16px}
+.chat-list{max-height:40vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.msg{display:flex;gap:8px;align-items:flex-start}
+.msg .body{background:var(--brand-soft);border-radius:12px;padding:6px 10px;max-width:85%;word-break:break-word}
+.msg .who{font-size:.75rem;font-weight:700;color:var(--brand)}
+.msg.mine .body{background:var(--brand);color:var(--brand-ink)}
+.msg.mine .who{color:var(--brand-ink);opacity:.85}
+.chat-form{display:flex;gap:8px}
+.chat-form input{flex:1}
+.chat-form .btn{min-height:44px;padding:8px 14px}
 [hidden]{display:none !important}
 </style>
 </head>
@@ -106,6 +132,11 @@ code{background:var(--brand-soft);padding:1px 6px;border-radius:6px;direction:lt
     <h1 data-i18n="welcome"></h1>
     <p class="muted" data-i18n="intro"></p>
     <form id="name-form" class="card">
+      <label class="avatar-pick" for="photo-input">
+        <div class="avatar" id="photo-preview">📷</div>
+        <span data-i18n="choosePhoto"></span>
+      </label>
+      <input type="file" id="photo-input" accept="image/*" hidden>
       <label for="name-input" data-i18n="yourName"></label>
       <input id="name-input" maxlength="30" autocomplete="nickname" data-i18n-ph="namePh" required>
       <div style="height:12px"></div>
@@ -148,9 +179,23 @@ code{background:var(--brand-soft);padding:1px 6px;border-radius:6px;direction:lt
     <div class="tags" id="room-tags"></div>
     <p class="muted" id="room-status"></p>
     <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio"></button>
-    <div class="people" id="people"></div>
+    <div class="group-title" data-i18n="speakers"></div>
+    <div class="people" id="people-speakers"></div>
+    <div class="group-title" id="listeners-title" data-i18n="listeners"></div>
+    <div class="people" id="people-listeners"></div>
+
+    <div class="card chat">
+      <div class="group-title" style="margin:0 0 8px" data-i18n="chat"></div>
+      <div class="chat-list" id="chat-list"></div>
+      <form class="chat-form" id="chat-form">
+        <input id="chat-input" maxlength="300" autocomplete="off" dir="auto" data-i18n-ph="chatPh">
+        <button class="btn" type="submit" data-i18n="send"></button>
+      </form>
+    </div>
+
     <div class="controls">
       <button class="btn" id="mic-btn" type="button" disabled></button>
+      <button class="btn" id="hand-btn" type="button" hidden></button>
       <button class="btn ghost" id="leave-btn" type="button" data-i18n="leave"></button>
       <button class="btn danger" id="end-btn" type="button" hidden data-i18n="endRoom"></button>
     </div>
@@ -334,8 +379,53 @@ const I18N = {
   },
 };
 
+/* ---------- v2 strings: photos, speakers/listeners, raise hand, chat ---------- */
+const I18N_V2 = {
+  en: { choosePhoto: "📷 Choose photo", photoFail: "Couldn't upload the photo: ", speakers: "🎙️ Speakers", listeners: "🎧 Listeners",
+    raiseHand: "✋ Raise hand", lowerHand: "✋ Lower hand", handSent: "Request sent — the host will decide.",
+    handRaisedBy: "✋ {name} wants to speak", allow: "🎙️ Allow", toListener: "⬇️ Listener",
+    youCanSpeak: "🎙️ The host let you speak!", youAreListener: "🎧 You are a listener now.",
+    chat: "💬 Chat", chatPh: "Write a message…", send: "Send", noMessages: "No messages yet.", e_not_host: "Only the host can do this." },
+  ar: { choosePhoto: "📷 اختر صورة", photoFail: "تعذّر رفع الصورة: ", speakers: "🎙️ المتحدثون", listeners: "🎧 المستمعون",
+    raiseHand: "✋ ارفع يدك", lowerHand: "✋ أنزل يدك", handSent: "تم إرسال الطلب — سيقرّر المضيف.",
+    handRaisedBy: "✋ {name} يريد التحدث", allow: "🎙️ اسمح", toListener: "⬇️ مستمع",
+    youCanSpeak: "🎙️ سمح لك المضيف بالتحدث!", youAreListener: "🎧 أنت الآن مستمع.",
+    chat: "💬 الدردشة", chatPh: "اكتب رسالة…", send: "إرسال", noMessages: "لا توجد رسائل بعد.", e_not_host: "هذا متاح للمضيف فقط." },
+  ckb: { choosePhoto: "📷 وێنە هەڵبژێرە", photoFail: "نەتوانرا وێنەکە باربکرێت: ", speakers: "🎙️ قسەکەران", listeners: "🎧 گوێگران",
+    raiseHand: "✋ دەست بەرزکردنەوە", lowerHand: "✋ دەست نزمکردنەوە", handSent: "داواکاری نێردرا — خاوەنی ژوور بڕیار دەدات.",
+    handRaisedBy: "✋ {name} دەیەوێت قسە بکات", allow: "🎙️ ڕێگە بدە", toListener: "⬇️ گوێگر",
+    youCanSpeak: "🎙️ خاوەنی ژوور ڕێگەی پێدایت قسە بکەیت!", youAreListener: "🎧 ئێستا گوێگریت.",
+    chat: "💬 چات", chatPh: "نامەیەک بنووسە…", send: "ناردن", noMessages: "هێشتا هیچ نامەیەک نییە.", e_not_host: "تەنها خاوەنی ژوور دەتوانێت ئەمە بکات." },
+  tr: { choosePhoto: "📷 Fotoğraf seç", photoFail: "Fotoğraf yüklenemedi: ", speakers: "🎙️ Konuşmacılar", listeners: "🎧 Dinleyiciler",
+    raiseHand: "✋ El kaldır", lowerHand: "✋ Eli indir", handSent: "İstek gönderildi — oda sahibi karar verecek.",
+    handRaisedBy: "✋ {name} konuşmak istiyor", allow: "🎙️ İzin ver", toListener: "⬇️ Dinleyici",
+    youCanSpeak: "🎙️ Oda sahibi konuşmana izin verdi!", youAreListener: "🎧 Artık dinleyicisin.",
+    chat: "💬 Sohbet", chatPh: "Bir mesaj yaz…", send: "Gönder", noMessages: "Henüz mesaj yok.", e_not_host: "Bunu sadece oda sahibi yapabilir." },
+  fa: { choosePhoto: "📷 انتخاب عکس", photoFail: "بارگذاری عکس ممکن نشد: ", speakers: "🎙️ سخنران‌ها", listeners: "🎧 شنونده‌ها",
+    raiseHand: "✋ بالا بردن دست", lowerHand: "✋ پایین آوردن دست", handSent: "درخواست فرستاده شد — میزبان تصمیم می‌گیرد.",
+    handRaisedBy: "✋ {name} می‌خواهد صحبت کند", allow: "🎙️ اجازه بده", toListener: "⬇️ شنونده",
+    youCanSpeak: "🎙️ میزبان به شما اجازهٔ صحبت داد!", youAreListener: "🎧 اکنون شنونده هستید.",
+    chat: "💬 گفتگو", chatPh: "پیامی بنویسید…", send: "ارسال", noMessages: "هنوز پیامی نیست.", e_not_host: "فقط میزبان می‌تواند این کار را انجام دهد." },
+  de: { choosePhoto: "📷 Foto wählen", photoFail: "Foto konnte nicht hochgeladen werden: ", speakers: "🎙️ Sprecher", listeners: "🎧 Zuhörer",
+    raiseHand: "✋ Hand heben", lowerHand: "✋ Hand senken", handSent: "Anfrage gesendet — der Host entscheidet.",
+    handRaisedBy: "✋ {name} möchte sprechen", allow: "🎙️ Erlauben", toListener: "⬇️ Zuhörer",
+    youCanSpeak: "🎙️ Der Host hat dich sprechen lassen!", youAreListener: "🎧 Du bist jetzt Zuhörer.",
+    chat: "💬 Chat", chatPh: "Nachricht schreiben…", send: "Senden", noMessages: "Noch keine Nachrichten.", e_not_host: "Nur der Host kann das tun." },
+  fr: { choosePhoto: "📷 Choisir une photo", photoFail: "Impossible d'envoyer la photo : ", speakers: "🎙️ Intervenants", listeners: "🎧 Auditeurs",
+    raiseHand: "✋ Lever la main", lowerHand: "✋ Baisser la main", handSent: "Demande envoyée — l'hôte décidera.",
+    handRaisedBy: "✋ {name} veut parler", allow: "🎙️ Autoriser", toListener: "⬇️ Auditeur",
+    youCanSpeak: "🎙️ L'hôte t'a donné la parole !", youAreListener: "🎧 Tu es maintenant auditeur.",
+    chat: "💬 Chat", chatPh: "Écris un message…", send: "Envoyer", noMessages: "Aucun message pour l'instant.", e_not_host: "Seul l'hôte peut faire cela." },
+  es: { choosePhoto: "📷 Elegir foto", photoFail: "No se pudo subir la foto: ", speakers: "🎙️ Oradores", listeners: "🎧 Oyentes",
+    raiseHand: "✋ Levantar la mano", lowerHand: "✋ Bajar la mano", handSent: "Solicitud enviada — el anfitrión decidirá.",
+    handRaisedBy: "✋ {name} quiere hablar", allow: "🎙️ Permitir", toListener: "⬇️ Oyente",
+    youCanSpeak: "🎙️ ¡El anfitrión te dejó hablar!", youAreListener: "🎧 Ahora eres oyente.",
+    chat: "💬 Chat", chatPh: "Escribe un mensaje…", send: "Enviar", noMessages: "Aún no hay mensajes.", e_not_host: "Solo el anfitrión puede hacer esto." },
+};
+for (const [l, o] of Object.entries(I18N_V2)) Object.assign(I18N[l], o);
+
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc =(s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---------- pick interface language: saved choice → phone language → English ---------- */
 function pickUiLang() {
@@ -390,6 +480,51 @@ function toast(msg) {
 function show(id) { document.querySelectorAll(".wrap > section").forEach((s) => (s.hidden = s.id !== id)); }
 function myName() { return me?.user_metadata?.name || t("guest"); }
 
+/* ---------- profile photos ---------- */
+const AVATAR_PREFIX = CONFIG.SUPABASE_URL + "/storage/v1/object/public/avatars/";
+const safeAvatar = (u) => (typeof u === "string" && u.startsWith(AVATAR_PREFIX) && u.length < 500 ? u : "");
+function myAvatar() { return safeAvatar(me?.user_metadata?.avatar_url); }
+function faceHtml(name, url) {
+  return url ? `<img src="${esc(url)}" alt="" loading="lazy">` : esc([...(name || "?")][0] || "?");
+}
+function partMeta(p) { try { return JSON.parse(p.metadata || "{}"); } catch { return {}; } }
+
+let pendingPhoto = null;
+$("#photo-input").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  pendingPhoto = f;
+  $("#photo-preview").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="">`;
+});
+
+// shrink to a 256×256 JPEG so uploads are small and fast
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 256, c = document.createElement("canvas");
+      c.width = c.height = size;
+      const s = Math.min(img.width, img.height);
+      c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(img.src);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("image"))), "image/jpeg", 0.85);
+    };
+    img.onerror = () => reject(new Error("image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function uploadPhoto(file) {
+  const blob = await shrinkPhoto(file);
+  const path = `${me.id}/avatar.jpg`;
+  const up = await sb.storage.from("avatars").upload(path, blob, { upsert: true, contentType: "image/jpeg", cacheControl: "60" });
+  if (up.error) throw up.error;
+  const url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl + "?v=" + Date.now();
+  const res = await sb.auth.updateUser({ data: { avatar_url: url } });
+  if (res.error) throw res.error;
+  me = res.data.user;
+}
+
 let sb = null, me = null, lk = null, currentRoom = null, listChannel = null;
 applyI18n();
 
@@ -417,6 +552,10 @@ $("#name-form").addEventListener("submit", async (e) => {
       : await sb.auth.signInAnonymously({ options: { data: { name } } });
     if (res.error) throw res.error;
     me = res.data.user;
+    if (pendingPhoto) {
+      try { await uploadPhoto(pendingPhoto); pendingPhoto = null; }
+      catch (err) { console.error(err); toast(t("photoFail") + (err?.message || err)); }
+    }
     enterApp();
   } catch (err) {
     console.error(err);
@@ -427,11 +566,14 @@ $("#name-form").addEventListener("submit", async (e) => {
 $("#me-chip").addEventListener("click", () => {
   if (currentRoom) return;
   $("#name-input").value = myName();
+  pendingPhoto = null;
+  $("#photo-preview").innerHTML = myAvatar() ? faceHtml(myName(), myAvatar()) : "📷";
   show("screen-name");
 });
 
 function enterApp() {
-  const chip = $("#me-chip"); chip.hidden = false; chip.textContent = "👤 " + myName();
+  const chip = $("#me-chip"); chip.hidden = false;
+  chip.innerHTML = `<span class="mini face">${faceHtml(myName(), myAvatar())}</span><span>${esc(myName())}</span>`;
   goList();
   if (!listChannel) {
     listChannel = sb.channel("rooms-list")
@@ -471,7 +613,7 @@ async function loadRooms() {
     <div class="card room-card">
       <div class="title" dir="auto">${esc(r.title)}</div>
       <div class="tags"><span class="tag">${esc(LANGS[r.language] || r.language)}</span><span class="tag">${esc(levelLabel(r.level))}</span></div>
-      <div class="muted" dir="auto">👑 ${esc(r.host_name)}</div>
+      <div class="muted host-line"><span class="mini">${faceHtml(r.host_name, safeAvatar(r.host_avatar))}</span><span dir="auto">👑 ${esc(r.host_name)}</span></div>
       <button class="btn block" data-join="${esc(r.id)}" type="button">${esc(t("join"))}</button>
     </div>`).join("");
   box.querySelectorAll("[data-join]").forEach((b) =>
@@ -492,6 +634,7 @@ $("#create-form").addEventListener("submit", async (e) => {
   const btn = $("#create-submit"); btn.disabled = true;
   const { data, error } = await sb.from("rooms").insert({
     title, language: $("#room-lang").value, level: $("#room-level").value, host_name: myName().slice(0, 40),
+    host_avatar: myAvatar() || null,
   }).select().single();
   btn.disabled = false;
   if (error) { console.error(error); return toast(t("createFail") + error.message); }
@@ -509,8 +652,10 @@ async function joinRoom(row) {
   const titleEl = $("#room-title-view"); titleEl.textContent = row.title; titleEl.dir = "auto";
   setRoomTags(row);
   $("#room-status").textContent = t("connecting");
-  $("#people").innerHTML = "";
+  $("#people-speakers").innerHTML = ""; $("#people-listeners").innerHTML = "";
+  $("#chat-list").innerHTML = `<div class="muted" id="chat-empty">${esc(t("noMessages"))}</div>`;
   $("#mic-btn").disabled = true; $("#mic-btn").textContent = t("micOff");
+  $("#mic-btn").hidden = false; $("#hand-btn").hidden = true;
   $("#end-btn").hidden = row.host_id !== me.id;
   $("#me-chip").disabled = true;
   show("screen-room");
@@ -540,7 +685,32 @@ async function joinRoom(row) {
       .on(E.TrackMuted, renderPeople)
       .on(E.TrackUnmuted, renderPeople)
       .on(E.LocalTrackPublished, renderPeople)
+      .on(E.LocalTrackUnpublished, renderPeople)
       .on(E.AudioPlaybackStatusChanged, updateAudioUnlock)
+      .on(E.ParticipantPermissionsChanged, async (prev, p) => {
+        const canSpeak = !!room.localParticipant.permissions?.canPublish;
+        if (p === room.localParticipant && prev && !!prev.canPublish !== canSpeak) {
+          if (canSpeak) {
+            toast(t("youCanSpeak"));
+            try { await room.localParticipant.setMicrophoneEnabled(true); } catch { toast(t("micDenied")); }
+          } else {
+            toast(t("youAreListener"));
+          }
+        }
+        renderPeople();
+      })
+      .on(E.ParticipantAttributesChanged, (changed, p) => {
+        if (amHost() && p !== room.localParticipant && changed.hand === "1") toast(t("handRaisedBy", { name: p.name || t("guest") }));
+        renderPeople();
+      })
+      .on(E.ParticipantMetadataChanged, renderPeople)
+      .on(E.DataReceived, (payload, p, _kind, topic) => {
+        if (topic !== "chat" || !p) return;
+        try {
+          const msg = JSON.parse(new TextDecoder().decode(payload));
+          if (msg && msg.type === "chat" && typeof msg.text === "string") addChat(p, msg.text.slice(0, 300));
+        } catch {}
+      })
       .on(E.Disconnected, () => {
         if (lk === room) { toast(t("disconnected")); leaveRoom(); }
       });
@@ -548,8 +718,10 @@ async function joinRoom(row) {
     await room.connect(data.url, data.token);
     $("#room-status").textContent = t("connected");
     try { await room.startAudio(); } catch {}
-    try { await room.localParticipant.setMicrophoneEnabled(true); }
-    catch (err) { console.warn(err); toast(t("micDenied")); }
+    if (room.localParticipant.permissions?.canPublish) {
+      try { await room.localParticipant.setMicrophoneEnabled(true); }
+      catch (err) { console.warn(err); toast(t("micDenied")); }
+    }
     $("#mic-btn").disabled = false;
     updateAudioUnlock(); renderPeople();
   } catch (err) {
@@ -562,25 +734,105 @@ async function joinRoom(row) {
 function updateAudioUnlock() { $("#audio-unlock").hidden = !lk || lk.canPlaybackAudio; }
 $("#audio-unlock").addEventListener("click", async () => { try { await lk?.startAudio(); } catch {} updateAudioUnlock(); });
 
+function amHost() { return !!(currentRoom && me && currentRoom.host_id === me.id); }
+function isSpeaker(p) { return p.identity === currentRoom.host_id || !!p.permissions?.canPublish; }
+function handUp(p) { return p.attributes?.hand === "1"; }
+
+function personHtml(p) {
+  const name = p.name || t("guest");
+  const isHost = p.identity === currentRoom.host_id;
+  const isMe = p === lk.localParticipant;
+  const speaker = isSpeaker(p);
+  const badge = speaker ? (!p.isMicrophoneEnabled ? "🔇" : isHost ? "👑" : "") : "";
+  let actions = "";
+  if (amHost() && !isMe && !isHost) {
+    actions = speaker
+      ? `<button class="mini-btn" data-speaker="${esc(p.identity)}" data-allow="0" type="button">${esc(t("toListener"))}</button>`
+      : `<button class="mini-btn" data-speaker="${esc(p.identity)}" data-allow="1" type="button">${esc(t("allow"))}</button>`;
+  }
+  return `<div class="person">
+    <div class="avatar ${speaker && p.isSpeaking && p.isMicrophoneEnabled ? "speaking" : ""}">${faceHtml(name, safeAvatar(partMeta(p).avatar))}
+      ${badge ? `<span class="badge">${badge}</span>` : ""}${!speaker && handUp(p) ? `<span class="hand">✋</span>` : ""}</div>
+    <div class="pname" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</div>
+    ${actions}
+  </div>`;
+}
+
 function renderPeople() {
   if (!lk || !currentRoom) return;
   const all = [lk.localParticipant, ...lk.remoteParticipants.values()];
-  $("#people").innerHTML = all.map((p) => {
-    const name = p.name || t("guest");
-    const isHost = p.identity === currentRoom.host_id;
-    const isMe = p === lk.localParticipant;
-    const badge = !p.isMicrophoneEnabled ? "🔇" : isHost ? "👑" : "";
-    return `<div class="person">
-      <div class="avatar ${p.isSpeaking && p.isMicrophoneEnabled ? "speaking" : ""}">${esc([...name][0] || "?")}
-        ${badge ? `<span class="badge">${badge}</span>` : ""}</div>
-      <div class="pname" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</div>
-    </div>`;
-  }).join("");
+  const speakers = all.filter(isSpeaker);
+  // listeners with a raised hand go first
+  const listeners = all.filter((p) => !isSpeaker(p)).sort((a, b) => handUp(b) - handUp(a));
+  $("#people-speakers").innerHTML = speakers.map(personHtml).join("");
+  $("#people-listeners").innerHTML = listeners.map(personHtml).join("");
+  $("#listeners-title").hidden = listeners.length === 0;
   $("#room-status").textContent = t("people", { n: all.length });
-  const micOn = lk.localParticipant.isMicrophoneEnabled;
+
+  const local = lk.localParticipant;
+  const canSpeak = isSpeaker(local);
+  $("#mic-btn").hidden = !canSpeak;
+  $("#hand-btn").hidden = canSpeak;
+  const micOn = local.isMicrophoneEnabled;
   $("#mic-btn").textContent = micOn ? t("micOn") : t("micOff");
   $("#mic-btn").classList.toggle("ghost", !micOn);
+  $("#hand-btn").textContent = handUp(local) ? t("lowerHand") : t("raiseHand");
+  $("#hand-btn").classList.toggle("ghost", handUp(local));
 }
+
+/* host: allow to speak / move back to listeners */
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-speaker]");
+  if (!b || !lk || !currentRoom) return;
+  b.disabled = true;
+  const { error } = await sb.functions.invoke("smooth-worker", {
+    body: { roomId: currentRoom.id, action: "set_speaker", identity: b.dataset.speaker, allow: b.dataset.allow === "1" },
+  });
+  if (error) {
+    let code = ""; try { code = (await error.context.json()).error; } catch {}
+    toast(t("error") + (code && I18N.en["e_" + code] ? t("e_" + code) : (code || error.message)));
+  }
+  b.disabled = false;
+});
+
+/* listener: raise / lower hand */
+$("#hand-btn").addEventListener("click", async () => {
+  if (!lk) return;
+  const up = !handUp(lk.localParticipant);
+  try {
+    await lk.localParticipant.setAttributes({ hand: up ? "1" : "0" });
+    if (up) toast(t("handSent"));
+  } catch (err) { toast(t("error") + (err?.message || err)); }
+  renderPeople();
+});
+
+/* chat (sent through the voice connection; only people in the room see it) */
+function addChat(p, text) {
+  const list = $("#chat-list");
+  $("#chat-empty")?.remove();
+  const mine = lk && p === lk.localParticipant;
+  const name = p.name || t("guest");
+  const div = document.createElement("div");
+  div.className = "msg" + (mine ? " mine" : "");
+  div.innerHTML = `<span class="mini">${faceHtml(name, safeAvatar(partMeta(p).avatar))}</span>
+    <div class="body"><div class="who" dir="auto">${esc(name)}</div><div dir="auto">${esc(text)}</div></div>`;
+  list.appendChild(div);
+  while (list.children.length > 100) list.firstElementChild.remove();
+  list.scrollTop = list.scrollHeight;
+}
+let lastChatAt = 0;
+$("#chat-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = $("#chat-input");
+  const text = input.value.trim().slice(0, 300);
+  if (!text || !lk || Date.now() - lastChatAt < 700) return;
+  lastChatAt = Date.now();
+  try {
+    await lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "chat", text })), { reliable: true, topic: "chat" });
+    addChat(lk.localParticipant, text);
+    input.value = "";
+  } catch (err) { toast(t("error") + (err?.message || err)); }
+});
 
 $("#mic-btn").addEventListener("click", async () => {
   if (!lk) return;
@@ -594,6 +846,7 @@ async function leaveRoom() {
   const room = lk; lk = null; currentRoom = null;
   if (room) { try { await room.disconnect(); } catch {} }
   $("#audio-sink").innerHTML = "";
+  $("#chat-list").innerHTML = "";
   $("#audio-unlock").hidden = true;
   $("#me-chip").disabled = false;
   goList();
