@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Talk Together</title>
+<meta name="description" content="Live voice rooms for practicing any language">
+<meta name="theme-color" content="#5b3df5">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f3ff; --card:#ffffff; --text:#1d1733; --muted:#6b6485; --line:#e4e0f5;
+  --brand:#5b3df5; --brand-ink:#ffffff; --brand-soft:#ece8ff;
+  --danger:#e5484d; --speak:#22c55e;
+  --radius:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#110e1f; --card:#1c1830; --text:#f1eefc; --muted:#a39dbd; --line:#2e2848;
+    --brand:#7c66ff; --brand-ink:#ffffff; --brand-soft:#2a2350;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans","Noto Sans Arabic",system-ui,sans-serif;font-size:16px;line-height:1.6}
+html[dir="rtl"] body{font-family:"Noto Sans Arabic","Noto Sans",system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;
+  position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;white-space:nowrap}
+.logo img{width:32px;height:32px;border-radius:9px}
+.head-right{display:flex;align-items:center;gap:6px;min-width:0}
+.chip{background:var(--brand-soft);color:var(--brand);border:0;border-radius:999px;padding:4px 12px;
+  font-size:.85rem;cursor:pointer;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip{flex-shrink:1;min-width:48px}
+@media (max-width:420px){ .logo-text{display:none} .chip{max-width:40vw} }
+.ui-lang{width:auto;flex-shrink:0;padding:4px 8px;border-radius:999px;font-size:.85rem;background:var(--card)}
+h1{font-size:1.4rem;margin:8px 0 4px}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input,select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+input:focus,select:focus{outline:2px solid var(--brand);outline-offset:1px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;
+  padding:12px 18px;font-weight:600;cursor:pointer;background:var(--brand);color:var(--brand-ink);min-height:48px}
+.btn.block{width:100%}
+.btn.ghost{background:var(--brand-soft);color:var(--brand)}
+.btn.danger{background:var(--danger);color:#fff}
+.btn:disabled{opacity:.55;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row > *{flex:1}
+.toolbar{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.toolbar select{flex:1}
+.room-card{display:flex;flex-direction:column;gap:6px}
+.room-card .title{font-weight:700;font-size:1.05rem;word-break:break-word}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{background:var(--brand-soft);color:var(--brand);border-radius:999px;padding:2px 10px;font-size:.8rem}
+.empty{text-align:center;padding:32px 12px;color:var(--muted)}
+.fab{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  box-shadow:0 8px 24px rgba(91,61,245,.35);z-index:6}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:14px;margin-top:12px}
+.person{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;font-size:.85rem}
+.avatar{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:1.5rem;font-weight:700;
+  background:var(--brand-soft);color:var(--brand);position:relative;border:3px solid transparent;transition:border-color .15s}
+.avatar.speaking{border-color:var(--speak);box-shadow:0 0 0 4px rgba(34,197,94,.25)}
+.avatar .badge{position:absolute;bottom:-4px;inset-inline-start:-4px;background:var(--card);border-radius:50%;
+  width:26px;height:26px;display:grid;place-items:center;font-size:.85rem;border:1px solid var(--line)}
+.person .pname{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.controls{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;z-index:6}
+.controls .btn{flex:1;max-width:200px;padding:12px 8px}
+.notice{background:#fff7e6;color:#7a4b00;border:1px solid #ffd591;border-radius:12px;padding:12px;margin:12px 0}
+@media (prefers-color-scheme: dark){ .notice{background:#3a2a05;color:#ffd591;border-color:#6b4c0a} }
+#toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);
+  padding:10px 16px;border-radius:12px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;
+  z-index:20;max-width:calc(100% - 32px);text-align:center}
+#toast.show{opacity:1}
+code{background:var(--brand-soft);padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><img src="icons/icon-192.png" alt=""><span class="logo-text">Talk Together</span></div>
+  <div class="head-right">
+    <button id="me-chip" class="chip" hidden></button>
+    <select id="ui-lang" class="ui-lang" aria-label="Language"></select>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Setup missing (only the app owner sees this) -->
+  <section id="screen-setup" hidden>
+    <h1>⚙️ Setup not finished</h1>
+    <div class="notice">In <code>index.html</code>, inside <code>CONFIG</code>, paste your Supabase <b>Project URL</b> and <b>Publishable key</b>.</div>
+  </section>
+
+  <!-- Name -->
+  <section id="screen-name" hidden>
+    <h1 data-i18n="welcome"></h1>
+    <p class="muted" data-i18n="intro"></p>
+    <form id="name-form" class="card">
+      <label for="name-input" data-i18n="yourName"></label>
+      <input id="name-input" maxlength="30" autocomplete="nickname" data-i18n-ph="namePh" required>
+      <div style="height:12px"></div>
+      <button class="btn block" type="submit" data-i18n="start"></button>
+    </form>
+  </section>
+
+  <!-- Room list -->
+  <section id="screen-list" hidden>
+    <h1 data-i18n="openRooms"></h1>
+    <div class="toolbar">
+      <select id="filter-lang" aria-label="filter"></select>
+      <button class="btn ghost" id="refresh-btn" type="button" aria-label="refresh">↻</button>
+    </div>
+    <div id="room-list"></div>
+    <button class="btn fab" id="new-room-btn" type="button" data-i18n="newRoom"></button>
+  </section>
+
+  <!-- Create room -->
+  <section id="screen-create" hidden>
+    <h1 data-i18n="createTitle"></h1>
+    <form id="create-form" class="card">
+      <label for="room-title" data-i18n="roomTitle"></label>
+      <input id="room-title" maxlength="80" data-i18n-ph="roomTitlePh" required>
+      <label for="room-lang" data-i18n="language"></label>
+      <select id="room-lang" required></select>
+      <label for="room-level" data-i18n="level"></label>
+      <select id="room-level" required></select>
+      <div style="height:16px"></div>
+      <div class="row">
+        <button class="btn" type="submit" id="create-submit" data-i18n="createJoin"></button>
+        <button class="btn ghost" type="button" id="create-cancel" data-i18n="cancel"></button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Room -->
+  <section id="screen-room" hidden>
+    <h1 id="room-title-view"></h1>
+    <div class="tags" id="room-tags"></div>
+    <p class="muted" id="room-status"></p>
+    <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio"></button>
+    <div class="people" id="people"></div>
+    <div class="controls">
+      <button class="btn" id="mic-btn" type="button" disabled></button>
+      <button class="btn ghost" id="leave-btn" type="button" data-i18n="leave"></button>
+      <button class="btn danger" id="end-btn" type="button" hidden data-i18n="endRoom"></button>
+    </div>
+  </section>
+
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="audio-sink" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.4/dist/livekit-client.umd.js"></script>
+<script>
+/* =========================================================
+   ⚙️ Only change these two lines (Supabase → Project Settings → API Keys)
+   ⚠️ Publishable / anon key ONLY — never a secret or service_role key!
+   ========================================================= */
+const CONFIG = {
+  SUPABASE_URL: "PASTE_SUPABASE_PROJECT_URL_HERE",
+  SUPABASE_KEY: "PASTE_PUBLISHABLE_KEY_HERE",
+};
+
+/* ---------- Languages people can PRACTICE (shown in their own name) ---------- */
+const LANGS = {
+  en: "🇬🇧 English", ar: "🇸🇦 العربية", es: "🇪🇸 Español", fr: "🇫🇷 Français", de: "🇩🇪 Deutsch",
+  tr: "🇹🇷 Türkçe", fa: "🇮🇷 فارسی", ckb: "☀️ کوردی (سۆرانی)", kmr: "☀️ Kurdî (Kurmancî)",
+  it: "🇮🇹 Italiano", pt: "🇵🇹 Português", ru: "🇷🇺 Русский", zh: "🇨🇳 中文", ja: "🇯🇵 日本語",
+  ko: "🇰🇷 한국어", hi: "🇮🇳 हिन्दी", nl: "🇳🇱 Nederlands", sv: "🇸🇪 Svenska",
+};
+const LEVEL_CODES = { beginner: "A1–A2", intermediate: "B1–B2", advanced: "C1–C2" };
+
+/* ---------- App interface languages ---------- */
+const UI_LANGS = {
+  en: "English", ar: "العربية", ckb: "کوردی", tr: "Türkçe", fa: "فارسی", de: "Deutsch", fr: "Français", es: "Español",
+};
+const RTL = new Set(["ar", "ckb", "fa"]);
+const I18N = {
+  en: {
+    welcome: "Welcome 👋", intro: "Open a voice room or join one and practice speaking a new language.",
+    yourName: "What's your name?", namePh: "e.g. Alex", start: "Get started", nameShort: "Name must be at least 2 letters.",
+    anonDisabled: "Anonymous sign-ins are not enabled in Supabase.", error: "Error: ", changeName: "Change name",
+    openRooms: "Live rooms", allLangs: "🌍 All languages", noRooms: "🎧 No rooms yet.<br>Be the first to open one!",
+    loadFail: "Couldn't load the list.", join: "Join", newRoom: "＋ New room",
+    createTitle: "New room", roomTitle: "Room title", roomTitlePh: "e.g. Everyday English chat",
+    language: "Language", level: "Level", createJoin: "Create & join", cancel: "Cancel",
+    titleShort: "Title is too short.", createFail: "Couldn't create the room: ",
+    connecting: "Connecting…", connected: "✅ Connected — start talking!", tapAudio: "🔊 Tap to hear audio",
+    micOn: "🎙️ Mic on", micOff: "🔇 Mic off", leave: "🚪 Leave", endRoom: "⏹ End room",
+    endConfirm: "End this room for everyone?", roomEnded: "The host ended the room.", disconnected: "Connection lost.",
+    joinFail: "Couldn't join: ", micDenied: "Microphone blocked — allow it in your browser settings.", micFail: "Microphone error: ",
+    people: "👥 {n} in the room", you: "(you)", guest: "Guest",
+    beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced",
+    e_not_signed_in: "Please sign in first.", e_room_closed: "This room has ended.", e_bad_room: "Room not found.",
+    e_server_not_configured: "LiveKit secrets are not set in Supabase.",
+  },
+  ar: {
+    welcome: "أهلاً بك 👋", intro: "افتح غرفة صوتية أو انضم إلى غرفة وتدرّب على التحدث بلغة جديدة.",
+    yourName: "ما اسمك؟", namePh: "مثال: سارة", start: "ابدأ", nameShort: "يجب أن يتكون الاسم من حرفين على الأقل.",
+    anonDisabled: "تسجيل الدخول المجهول غير مفعّل في Supabase.", error: "خطأ: ", changeName: "تغيير الاسم",
+    openRooms: "الغرف المباشرة", allLangs: "🌍 كل اللغات", noRooms: "🎧 لا توجد غرف بعد.<br>كن أول من يفتح غرفة!",
+    loadFail: "تعذّر تحميل القائمة.", join: "انضم", newRoom: "＋ غرفة جديدة",
+    createTitle: "غرفة جديدة", roomTitle: "عنوان الغرفة", roomTitlePh: "مثال: محادثة يومية بالإنجليزية",
+    language: "اللغة", level: "المستوى", createJoin: "إنشاء والدخول", cancel: "إلغاء",
+    titleShort: "العنوان قصير جداً.", createFail: "تعذّر إنشاء الغرفة: ",
+    connecting: "جارٍ الاتصال…", connected: "✅ تم الاتصال — ابدأ الحديث!", tapAudio: "🔊 اضغط لسماع الصوت",
+    micOn: "🎙️ الميكروفون يعمل", micOff: "🔇 الميكروفون مغلق", leave: "🚪 مغادرة", endRoom: "⏹ إنهاء الغرفة",
+    endConfirm: "إنهاء الغرفة للجميع؟", roomEnded: "أنهى المضيف الغرفة.", disconnected: "انقطع الاتصال.",
+    joinFail: "تعذّر الانضمام: ", micDenied: "الميكروفون محظور — اسمح به من إعدادات المتصفح.", micFail: "خطأ في الميكروفون: ",
+    people: "👥 {n} في الغرفة", you: "(أنت)", guest: "ضيف",
+    beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم",
+    e_not_signed_in: "يرجى تسجيل الدخول أولاً.", e_room_closed: "انتهت هذه الغرفة.", e_bad_room: "الغرفة غير موجودة.",
+    e_server_not_configured: "مفاتيح LiveKit غير مضبوطة في Supabase.",
+  },
+  ckb: {
+    welcome: "بەخێربێیت 👋", intro: "ژووری دەنگی بکەرەوە یان بچۆ ناو ژوورێک و ڕاهێنان بکە لەسەر قسەکردن بە زمانێکی نوێ.",
+    yourName: "ناوت چییە؟", namePh: "بۆ نموونە: ئاری", start: "دەست پێبکە", nameShort: "ناوەکە لانیکەم ٢ پیت بێت.",
+    anonDisabled: "لە Supabase دا Anonymous sign-ins کارا نەکراوە.", error: "هەڵە: ", changeName: "گۆڕینی ناو",
+    openRooms: "ژوورە کراوەکان", allLangs: "🌍 هەموو زمانەکان", noRooms: "🎧 هێشتا هیچ ژوورێک نییە.<br>یەکەم ژوور تۆ بیکەرەوە!",
+    loadFail: "نەتوانرا لیستەکە باربکرێت.", join: "بچۆ ژوورەوە", newRoom: "＋ ژووری نوێ",
+    createTitle: "ژووری نوێ", roomTitle: "ناونیشانی ژوور", roomTitlePh: "بۆ نموونە: گفتوگۆی ڕۆژانە بە ئینگلیزی",
+    language: "زمان", level: "ئاست", createJoin: "دروستکردن و چوونەژوورەوە", cancel: "پاشگەزبوونەوە",
+    titleShort: "ناونیشان کورتە.", createFail: "نەتوانرا ژوور دروست بکرێت: ",
+    connecting: "پەیوەندی دەکرێت…", connected: "✅ پەیوەندیت کرد — قسە بکە!", tapAudio: "🔊 کرتە بکە بۆ بیستنی دەنگ",
+    micOn: "🎙️ مایک کراوەیە", micOff: "🔇 مایک داخراوە", leave: "🚪 دەرچوون", endRoom: "⏹ داخستنی ژوور",
+    endConfirm: "ژوورەکە بۆ هەمووان دابخرێت؟", roomEnded: "خاوەنی ژوور ژوورەکەی داخست.", disconnected: "پەیوەندی پچڕا.",
+    joinFail: "نەتوانرا بچیتە ژوورەوە: ", micDenied: "ڕێگە بە مایک نەدرا — لە ڕێکخستنی وێبگەڕ ڕێگە بدە.", micFail: "مایک کار ناکات: ",
+    people: "👥 {n} کەس لە ژوورەکەدان", you: "(تۆ)", guest: "میوان",
+    beginner: "سەرەتایی", intermediate: "ناوەند", advanced: "پێشکەوتوو",
+    e_not_signed_in: "دەبێت سەرەتا بچیتە ژوورەوە.", e_room_closed: "ئەم ژوورە داخراوە.", e_bad_room: "ژوورەکە نەدۆزرایەوە.",
+    e_server_not_configured: "Secret ـەکانی LiveKit لە Supabase دانەنراون.",
+  },
+  tr: {
+    welcome: "Hoş geldin 👋", intro: "Bir sesli oda aç ya da bir odaya katıl ve yeni bir dili konuşarak pratik yap.",
+    yourName: "Adın ne?", namePh: "ör. Elif", start: "Başla", nameShort: "İsim en az 2 harf olmalı.",
+    anonDisabled: "Supabase'de anonim giriş etkin değil.", error: "Hata: ", changeName: "İsmi değiştir",
+    openRooms: "Canlı odalar", allLangs: "🌍 Tüm diller", noRooms: "🎧 Henüz oda yok.<br>İlk odayı sen aç!",
+    loadFail: "Liste yüklenemedi.", join: "Katıl", newRoom: "＋ Yeni oda",
+    createTitle: "Yeni oda", roomTitle: "Oda başlığı", roomTitlePh: "ör. Günlük İngilizce sohbet",
+    language: "Dil", level: "Seviye", createJoin: "Oluştur ve katıl", cancel: "İptal",
+    titleShort: "Başlık çok kısa.", createFail: "Oda oluşturulamadı: ",
+    connecting: "Bağlanıyor…", connected: "✅ Bağlandın — konuşmaya başla!", tapAudio: "🔊 Sesi duymak için dokun",
+    micOn: "🎙️ Mikrofon açık", micOff: "🔇 Mikrofon kapalı", leave: "🚪 Ayrıl", endRoom: "⏹ Odayı kapat",
+    endConfirm: "Oda herkes için kapatılsın mı?", roomEnded: "Oda sahibi odayı kapattı.", disconnected: "Bağlantı koptu.",
+    joinFail: "Katılınamadı: ", micDenied: "Mikrofon engellendi — tarayıcı ayarlarından izin ver.", micFail: "Mikrofon hatası: ",
+    people: "👥 Odada {n} kişi", you: "(sen)", guest: "Misafir",
+    beginner: "Başlangıç", intermediate: "Orta", advanced: "İleri",
+    e_not_signed_in: "Önce giriş yapmalısın.", e_room_closed: "Bu oda kapandı.", e_bad_room: "Oda bulunamadı.",
+    e_server_not_configured: "LiveKit anahtarları Supabase'de ayarlanmamış.",
+  },
+  fa: {
+    welcome: "خوش آمدید 👋", intro: "یک اتاق صوتی باز کنید یا به یک اتاق بپیوندید و صحبت کردن به زبانی جدید را تمرین کنید.",
+    yourName: "اسم شما چیست؟", namePh: "مثلاً: سارا", start: "شروع", nameShort: "نام باید حداقل ۲ حرف باشد.",
+    anonDisabled: "ورود ناشناس در Supabase فعال نیست.", error: "خطا: ", changeName: "تغییر نام",
+    openRooms: "اتاق‌های زنده", allLangs: "🌍 همه زبان‌ها", noRooms: "🎧 هنوز اتاقی نیست.<br>اولین اتاق را شما باز کنید!",
+    loadFail: "بارگذاری فهرست ممکن نشد.", join: "ورود", newRoom: "＋ اتاق جدید",
+    createTitle: "اتاق جدید", roomTitle: "عنوان اتاق", roomTitlePh: "مثلاً: گفتگوی روزانه به انگلیسی",
+    language: "زبان", level: "سطح", createJoin: "ساختن و ورود", cancel: "انصراف",
+    titleShort: "عنوان خیلی کوتاه است.", createFail: "ساختن اتاق ممکن نشد: ",
+    connecting: "در حال اتصال…", connected: "✅ وصل شدید — صحبت کنید!", tapAudio: "🔊 برای شنیدن صدا ضربه بزنید",
+    micOn: "🎙️ میکروفون روشن", micOff: "🔇 میکروفون خاموش", leave: "🚪 خروج", endRoom: "⏹ بستن اتاق",
+    endConfirm: "اتاق برای همه بسته شود؟", roomEnded: "میزبان اتاق را بست.", disconnected: "اتصال قطع شد.",
+    joinFail: "ورود ممکن نشد: ", micDenied: "میکروفون مسدود است — در تنظیمات مرورگر اجازه دهید.", micFail: "خطای میکروفون: ",
+    people: "👥 {n} نفر در اتاق", you: "(شما)", guest: "مهمان",
+    beginner: "مبتدی", intermediate: "متوسط", advanced: "پیشرفته",
+    e_not_signed_in: "ابتدا وارد شوید.", e_room_closed: "این اتاق بسته شده است.", e_bad_room: "اتاق پیدا نشد.",
+    e_server_not_configured: "کلیدهای LiveKit در Supabase تنظیم نشده‌اند.",
+  },
+  de: {
+    welcome: "Willkommen 👋", intro: "Eröffne einen Sprachraum oder tritt einem bei und übe, eine neue Sprache zu sprechen.",
+    yourName: "Wie heißt du?", namePh: "z. B. Lena", start: "Los geht's", nameShort: "Der Name muss mindestens 2 Zeichen haben.",
+    anonDisabled: "Anonyme Anmeldung ist in Supabase nicht aktiviert.", error: "Fehler: ", changeName: "Namen ändern",
+    openRooms: "Live-Räume", allLangs: "🌍 Alle Sprachen", noRooms: "🎧 Noch keine Räume.<br>Eröffne den ersten!",
+    loadFail: "Liste konnte nicht geladen werden.", join: "Beitreten", newRoom: "＋ Neuer Raum",
+    createTitle: "Neuer Raum", roomTitle: "Raumtitel", roomTitlePh: "z. B. Alltags-Englisch",
+    language: "Sprache", level: "Niveau", createJoin: "Erstellen & beitreten", cancel: "Abbrechen",
+    titleShort: "Titel ist zu kurz.", createFail: "Raum konnte nicht erstellt werden: ",
+    connecting: "Verbinde…", connected: "✅ Verbunden — leg los!", tapAudio: "🔊 Tippen, um Ton zu hören",
+    micOn: "🎙️ Mikro an", micOff: "🔇 Mikro aus", leave: "🚪 Verlassen", endRoom: "⏹ Raum beenden",
+    endConfirm: "Raum für alle beenden?", roomEnded: "Der Host hat den Raum beendet.", disconnected: "Verbindung verloren.",
+    joinFail: "Beitritt fehlgeschlagen: ", micDenied: "Mikrofon blockiert — in den Browser-Einstellungen erlauben.", micFail: "Mikrofonfehler: ",
+    people: "👥 {n} im Raum", you: "(du)", guest: "Gast",
+    beginner: "Anfänger", intermediate: "Mittelstufe", advanced: "Fortgeschritten",
+    e_not_signed_in: "Bitte zuerst anmelden.", e_room_closed: "Dieser Raum wurde beendet.", e_bad_room: "Raum nicht gefunden.",
+    e_server_not_configured: "LiveKit-Schlüssel sind in Supabase nicht gesetzt.",
+  },
+  fr: {
+    welcome: "Bienvenue 👋", intro: "Ouvre un salon vocal ou rejoins-en un pour pratiquer une nouvelle langue à l'oral.",
+    yourName: "Comment t'appelles-tu ?", namePh: "ex. Léa", start: "Commencer", nameShort: "Le nom doit contenir au moins 2 lettres.",
+    anonDisabled: "La connexion anonyme n'est pas activée dans Supabase.", error: "Erreur : ", changeName: "Changer de nom",
+    openRooms: "Salons en direct", allLangs: "🌍 Toutes les langues", noRooms: "🎧 Aucun salon pour l'instant.<br>Ouvre le premier !",
+    loadFail: "Impossible de charger la liste.", join: "Rejoindre", newRoom: "＋ Nouveau salon",
+    createTitle: "Nouveau salon", roomTitle: "Titre du salon", roomTitlePh: "ex. Anglais du quotidien",
+    language: "Langue", level: "Niveau", createJoin: "Créer et rejoindre", cancel: "Annuler",
+    titleShort: "Le titre est trop court.", createFail: "Impossible de créer le salon : ",
+    connecting: "Connexion…", connected: "✅ Connecté — parle !", tapAudio: "🔊 Touchez pour entendre le son",
+    micOn: "🎙️ Micro activé", micOff: "🔇 Micro coupé", leave: "🚪 Quitter", endRoom: "⏹ Fermer le salon",
+    endConfirm: "Fermer le salon pour tout le monde ?", roomEnded: "L'hôte a fermé le salon.", disconnected: "Connexion perdue.",
+    joinFail: "Impossible de rejoindre : ", micDenied: "Micro bloqué — autorise-le dans les réglages du navigateur.", micFail: "Erreur du micro : ",
+    people: "👥 {n} dans le salon", you: "(toi)", guest: "Invité",
+    beginner: "Débutant", intermediate: "Intermédiaire", advanced: "Avancé",
+    e_not_signed_in: "Connecte-toi d'abord.", e_room_closed: "Ce salon est fermé.", e_bad_room: "Salon introuvable.",
+    e_server_not_configured: "Les clés LiveKit ne sont pas configurées dans Supabase.",
+  },
+  es: {
+    welcome: "Bienvenido 👋", intro: "Abre una sala de voz o únete a una y practica hablando un idioma nuevo.",
+    yourName: "¿Cómo te llamas?", namePh: "p. ej. Ana", start: "Empezar", nameShort: "El nombre debe tener al menos 2 letras.",
+    anonDisabled: "El inicio de sesión anónimo no está activado en Supabase.", error: "Error: ", changeName: "Cambiar nombre",
+    openRooms: "Salas en vivo", allLangs: "🌍 Todos los idiomas", noRooms: "🎧 Aún no hay salas.<br>¡Abre la primera!",
+    loadFail: "No se pudo cargar la lista.", join: "Unirse", newRoom: "＋ Nueva sala",
+    createTitle: "Nueva sala", roomTitle: "Título de la sala", roomTitlePh: "p. ej. Inglés del día a día",
+    language: "Idioma", level: "Nivel", createJoin: "Crear y entrar", cancel: "Cancelar",
+    titleShort: "El título es demasiado corto.", createFail: "No se pudo crear la sala: ",
+    connecting: "Conectando…", connected: "✅ Conectado — ¡habla!", tapAudio: "🔊 Toca para oír el audio",
+    micOn: "🎙️ Micrófono activado", micOff: "🔇 Micrófono desactivado", leave: "🚪 Salir", endRoom: "⏹ Cerrar sala",
+    endConfirm: "¿Cerrar la sala para todos?", roomEnded: "El anfitrión cerró la sala.", disconnected: "Se perdió la conexión.",
+    joinFail: "No se pudo entrar: ", micDenied: "Micrófono bloqueado — permítelo en los ajustes del navegador.", micFail: "Error del micrófono: ",
+    people: "👥 {n} en la sala", you: "(tú)", guest: "Invitado",
+    beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado",
+    e_not_signed_in: "Inicia sesión primero.", e_room_closed: "Esta sala ha terminado.", e_bad_room: "Sala no encontrada.",
+    e_server_not_configured: "Las claves de LiveKit no están configuradas en Supabase.",
+  },
+};
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---------- pick interface language: saved choice → phone language → English ---------- */
+function pickUiLang() {
+  try { const saved = localStorage.getItem("uiLang"); if (saved && I18N[saved]) return saved; } catch {}
+  for (const l of navigator.languages || [navigator.language || "en"]) {
+    const code = String(l).toLowerCase();
+    if (code.startsWith("ckb") || code === "ku-iq" || code === "ku-arab") return "ckb";
+    const base = code.split("-")[0];
+    if (I18N[base]) return base;
+  }
+  return "en";
+}
+let uiLang = pickUiLang();
+const t = (key, vars) => {
+  let s = (I18N[uiLang] && I18N[uiLang][key]) ?? I18N.en[key] ?? key;
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
+  return s;
+};
+const levelLabel = (lv) => `${t(lv)} (${LEVEL_CODES[lv] || ""})`;
+
+function applyI18n() {
+  document.documentElement.lang = uiLang;
+  document.documentElement.dir = RTL.has(uiLang) ? "rtl" : "ltr";
+  document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => (el.placeholder = t(el.dataset.i18nPh)));
+  $("#me-chip").title = t("changeName");
+  // selects
+  const keepFilter = $("#filter-lang").value, keepLang = $("#room-lang").value, keepLevel = $("#room-level").value;
+  $("#filter-lang").innerHTML = `<option value="">${esc(t("allLangs"))}</option>` +
+    Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  $("#room-lang").innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+  $("#room-level").innerHTML = Object.keys(LEVEL_CODES).map((k) => `<option value="${k}">${esc(levelLabel(k))}</option>`).join("");
+  $("#filter-lang").value = keepFilter; if (keepLang) $("#room-lang").value = keepLang; if (keepLevel) $("#room-level").value = keepLevel;
+  // live parts
+  if (!$("#screen-list").hidden) loadRooms();
+  if (currentRoom) { setRoomTags(currentRoom); renderPeople(); }
+}
+
+$("#ui-lang").innerHTML = Object.entries(UI_LANGS).map(([k, v]) => `<option value="${k}">🌐 ${esc(v)}</option>`).join("");
+$("#ui-lang").value = uiLang;
+$("#ui-lang").addEventListener("change", (e) => {
+  uiLang = e.target.value;
+  try { localStorage.setItem("uiLang", uiLang); } catch {}
+  applyI18n();
+});
+
+let toastTimer;
+function toast(msg) {
+  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3500);
+}
+function show(id) { document.querySelectorAll(".wrap > section").forEach((s) => (s.hidden = s.id !== id)); }
+function myName() { return me?.user_metadata?.name || t("guest"); }
+
+let sb = null, me = null, lk = null, currentRoom = null, listChannel = null;
+applyI18n();
+
+/* ---------- start ---------- */
+const configured = !CONFIG.SUPABASE_URL.startsWith("PASTE") && !CONFIG.SUPABASE_KEY.startsWith("PASTE");
+if (!configured) show("screen-setup"); else init();
+
+async function init() {
+  sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user?.user_metadata?.name) { me = session.user; enterApp(); }
+  else show("screen-name");
+}
+
+/* ---------- name / sign in ---------- */
+$("#name-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("#name-input").value.trim();
+  if (name.length < 2) return toast(t("nameShort"));
+  const btn = e.submitter; if (btn) btn.disabled = true;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = session
+      ? await sb.auth.updateUser({ data: { name } })
+      : await sb.auth.signInAnonymously({ options: { data: { name } } });
+    if (res.error) throw res.error;
+    me = res.data.user;
+    enterApp();
+  } catch (err) {
+    console.error(err);
+    toast(/anonymous/i.test(err?.message || "") ? t("anonDisabled") : t("error") + (err?.message || err));
+  } finally { if (btn) btn.disabled = false; }
+});
+
+$("#me-chip").addEventListener("click", () => {
+  if (currentRoom) return;
+  $("#name-input").value = myName();
+  show("screen-name");
+});
+
+function enterApp() {
+  const chip = $("#me-chip"); chip.hidden = false; chip.textContent = "👤 " + myName();
+  goList();
+  if (!listChannel) {
+    listChannel = sb.channel("rooms-list")
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, (payload) => {
+        const row = payload.new;
+        if (currentRoom && row && row.id === currentRoom.id && row.is_live === false && row.host_id !== me.id) {
+          toast(t("roomEnded"));
+          leaveRoom();
+          return;
+        }
+        if (!$("#screen-list").hidden) loadRooms();
+      })
+      .subscribe();
+  }
+}
+
+/* ---------- room list ---------- */
+function goList() { show("screen-list"); loadRooms(); }
+$("#filter-lang").addEventListener("change", loadRooms);
+$("#refresh-btn").addEventListener("click", loadRooms);
+
+let loadSeq = 0;
+async function loadRooms() {
+  if (!sb) return;
+  const seq = ++loadSeq;
+  const since = new Date(Date.now() - 12 * 3600e3).toISOString();
+  let q = sb.from("rooms").select("*").eq("is_live", true).gte("created_at", since)
+    .order("created_at", { ascending: false }).limit(50);
+  const lang = $("#filter-lang").value;
+  if (lang) q = q.eq("language", lang);
+  const { data, error } = await q;
+  if (seq !== loadSeq) return;
+  const box = $("#room-list");
+  if (error) { box.innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
+  if (!data.length) { box.innerHTML = `<div class="empty">${t("noRooms")}</div>`; return; }
+  box.innerHTML = data.map((r) => `
+    <div class="card room-card">
+      <div class="title" dir="auto">${esc(r.title)}</div>
+      <div class="tags"><span class="tag">${esc(LANGS[r.language] || r.language)}</span><span class="tag">${esc(levelLabel(r.level))}</span></div>
+      <div class="muted" dir="auto">👑 ${esc(r.host_name)}</div>
+      <button class="btn block" data-join="${esc(r.id)}" type="button">${esc(t("join"))}</button>
+    </div>`).join("");
+  box.querySelectorAll("[data-join]").forEach((b) =>
+    b.addEventListener("click", () => joinRoom(data.find((r) => r.id === b.dataset.join))));
+}
+
+/* ---------- create room ---------- */
+$("#new-room-btn").addEventListener("click", () => {
+  $("#room-title").value = "";
+  const f = $("#filter-lang").value; if (f) $("#room-lang").value = f;
+  show("screen-create");
+});
+$("#create-cancel").addEventListener("click", goList);
+$("#create-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = $("#room-title").value.trim();
+  if (title.length < 2) return toast(t("titleShort"));
+  const btn = $("#create-submit"); btn.disabled = true;
+  const { data, error } = await sb.from("rooms").insert({
+    title, language: $("#room-lang").value, level: $("#room-level").value, host_name: myName().slice(0, 40),
+  }).select().single();
+  btn.disabled = false;
+  if (error) { console.error(error); return toast(t("createFail") + error.message); }
+  joinRoom(data);
+});
+
+/* ---------- voice room (LiveKit) ---------- */
+function setRoomTags(row) {
+  $("#room-tags").innerHTML = `<span class="tag">${esc(LANGS[row.language] || row.language)}</span><span class="tag">${esc(levelLabel(row.level))}</span>`;
+}
+
+async function joinRoom(row) {
+  if (!row || lk) return;
+  currentRoom = row;
+  const titleEl = $("#room-title-view"); titleEl.textContent = row.title; titleEl.dir = "auto";
+  setRoomTags(row);
+  $("#room-status").textContent = t("connecting");
+  $("#people").innerHTML = "";
+  $("#mic-btn").disabled = true; $("#mic-btn").textContent = t("micOff");
+  $("#end-btn").hidden = row.host_id !== me.id;
+  $("#me-chip").disabled = true;
+  show("screen-room");
+
+  try {
+    const { data, error } = await sb.functions.invoke("livekit-token", { body: { roomId: row.id } });
+    if (error) {
+      let code = "";
+      try { code = (await error.context.json()).error; } catch {}
+      throw new Error(code && I18N.en["e_" + code] ? t("e_" + code) : (code || error.message));
+    }
+    const E = LivekitClient.RoomEvent;
+    const room = new LivekitClient.Room({
+      adaptiveStream: true, dynacast: true,
+      audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+    lk = room;
+    room
+      .on(E.TrackSubscribed, (track) => {
+        if (track.kind === "audio") $("#audio-sink").appendChild(track.attach());
+        renderPeople();
+      })
+      .on(E.TrackUnsubscribed, (track) => { track.detach().forEach((el) => el.remove()); renderPeople(); })
+      .on(E.ParticipantConnected, renderPeople)
+      .on(E.ParticipantDisconnected, renderPeople)
+      .on(E.ActiveSpeakersChanged, renderPeople)
+      .on(E.TrackMuted, renderPeople)
+      .on(E.TrackUnmuted, renderPeople)
+      .on(E.LocalTrackPublished, renderPeople)
+      .on(E.AudioPlaybackStatusChanged, updateAudioUnlock)
+      .on(E.Disconnected, () => {
+        if (lk === room) { toast(t("disconnected")); leaveRoom(); }
+      });
+
+    await room.connect(data.url, data.token);
+    $("#room-status").textContent = t("connected");
+    try { await room.startAudio(); } catch {}
+    try { await room.localParticipant.setMicrophoneEnabled(true); }
+    catch (err) { console.warn(err); toast(t("micDenied")); }
+    $("#mic-btn").disabled = false;
+    updateAudioUnlock(); renderPeople();
+  } catch (err) {
+    console.error(err);
+    toast(t("joinFail") + (err?.message || err));
+    leaveRoom();
+  }
+}
+
+function updateAudioUnlock() { $("#audio-unlock").hidden = !lk || lk.canPlaybackAudio; }
+$("#audio-unlock").addEventListener("click", async () => { try { await lk?.startAudio(); } catch {} updateAudioUnlock(); });
+
+function renderPeople() {
+  if (!lk || !currentRoom) return;
+  const all = [lk.localParticipant, ...lk.remoteParticipants.values()];
+  $("#people").innerHTML = all.map((p) => {
+    const name = p.name || t("guest");
+    const isHost = p.identity === currentRoom.host_id;
+    const isMe = p === lk.localParticipant;
+    const badge = !p.isMicrophoneEnabled ? "🔇" : isHost ? "👑" : "";
+    return `<div class="person">
+      <div class="avatar ${p.isSpeaking && p.isMicrophoneEnabled ? "speaking" : ""}">${esc([...name][0] || "?")}
+        ${badge ? `<span class="badge">${badge}</span>` : ""}</div>
+      <div class="pname" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</div>
+    </div>`;
+  }).join("");
+  $("#room-status").textContent = t("people", { n: all.length });
+  const micOn = lk.localParticipant.isMicrophoneEnabled;
+  $("#mic-btn").textContent = micOn ? t("micOn") : t("micOff");
+  $("#mic-btn").classList.toggle("ghost", !micOn);
+}
+
+$("#mic-btn").addEventListener("click", async () => {
+  if (!lk) return;
+  const btn = $("#mic-btn"); btn.disabled = true;
+  try { await lk.localParticipant.setMicrophoneEnabled(!lk.localParticipant.isMicrophoneEnabled); }
+  catch (err) { toast(t("micFail") + (err?.message || err)); }
+  btn.disabled = false; renderPeople();
+});
+
+async function leaveRoom() {
+  const room = lk; lk = null; currentRoom = null;
+  if (room) { try { await room.disconnect(); } catch {} }
+  $("#audio-sink").innerHTML = "";
+  $("#audio-unlock").hidden = true;
+  $("#me-chip").disabled = false;
+  goList();
+}
+$("#leave-btn").addEventListener("click", leaveRoom);
+
+$("#end-btn").addEventListener("click", async () => {
+  if (!currentRoom || !confirm(t("endConfirm"))) return;
+  const { error } = await sb.from("rooms").update({ is_live: false }).eq("id", currentRoom.id);
+  if (error) return toast(t("error") + error.message);
+  leaveRoom();
+});
+
+window.addEventListener("pagehide", () => { try { lk?.disconnect(); } catch {} });
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
