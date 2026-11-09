@@ -436,3 +436,40 @@ const I18N_V4 = {
     listeningCount: "🎧 {n} escuchando", joined: "{name} entró en la sala 👋", leaveEndConfirm: "Eres el anfitrión. Si sales, la sala termina para todos. ¿Salir?" },
 };
 for (const [l, o] of Object.entries(I18N_V4)) Object.assign(I18N[l], o);
+
+/* ---------- v5 strings: help when voice can't start ---------- */
+const I18N_V5 = {
+  en: { joinFailTitle: "Voice couldn't start", copyLink: "Copy link", browserUnsupported: "This browser can't do live voice.",
+    tip1: "Open the link in Chrome (Android) or Safari (iPhone), not inside WhatsApp, Instagram or Facebook.",
+    tip2: "When the browser asks, allow the microphone.", tip3: "Update your browser and check your internet, then try again.",
+    inAppWarn: "For voice rooms, open this page in Chrome or Safari." },
+  ar: { joinFailTitle: "تعذّر تشغيل الصوت", copyLink: "نسخ الرابط", browserUnsupported: "هذا المتصفح لا يدعم الصوت المباشر.",
+    tip1: "افتح الرابط في Chrome (أندرويد) أو Safari (آيفون)، وليس داخل واتساب أو إنستغرام أو فيسبوك.",
+    tip2: "عندما يطلب المتصفح، اسمح باستخدام الميكروفون.", tip3: "حدّث المتصفح وتحقق من الإنترنت ثم حاول مرة أخرى.",
+    inAppWarn: "لغرف الصوت، افتح هذه الصفحة في Chrome أو Safari." },
+  ckb: { joinFailTitle: "دەنگ دەستی پێنەکرد", copyLink: "کۆپیکردنی لینک", browserUnsupported: "ئەم وێبگەڕە دەنگی ڕاستەوخۆ پشتگیری ناکات.",
+    tip1: "لینکەکە لە Chrome (ئەندرۆید) یان Safari (ئایفۆن) بکەرەوە، نەک لە ناو WhatsApp یان Instagram یان Facebook.",
+    tip2: "کاتێک وێبگەڕەکە پرسیاری کرد، ڕێگە بە مایک بدە.", tip3: "وێبگەڕەکەت نوێ بکەرەوە و ئینتەرنێتەکەت بپشکنە، پاشان دووبارە هەوڵ بدەرەوە.",
+    inAppWarn: "بۆ ژووری دەنگی، ئەم لاپەڕەیە لە Chrome یان Safari بکەرەوە." },
+  tr: { joinFailTitle: "Ses başlatılamadı", copyLink: "Bağlantıyı kopyala", browserUnsupported: "Bu tarayıcı canlı sesi desteklemiyor.",
+    tip1: "Bağlantıyı WhatsApp, Instagram veya Facebook içinde değil, Chrome (Android) ya da Safari (iPhone) ile aç.",
+    tip2: "Tarayıcı sorduğunda mikrofona izin ver.", tip3: "Tarayıcını güncelle, internetini kontrol et ve tekrar dene.",
+    inAppWarn: "Sesli odalar için bu sayfayı Chrome veya Safari'de aç." },
+  fa: { joinFailTitle: "صدا شروع نشد", copyLink: "کپی لینک", browserUnsupported: "این مرورگر از صدای زنده پشتیبانی نمی‌کند.",
+    tip1: "لینک را در Chrome (اندروید) یا Safari (آیفون) باز کنید، نه داخل واتساپ، اینستاگرام یا فیسبوک.",
+    tip2: "وقتی مرورگر پرسید، اجازهٔ میکروفون بدهید.", tip3: "مرورگر را به‌روز کنید، اینترنت را بررسی کنید و دوباره امتحان کنید.",
+    inAppWarn: "برای اتاق‌های صوتی، این صفحه را در Chrome یا Safari باز کنید." },
+  de: { joinFailTitle: "Ton konnte nicht starten", copyLink: "Link kopieren", browserUnsupported: "Dieser Browser unterstützt keine Live-Stimme.",
+    tip1: "Öffne den Link in Chrome (Android) oder Safari (iPhone), nicht in WhatsApp, Instagram oder Facebook.",
+    tip2: "Erlaube das Mikrofon, wenn der Browser fragt.", tip3: "Aktualisiere den Browser, prüfe dein Internet und versuche es erneut.",
+    inAppWarn: "Für Sprachräume öffne diese Seite in Chrome oder Safari." },
+  fr: { joinFailTitle: "Le son n'a pas pu démarrer", copyLink: "Copier le lien", browserUnsupported: "Ce navigateur ne prend pas en charge la voix en direct.",
+    tip1: "Ouvre le lien dans Chrome (Android) ou Safari (iPhone), pas dans WhatsApp, Instagram ou Facebook.",
+    tip2: "Autorise le micro quand le navigateur le demande.", tip3: "Mets à jour ton navigateur, vérifie ta connexion et réessaie.",
+    inAppWarn: "Pour les salons vocaux, ouvre cette page dans Chrome ou Safari." },
+  es: { joinFailTitle: "No se pudo iniciar el audio", copyLink: "Copiar enlace", browserUnsupported: "Este navegador no admite voz en directo.",
+    tip1: "Abre el enlace en Chrome (Android) o Safari (iPhone), no dentro de WhatsApp, Instagram o Facebook.",
+    tip2: "Cuando el navegador lo pida, permite el micrófono.", tip3: "Actualiza tu navegador, revisa tu internet y vuelve a intentarlo.",
+    inAppWarn: "Para las salas de voz, abre esta página en Chrome o Safari." },
+};
+for (const [l, o] of Object.entries(I18N_V5)) Object.assign(I18N[l], o);

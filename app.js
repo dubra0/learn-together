@@ -247,6 +247,11 @@ $("#name-form").addEventListener("submit", async (e) => {
    ===================================================================== */
 async function enterApp() {
   if (profile?.banned) { toast(t("e_banned")); }
+  else if (inAppBrowser()) {
+    toast(t("inAppWarn"), t("copyLink"), async () => {
+      try { await navigator.clipboard.writeText(location.href); toast(t("linkCopied")); } catch { prompt(t("copyLink"), location.href); }
+    });
+  }
   await Promise.all([loadSocial(), checkAdmin()]);
   goMain("rooms");
   subscribeRooms();
@@ -778,9 +783,28 @@ function setRoomHeader(row) {
 }
 $("#room-follow").addEventListener("click", async () => { if (!currentRoom) return; await toggleFollow(currentRoom.host_id); setRoomHeader(currentRoom); });
 
+/* ---------- help when voice can't start on a phone ---------- */
+function inAppBrowser() {
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|FB_IAB|Instagram|Snapchat|musical_ly|TikTok|Line\/|; wv\)/i.test(ua);
+}
+function showVoiceHelp(message, link) {
+  const tips = [t("tip1"), t("tip2"), t("tip3")];
+  openSheet(`<div class="invite-card"><div class="big">🎧</div><h1>${esc(t("joinFailTitle"))}</h1></div>
+    ${message ? `<div class="notice" dir="auto">${esc(message)}</div>` : ""}
+    <ul class="muted" style="padding-inline-start:20px;margin:8px 0">${tips.map((x) => `<li style="margin:6px 0">${esc(x)}</li>`).join("")}</ul>
+    <div class="actions"><button type="button" class="btn line" id="vh-copy">🔗 ${esc(t("copyLink"))}</button><button type="button" class="btn" id="vh-ok">${esc(t("close"))}</button></div>`);
+  $("#vh-copy").addEventListener("click", async () => {
+    const url = link || location.href;
+    try { await navigator.clipboard.writeText(url); toast(t("linkCopied")); } catch { prompt(t("copyLink"), url); }
+  });
+  $("#vh-ok").addEventListener("click", closeSheet);
+}
+
 async function joinRoom(row, code) {
   if (!row || lk) return;
   if (profile?.banned) return toast(t("e_banned"));
+  if (!LivekitClient.isBrowserSupported()) return showVoiceHelp(t("browserUnsupported"), roomLink({ ...row, join_code: code || row.join_code }));
   currentRoom = row; currentCode = code || row.join_code || null;
   replyTo = null; $("#reply-bar").hidden = true; pendingInvites.clear();
   setRoomHeader(row);
@@ -796,7 +820,9 @@ async function joinRoom(row, code) {
     if (error) {
       let code2 = "";
       try { code2 = (await error.context.json()).error; } catch {}
-      throw new Error(errText(code2, error.message));
+      const e2 = new Error(errText(code2, error.message));
+      e2.known = !!(code2 && I18N.en["e_" + code2]); // room full, removed, not started… — no browser tips needed
+      throw e2;
     }
     const E = LivekitClient.RoomEvent;
     const room = new LivekitClient.Room({
@@ -865,8 +891,11 @@ async function joinRoom(row, code) {
     startPractice();
   } catch (err) {
     console.error(err);
-    toast(t("joinFail") + (err?.message || err));
-    leaveRoom();
+    const msg = err?.message || String(err);
+    const link = roomLink({ ...row, join_code: currentCode || row.join_code });
+    await leaveRoom();
+    if (err?.known) toast(msg);
+    else showVoiceHelp(`${t("joinFail")}${msg}`, link);
   }
 }
 
