@@ -1360,6 +1360,7 @@ function renderPeople() {
     (listeners.length > AUD_SHOW ? `<button type="button" class="aud more" id="aud-more"><span class="av">+${listeners.length - AUD_SHOW}</span><span class="nm">${esc(t("othersCount"))}</span></button>` : "");
   $("#audience").hidden = !listeners.length;
   $("#room-status").textContent = t("people", { n: all.length }) + (listeners.length ? ` · ${t("listeningCount", { n: listeners.length })}` : "");
+  $("#room-eye").textContent = `👁 ${all.length >= 1000 ? (all.length / 1000).toFixed(1) + "K" : all.length}`;
   renderBattle();
 
   const local = lk.localParticipant, canSpeak = isSpeaker(local), micOn = local.isMicrophoneEnabled;
@@ -1459,7 +1460,8 @@ $("#flip-btn").addEventListener("click", async () => {
    Original = the camera itself (full 1080p). With a filter, each frame is drawn on a canvas with the effect,
    and the canvas is what everyone sees. */
 const cam = { stream: null, raw: null, video: null, canvas: null, ctx: null, small: null, raf: 0, out: null, pub: null, filterId: 0 };
-const camConstraints = () => ({ width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 }, facingMode: camFacing });
+// ask for 4K; phones that can't do it give their best (usually 1080p)
+const camConstraints = () => ({ width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 30 }, facingMode: camFacing });
 async function cameraOn() {
   if (!lk || cam.starting || cam.stream) return; // already on, or starting right now
   cam.starting = true;
@@ -1482,9 +1484,14 @@ async function publishCam() {
       }
     }
     cam.pub = track;
+    // 4K camera → send 4K + 1080p + 360p copies; otherwise 1080p + 540p + 180p
+    const st = track.getSettings ? track.getSettings() : {};
+    const is4k = Math.max(st.width || 0, st.height || 0) >= 2500;
     await lk.localParticipant.publishTrack(track, {
       source: LivekitClient.Track.Source.Camera, name: "camera",
-      simulcast: true, videoEncoding: V.h1080.encoding, videoSimulcastLayers: [V.h180, V.h540],
+      simulcast: true,
+      videoEncoding: is4k ? V.h2160.encoding : V.h1080.encoding,
+      videoSimulcastLayers: is4k ? [V.h360, V.h1080] : [V.h180, V.h540],
     });
   } finally { cam.busy = false; }
   if (!cam.filterId) stopFilterPipeline();
@@ -2582,10 +2589,13 @@ function sendGift(id) {
   const last = giftSent.get(id) || 0;
   if (Date.now() - last < g.cd * 1000) return;
   giftSent.set(id, Date.now());
+  // show it to me straight away; everyone else sees it when the host passes it on
+  showGift({ g: id, from: me.id, fromName: profile?.name || t("guest"), fromAvatar: safeAvatar(profile?.avatar_url), to: giftTarget });
+  if (amHost()) { onGiftReceived(lk.localParticipant, { g: id, to: giftTarget }, true); return; }
   lk.localParticipant.publishData(enc({ type: "gift", g: id, to: giftTarget }), { reliable: true, topic: "battle", destinationIdentities: [currentRoom.host_id] }).catch(() => {});
 }
 /* host: check, count, and tell everyone to show it */
-function onGiftReceived(p, msg) {
+function onGiftReceived(p, msg, alreadyShown) {
   const g = giftById(msg.g);
   const target = typeof msg.to === "string" ? findParticipant(msg.to) : null;
   if (!g || !target || target.identity === p.identity || !isSpeaker(target)) return;
@@ -2596,20 +2606,22 @@ function onGiftReceived(p, msg) {
     if (target.identity === hostBattle.a) hostBattle.sa += g.pts;
     else if (target.identity === hostBattle.b) hostBattle.sb += g.pts;
   }
-  const show = { type: "giftshow", g: g.id, from: p.identity, fromName: (p.name || "").slice(0, 40), to: target.identity };
+  const show = { type: "giftshow", g: g.id, from: p.identity, fromName: (p.name || "").slice(0, 40), fromAvatar: safeAvatar(partMeta(p).avatar), to: target.identity };
   lk.localParticipant.publishData(enc(show), { reliable: true, topic: "battle" }).catch(() => {});
-  showGift(show);
+  if (!alreadyShown) showGift(show);
 }
 /* everyone: the 2-second animation + a line in the chat */
 function showGift(m) {
   const g = giftById(m.g); if (!g) return;
+  if (m.type === "giftshow" && m.from === me?.id) return; // I already saw my own gift when I sent it
   const fromName = m.fromName || nameOf(m.from), toName = nameOf(m.to);
   addSystem(t("giftShow", { from: fromName, gift: `${g.e} ${t("g_" + g.id)}`, to: toName }));
   if (giftFxCount >= 3) return; // don't stack too many at once
   giftFxCount++;
   const box = document.createElement("div");
   box.className = `gfx gfx-${g.anim === "burst" ? "pop" : g.anim}`;
-  box.innerHTML = `<div class="ge">${g.e}</div><div class="gl" dir="auto">${esc(fromName)} → ${esc(toName)} · +${g.pts}</div>`;
+  box.innerHTML = `<div class="ge">${g.e}</div>
+    <div class="gl" dir="auto">${avHtml(fromName, m.fromAvatar, "xs")}<b>${esc(fromName)}</b> ${g.e} → ${esc(toName)} <span class="gp2">+${g.pts}</span></div>`;
   if (g.anim === "burst" || g.anim === "roar" || g.anim === "rise") {
     for (let i = 0; i < 12; i++) {
       const s = document.createElement("span");

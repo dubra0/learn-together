@@ -398,8 +398,19 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
 /* camera room = full-screen live: videos fill the screen, everything else floats on top */
 .stage-screen.video-mode{position:relative;background:#000}
 .stage-screen{position:relative}
+.s-eye{background:rgba(0,0,0,.35);color:#fff;border-radius:999px;padding:5px 11px;font-weight:800;font-size:.82rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.aud-head{display:none !important}
+/* two people in a live: side by side, each in a tall portrait frame */
+#video-grid[data-n="2"]{grid-template-columns:1fr 1fr;grid-template-rows:auto;align-content:center;gap:3px;
+  width:min(100%,75vh);margin-inline:auto;background:transparent}
+.video-mode{background:radial-gradient(120% 70% at 50% 35%,#2b1d72,#0b0820) !important}
+#video-grid[data-n="2"] .vtile{aspect-ratio:3/4;border-radius:4px;max-height:52vh}
+#video-grid[data-n="2"] ~ #battle-bar{top:calc(max(118px,15vh) - 54px);transform:none}
+.gfx .gl{display:flex;align-items:center;gap:6px}
+.gfx .gl .av{width:26px;height:26px;font-size:.75rem;border:2px solid #fff}
+.gfx .gp2{background:rgba(0,0,0,.25);border-radius:999px;padding:0 8px}
 #video-grid{position:absolute;inset:0;z-index:0;display:grid;gap:2px;background:#000;grid-template-columns:1fr;grid-template-rows:1fr}
-#video-grid[data-n="2"]{grid-template-rows:1fr 1fr}
+#video-grid[data-n="2"]{grid-template-columns:1fr 1fr;grid-template-rows:auto;align-content:start;padding-top:max(118px,15vh)}
 #video-grid[data-n="3"],#video-grid[data-n="4"]{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
 #video-grid[data-n="5"],#video-grid[data-n="6"]{grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr)}
 #video-grid[data-n="7"],#video-grid[data-n="8"]{grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr)}
@@ -751,6 +762,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
       <div class="t" id="room-title-view" dir="auto"></div>
       <div class="s-sub" id="room-tags"></div>
     </div>
+    <span class="s-eye" id="room-eye">👁 0</span>
     <button class="s-follow" type="button" id="room-follow" hidden></button>
     <button class="s-btn" type="button" id="room-share" aria-label="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button>
     <button class="s-btn" type="button" id="room-more" aria-label="more"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
