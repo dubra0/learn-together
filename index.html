@@ -5,867 +5,436 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Talk Together</title>
 <meta name="description" content="Live voice rooms for practicing any language">
-<meta name="theme-color" content="#5b3df5">
+<meta name="theme-color" content="#6d4aff">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f5f3ff; --card:#ffffff; --text:#1d1733; --muted:#6b6485; --line:#e4e0f5;
-  --brand:#5b3df5; --brand-ink:#ffffff; --brand-soft:#ece8ff;
-  --danger:#e5484d; --speak:#22c55e;
-  --radius:16px;
+  --bg:#f6f5fb; --card:#ffffff; --ink:#17142b; --muted:#6e6888; --line:#ebe8f5;
+  --brand:#6d4aff; --brand-2:#3b82f6; --brand-ink:#ffffff; --soft:#efeaff; --soft-2:#e8f0ff;
+  --grad:linear-gradient(135deg,#6d4aff 0%,#3b82f6 100%);
+  --danger:#ef4444; --ok:#16a34a; --warn:#f59e0b; --live:#ef4444; --speak:#22c55e;
+  --radius:20px; --shadow:0 6px 24px rgba(40,20,120,.08); --shadow-lg:0 14px 40px rgba(40,20,120,.18);
+  --tabbar:68px;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#110e1f; --card:#1c1830; --text:#f1eefc; --muted:#a39dbd; --line:#2e2848;
-    --brand:#7c66ff; --brand-ink:#ffffff; --brand-soft:#2a2350;
+    --bg:#0f0d1a; --card:#1a1729; --ink:#f3f1ff; --muted:#a49fbe; --line:#2a2541;
+    --brand:#8b72ff; --soft:#262043; --soft-2:#1d2744;
+    --shadow:0 6px 24px rgba(0,0,0,.35); --shadow-lg:0 14px 40px rgba(0,0,0,.5);
   }
 }
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);
-  font-family:"Noto Sans","Noto Sans Arabic",system-ui,sans-serif;font-size:16px;line-height:1.6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans","Noto Sans Arabic",system-ui,sans-serif;
+  font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
 html[dir="rtl"] body{font-family:"Noto Sans Arabic","Noto Sans",system-ui,sans-serif}
-button,input,select{font:inherit;color:inherit}
-.wrap{max-width:640px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;
-  position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--line)}
-.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1.1rem;white-space:nowrap}
-.logo img{width:32px;height:32px;border-radius:9px}
-.head-right{display:flex;align-items:center;gap:6px;min-width:0}
-.chip{background:var(--brand-soft);color:var(--brand);border:0;border-radius:999px;padding:4px 12px;
-  font-size:.85rem;cursor:pointer;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip{flex-shrink:1;min-width:48px}
-@media (max-width:420px){ .logo-text{display:none} .chip{max-width:40vw} }
-.ui-lang{width:auto;flex-shrink:0;padding:4px 8px;border-radius:999px;font-size:.85rem;background:var(--card)}
-h1{font-size:1.4rem;margin:8px 0 4px}
-.muted{color:var(--muted)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}
-label{display:block;font-weight:600;margin:12px 0 4px}
-input,select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
-input:focus,select:focus{outline:2px solid var(--brand);outline-offset:1px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;
-  padding:12px 18px;font-weight:600;cursor:pointer;background:var(--brand);color:var(--brand-ink);min-height:48px}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--brand)}
+[hidden]{display:none !important}
+.screen{min-height:100vh;min-height:100dvh}
+.wrap{max-width:680px;margin:0 auto;padding:16px 16px calc(var(--tabbar) + 96px + env(safe-area-inset-bottom))}
+h1{font-size:1.5rem;line-height:1.25;margin:4px 0 6px;font-weight:800;letter-spacing:-.01em}
+h2.section{font-size:1.05rem;margin:22px 0 10px;font-weight:700;display:flex;align-items:center;gap:8px}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin:12px 0}
+label.lbl{display:block;font-weight:600;margin:14px 0 6px;font-size:.92rem}
+input,select,textarea{width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+textarea{resize:vertical;min-height:84px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:12px 18px;
+  font-weight:700;cursor:pointer;background:var(--grad);color:var(--brand-ink);min-height:48px;box-shadow:0 6px 16px rgba(109,74,255,.28);
+  transition:transform .08s, opacity .15s}
+.btn:active{transform:scale(.97)}
 .btn.block{width:100%}
-.btn.ghost{background:var(--brand-soft);color:var(--brand)}
-.btn.danger{background:var(--danger);color:#fff}
-.btn:disabled{opacity:.55;cursor:default}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.row > *{flex:1}
-.toolbar{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
-.toolbar select{flex:1}
-.room-card{display:flex;flex-direction:column;gap:6px}
-.room-card .title{font-weight:700;font-size:1.05rem;word-break:break-word}
-.tags{display:flex;flex-wrap:wrap;gap:6px}
-.tag{background:var(--brand-soft);color:var(--brand);border-radius:999px;padding:2px 10px;font-size:.8rem}
-.empty{text-align:center;padding:32px 12px;color:var(--muted)}
-.fab{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
-  box-shadow:0 8px 24px rgba(91,61,245,.35);z-index:6}
-.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:14px;margin-top:12px}
-.person{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;font-size:.85rem}
-.avatar{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:1.5rem;font-weight:700;
-  background:var(--brand-soft);color:var(--brand);position:relative;border:3px solid transparent;transition:border-color .15s}
-.avatar.speaking{border-color:var(--speak);box-shadow:0 0 0 4px rgba(34,197,94,.25)}
-.avatar .badge{position:absolute;bottom:-4px;inset-inline-start:-4px;background:var(--card);border-radius:50%;
-  width:26px;height:26px;display:grid;place-items:center;font-size:.85rem;border:1px solid var(--line)}
-.person .pname{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.controls{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);
-  padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;z-index:6}
-.controls .btn{flex:1;max-width:200px;padding:12px 8px}
-.notice{background:#fff7e6;color:#7a4b00;border:1px solid #ffd591;border-radius:12px;padding:12px;margin:12px 0}
-@media (prefers-color-scheme: dark){ .notice{background:#3a2a05;color:#ffd591;border-color:#6b4c0a} }
-#toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);
-  padding:10px 16px;border-radius:12px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;
-  z-index:20;max-width:calc(100% - 32px);text-align:center}
-#toast.show{opacity:1}
-code{background:var(--brand-soft);padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
-/* v2: photos, roles, chat */
-.avatar img,.mini img,.chip img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
-.avatar-pick{display:flex;align-items:center;gap:12px;cursor:pointer;margin:4px 0 8px}
-.avatar-pick .avatar{width:72px;height:72px;font-size:1.8rem;overflow:hidden}
-.avatar-pick span{color:var(--brand);font-weight:600}
-.chip{display:inline-flex;align-items:center;gap:6px}
-.chip .face{width:22px;height:22px;flex:0 0 22px}
-.host-line{display:flex;align-items:center;gap:6px}
-.mini{width:24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:inline-grid;
-  place-items:center;font-size:.75rem;font-weight:700;flex:0 0 24px;overflow:hidden}
-.group-title{font-weight:700;margin:16px 0 0;font-size:.95rem;color:var(--muted)}
-.avatar{overflow:visible}
-.avatar > img{position:absolute;inset:0}
-.avatar .hand{position:absolute;top:-6px;inset-inline-end:-6px;font-size:1.1rem}
-.mini-btn{border:0;border-radius:8px;padding:2px 8px;font-size:.75rem;font-weight:600;cursor:pointer;
-  background:var(--brand-soft);color:var(--brand);margin-top:2px}
-.chat{margin-top:16px}
-.chat-list{max-height:40vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
-.msg{display:flex;gap:8px;align-items:flex-start}
-.msg .body{background:var(--brand-soft);border-radius:12px;padding:6px 10px;max-width:85%;word-break:break-word}
+.btn.sm{min-height:38px;padding:8px 14px;border-radius:12px;font-size:.9rem;box-shadow:none}
+.btn.ghost{background:var(--soft);color:var(--brand);box-shadow:none}
+.btn.line{background:transparent;color:var(--ink);border:1.5px solid var(--line);box-shadow:none}
+.btn.danger{background:var(--danger);box-shadow:none}
+.btn.danger-ghost{background:transparent;color:var(--danger);box-shadow:none;border:1.5px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.icon-btn{width:42px;height:42px;border-radius:14px;border:0;background:var(--soft);color:var(--brand);display:inline-grid;place-items:center;cursor:pointer;flex:0 0 42px}
+.icon-btn svg{width:22px;height:22px}
+.link-btn{background:none;border:0;color:var(--brand);font-weight:600;cursor:pointer;padding:6px}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.08rem;white-space:nowrap}
+.brand img{width:34px;height:34px;border-radius:11px;box-shadow:var(--shadow)}
+.top-right{display:flex;align-items:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-weight:700;font-size:.85rem}
+.appbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.appbar .title{flex:1;font-weight:800;font-size:1.05rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[dir="rtl"] .flip{transform:scaleX(-1)}
+
+/* hero */
+.hero{background:var(--grad);color:#fff;border-radius:24px;padding:20px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.12);top:-60px;inset-inline-end:-40px}
+.hero .hello{font-size:1.35rem;font-weight:800;position:relative}
+.hero .sub{opacity:.9;position:relative}
+.hero .stats{display:flex;gap:8px;margin-top:14px;position:relative;flex-wrap:wrap}
+.hero .stat{background:rgba(255,255,255,.18);border-radius:14px;padding:8px 12px;font-weight:700}
+
+/* chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px 2px 4px;scrollbar-width:none;margin:0 -16px;padding-inline:16px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-weight:600;font-size:.88rem;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg .chip{flex:1;text-align:center}
+.seg .chip.on{background:var(--soft);color:var(--brand);border-color:var(--brand)}
+
+/* room cards */
+.room-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:10px 0;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden}
+.room-card::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:5px;background:var(--grad)}
+.room-card h3{margin:0;font-size:1.08rem;font-weight:700;word-break:break-word}
+.rc-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tag{background:var(--soft);color:var(--brand);border-radius:999px;padding:3px 10px;font-size:.8rem;font-weight:600}
+.tag.blue{background:var(--soft-2);color:var(--brand-2)}
+.tag.live{background:rgba(239,68,68,.12);color:var(--live)}
+.tag.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--live);display:inline-block;margin-inline-end:6px;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+.rc-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.host{display:flex;align-items:center;gap:8px;min-width:0;color:var(--muted);font-size:.9rem}
+.host span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{text-align:center;padding:28px 12px;color:var(--muted);background:var(--card);border:1.5px dashed var(--line);border-radius:var(--radius)}
+.empty .big{font-size:2.2rem;display:block;margin-bottom:6px}
+
+/* avatars */
+.av{border-radius:50%;background:var(--soft);color:var(--brand);display:inline-grid;place-items:center;font-weight:800;overflow:hidden;flex:0 0 auto;position:relative}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av.xs{width:26px;height:26px;font-size:.75rem}
+.av.sm{width:40px;height:40px;font-size:1rem}
+.av.md{width:64px;height:64px;font-size:1.4rem}
+.av.lg{width:96px;height:96px;font-size:2.2rem}
+.ring{padding:3px;border-radius:50%;background:var(--grad);display:inline-block}
+.ring .av{border:3px solid var(--card)}
+
+/* people grid (room) */
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:16px 10px;margin-top:10px}
+.person{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;font-size:.82rem;cursor:pointer;background:none;border:0;padding:0}
+.person .face{position:relative;width:68px;height:68px;border-radius:50%;padding:3px;background:transparent;transition:background .2s}
+.person .face .av{width:62px;height:62px;font-size:1.4rem}
+.person.speaking .face{background:var(--speak);box-shadow:0 0 0 6px rgba(34,197,94,.18);animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 10px rgba(34,197,94,.06)}}
+.person .badge{position:absolute;bottom:-2px;inset-inline-start:-2px;background:var(--card);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:.8rem;box-shadow:var(--shadow)}
+.person .hand{position:absolute;top:-6px;inset-inline-end:-6px;font-size:1.2rem;animation:wave 1s infinite}
+@keyframes wave{50%{transform:rotate(14deg)}}
+.person .pname{max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.group-title{font-weight:700;margin:20px 0 0;font-size:.9rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+
+/* topic card */
+.topic{background:var(--grad);color:#fff;border-radius:var(--radius);padding:16px;margin:12px 0;box-shadow:var(--shadow-lg);animation:pop .3s}
+.topic .lbl{opacity:.85;font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}
+.topic .txt{font-size:1.12rem;font-weight:700;margin-top:4px}
+@keyframes pop{from{transform:scale(.96);opacity:0}}
+
+/* chat */
+.chat-list{max-height:42vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin:8px 0}
+.msg{display:flex;gap:8px;align-items:flex-end}
+.msg .bubble{background:var(--soft);border-radius:16px;border-end-start-radius:6px;padding:8px 12px;max-width:80%;word-break:break-word}
 .msg .who{font-size:.75rem;font-weight:700;color:var(--brand)}
-.msg.mine .body{background:var(--brand);color:var(--brand-ink)}
-.msg.mine .who{color:var(--brand-ink);opacity:.85}
+.msg.mine{flex-direction:row-reverse}
+.msg.mine .bubble{background:var(--grad);color:#fff;border-end-start-radius:16px;border-end-end-radius:6px}
+.msg.mine .who{color:#fff;opacity:.85}
+.msg .acts{display:flex;gap:2px;opacity:.75}
+.msg .acts button{border:0;background:none;cursor:pointer;font-size:.9rem;padding:2px 4px}
 .chat-form{display:flex;gap:8px}
 .chat-form input{flex:1}
-.chat-form .btn{min-height:44px;padding:8px 14px}
-[hidden]{display:none !important}
+.chat-form .btn{min-height:46px}
+
+/* room controls */
+.controls{position:fixed;inset-inline:0;bottom:0;z-index:25;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center}
+.controls .btn{flex:1;max-width:220px;padding:12px 8px}
+
+/* tab bar */
+.tabbar{position:fixed;inset-inline:0;bottom:0;z-index:30;height:calc(var(--tabbar) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);
+  background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex}
+.tabbar button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:.72rem;font-weight:600;cursor:pointer}
+.tabbar button svg{width:24px;height:24px}
+.tabbar button.on{color:var(--brand)}
+.fab{position:fixed;bottom:calc(var(--tabbar) + 16px + env(safe-area-inset-bottom));inset-inline-end:16px;z-index:29;border-radius:18px;box-shadow:var(--shadow-lg)}
+
+/* lists */
+.row-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:18px;margin:8px 0;box-shadow:var(--shadow);cursor:pointer}
+.row-item .info{flex:1;min-width:0}
+.row-item .name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-item .meta{color:var(--muted);font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank{width:30px;text-align:center;font-weight:800;color:var(--muted)}
+.row-item.me{border-color:var(--brand);background:var(--soft)}
+.menu{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin:12px 0}
+.menu > *{display:flex;align-items:center;gap:12px;width:100%;padding:15px 16px;border:0;background:none;border-bottom:1px solid var(--line);cursor:pointer;text-align:start;font-weight:600;text-decoration:none;color:var(--ink)}
+.menu > *:last-child{border-bottom:0}
+.menu .end{margin-inline-start:auto;color:var(--muted);font-weight:500;font-size:.85rem}
+.menu select{width:auto;margin-inline-start:auto;padding:6px 10px;border-radius:10px}
+.menu .danger{color:var(--danger)}
+
+/* profile */
+.profile-head{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:8px 0}
+.profile-head .nm{font-size:1.35rem;font-weight:800}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.stats3 > div{background:var(--soft);border-radius:16px;padding:10px;text-align:center}
+.stats3 b{display:block;font-size:1.25rem;color:var(--brand)}
+.stats3 span{font-size:.75rem;color:var(--muted);font-weight:600}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.badge-item{text-align:center;font-size:.7rem;color:var(--muted);font-weight:600}
+.badge-item .ic{width:52px;height:52px;border-radius:16px;margin:0 auto 4px;display:grid;place-items:center;font-size:1.6rem;background:var(--soft);filter:grayscale(1);opacity:.45}
+.badge-item.got .ic{filter:none;opacity:1;background:linear-gradient(135deg,#ffe8a3,#ffc46b)}
+.lang-line{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.learn-row{display:flex;gap:8px;margin:8px 0}
+.learn-row select{flex:1}
+.learn-row button{flex:0 0 46px}
+.avatar-pick{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;margin:6px 0 4px;background:none;border:0;width:100%}
+.avatar-pick .av{width:96px;height:96px;font-size:2rem;border:3px dashed var(--line)}
+.avatar-pick span{color:var(--brand);font-weight:700}
+.check{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font-size:.9rem}
+.check input{width:20px;height:20px;flex:0 0 20px;margin-top:2px;accent-color:var(--brand)}
+
+/* onboarding + welcome */
+.ob{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;padding:calc(16px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+.ob-top{display:flex;justify-content:space-between;align-items:center}
+.ob-top select{width:auto;border-radius:999px;padding:6px 12px}
+.ob-slide{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;animation:pop .3s}
+.ob-art{width:180px;height:180px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-size:5rem;box-shadow:var(--shadow-lg);margin-bottom:16px}
+.ob-slide h1{font-size:1.7rem}
+.ob-slide p{color:var(--muted);max-width:360px;margin:0}
+.dots{display:flex;gap:6px;justify-content:center;margin:20px 0}
+.dots i{width:8px;height:8px;border-radius:99px;background:var(--line);transition:width .2s}
+.dots i.on{width:24px;background:var(--brand)}
+.welcome-hero{text-align:center;padding:30px 0 10px}
+.welcome-hero img{width:84px;height:84px;border-radius:24px;box-shadow:var(--shadow-lg)}
+.welcome-hero h1{font-size:1.8rem;margin-top:14px}
+
+/* bottom sheet */
+#sheet-backdrop{position:fixed;inset:0;background:rgba(10,8,25,.45);z-index:50;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.sheet{position:fixed;inset-inline:0;bottom:0;z-index:51;background:var(--card);border-radius:26px 26px 0 0;max-height:88vh;overflow-y:auto;
+  padding:8px 18px calc(20px + env(safe-area-inset-bottom));box-shadow:var(--shadow-lg);animation:up .25s ease-out;max-width:680px;margin:0 auto}
+@keyframes up{from{transform:translateY(100%)}}
+.sheet-handle{width:44px;height:5px;border-radius:99px;background:var(--line);margin:6px auto 12px}
+.sheet .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.sheet .actions .btn{flex:1;min-width:130px}
+.reason{display:flex;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--line);border-radius:14px;margin:8px 0;cursor:pointer}
+.reason input{width:18px;height:18px;accent-color:var(--brand)}
+
+/* toast */
+#toast{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translate(-50%,calc(-100% - 60px));background:var(--ink);color:var(--bg);
+  padding:12px 16px;border-radius:16px;font-size:.92rem;z-index:80;max-width:calc(100% - 32px);display:flex;gap:12px;align-items:center;
+  box-shadow:var(--shadow-lg);transition:transform .25s}
+#toast.show{transform:translate(-50%,0)}
+#toast button{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:6px 12px;font-weight:700;cursor:pointer}
+.notice{background:#fff7e6;color:#7a4b00;border:1px solid #ffd591;border-radius:14px;padding:12px;margin:12px 0}
+code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
+@media (min-width:700px){ .people{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))} }
 </style>
 </head>
 <body>
-<header>
-  <div class="logo"><img src="icons/icon-192.png" alt=""><span class="logo-text">Talk Together</span></div>
-  <div class="head-right">
-    <button id="me-chip" class="chip" hidden></button>
-    <select id="ui-lang" class="ui-lang" aria-label="Language"></select>
+
+<!-- ============ Onboarding ============ -->
+<section id="screen-onboarding" class="screen" hidden>
+  <div class="ob">
+    <div class="ob-top">
+      <select id="ob-lang" aria-label="Language"></select>
+      <button class="link-btn" id="ob-skip" type="button" data-i18n="skip"></button>
+    </div>
+    <div id="ob-slide" class="ob-slide"></div>
+    <div class="dots" id="ob-dots"></div>
+    <button class="btn block" id="ob-next" type="button"></button>
   </div>
-</header>
+</section>
 
-<div class="wrap">
+<!-- ============ Setup missing ============ -->
+<section id="screen-setup" class="screen" hidden>
+  <div class="wrap"><h1>⚙️ Setup not finished</h1>
+    <div class="notice">In <code>app.js</code>, inside <code>CONFIG</code>, paste your Supabase <b>Project URL</b> and <b>Publishable key</b>.</div></div>
+</section>
 
-  <!-- Setup missing (only the app owner sees this) -->
-  <section id="screen-setup" hidden>
-    <h1>⚙️ Setup not finished</h1>
-    <div class="notice">In <code>index.html</code>, inside <code>CONFIG</code>, paste your Supabase <b>Project URL</b> and <b>Publishable key</b>.</div>
-  </section>
-
-  <!-- Name -->
-  <section id="screen-name" hidden>
-    <h1 data-i18n="welcome"></h1>
-    <p class="muted" data-i18n="intro"></p>
+<!-- ============ Welcome / sign up ============ -->
+<section id="screen-name" class="screen" hidden>
+  <div class="wrap" style="max-width:520px">
+    <div class="welcome-hero">
+      <img src="icons/icon-192.png" alt="">
+      <h1>Talk Together</h1>
+      <p class="muted" data-i18n="appTagline"></p>
+    </div>
     <form id="name-form" class="card">
-      <label class="avatar-pick" for="photo-input">
-        <div class="avatar" id="photo-preview">📷</div>
+      <button type="button" class="avatar-pick" id="name-photo-btn">
+        <div class="av" id="name-photo-preview">📷</div>
         <span data-i18n="choosePhoto"></span>
-      </label>
-      <input type="file" id="photo-input" accept="image/*" hidden>
-      <label for="name-input" data-i18n="yourName"></label>
+      </button>
+      <label class="lbl" for="name-input" data-i18n="yourName"></label>
       <input id="name-input" maxlength="30" autocomplete="nickname" data-i18n-ph="namePh" required>
-      <div style="height:12px"></div>
+      <label class="check">
+        <input type="checkbox" id="age-check">
+        <span><span data-i18n="ageConfirm"></span> <a href="privacy.html" target="_blank" rel="noopener" data-i18n="termsLink"></a></span>
+      </label>
       <button class="btn block" type="submit" data-i18n="start"></button>
     </form>
-  </section>
+  </div>
+</section>
 
-  <!-- Room list -->
-  <section id="screen-list" hidden>
-    <h1 data-i18n="openRooms"></h1>
-    <div class="toolbar">
-      <select id="filter-lang" aria-label="filter"></select>
-      <button class="btn ghost" id="refresh-btn" type="button" aria-label="refresh">↻</button>
+<!-- ============ Main (tabs) ============ -->
+<section id="screen-main" class="screen" hidden>
+  <header class="topbar">
+    <div class="brand"><img src="icons/icon-192.png" alt=""><span>Talk Together</span></div>
+    <div class="top-right">
+      <span class="pill" id="top-streak" title="streak">🔥 0</span>
+      <button class="icon-btn" id="top-me" type="button" aria-label="me" style="padding:0;overflow:hidden"></button>
     </div>
-    <div id="room-list"></div>
-    <button class="btn fab" id="new-room-btn" type="button" data-i18n="newRoom"></button>
-  </section>
+  </header>
+  <div class="wrap">
+    <div id="tab-rooms" class="tab"></div>
+    <div id="tab-partners" class="tab" hidden></div>
+    <div id="tab-ranking" class="tab" hidden></div>
+    <div id="tab-me" class="tab" hidden></div>
+  </div>
+  <button class="btn fab" id="new-room-btn" type="button">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    <span data-i18n="newRoom"></span>
+  </button>
+  <nav class="tabbar" id="tabbar">
+    <button type="button" data-tab="rooms" class="on">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+      <span data-i18n="tabRooms"></span></button>
+    <button type="button" data-tab="partners">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span data-i18n="tabPartners"></span></button>
+    <button type="button" data-tab="ranking">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+      <span data-i18n="tabRanking"></span></button>
+    <button type="button" data-tab="me">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+      <span data-i18n="tabMe"></span></button>
+  </nav>
+</section>
 
-  <!-- Create room -->
-  <section id="screen-create" hidden>
-    <h1 data-i18n="createTitle"></h1>
+<!-- ============ Create room ============ -->
+<section id="screen-create" class="screen" hidden>
+  <header class="appbar">
+    <button class="icon-btn" type="button" data-back="main" aria-label="back"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="title" data-i18n="createTitle"></div>
+  </header>
+  <div class="wrap" style="padding-bottom:40px">
     <form id="create-form" class="card">
-      <label for="room-title" data-i18n="roomTitle"></label>
-      <input id="room-title" maxlength="80" data-i18n-ph="roomTitlePh" required>
-      <label for="room-lang" data-i18n="language"></label>
+      <label class="lbl" for="room-title" data-i18n="roomTitle"></label>
+      <input id="room-title" maxlength="80" dir="auto" data-i18n-ph="roomTitlePh" required>
+      <label class="lbl" for="room-lang" data-i18n="language"></label>
       <select id="room-lang" required></select>
-      <label for="room-level" data-i18n="level"></label>
+      <label class="lbl" for="room-level" data-i18n="level"></label>
       <select id="room-level" required></select>
-      <div style="height:16px"></div>
-      <div class="row">
-        <button class="btn" type="submit" id="create-submit" data-i18n="createJoin"></button>
-        <button class="btn ghost" type="button" id="create-cancel" data-i18n="cancel"></button>
+      <label class="lbl" data-i18n="roomType"></label>
+      <div class="seg" id="room-type">
+        <button type="button" class="chip on" data-v="public" data-i18n="publicRoom"></button>
+        <button type="button" class="chip" data-v="private" data-i18n="privateRoom"></button>
       </div>
+      <label class="lbl" data-i18n="when"></label>
+      <div class="seg" id="room-when">
+        <button type="button" class="chip on" data-v="now" data-i18n="now"></button>
+        <button type="button" class="chip" data-v="later" data-i18n="later"></button>
+      </div>
+      <div id="room-time-box" hidden>
+        <label class="lbl" for="room-time" data-i18n="startTime"></label>
+        <input id="room-time" type="datetime-local">
+      </div>
+      <label class="lbl" for="room-max" data-i18n="maxPeople"></label>
+      <select id="room-max"><option>5</option><option>10</option><option selected>20</option><option>50</option><option>100</option></select>
+      <div style="height:18px"></div>
+      <button class="btn block" type="submit" id="create-submit" data-i18n="createJoin"></button>
     </form>
-  </section>
+  </div>
+</section>
 
-  <!-- Room -->
-  <section id="screen-room" hidden>
-    <h1 id="room-title-view"></h1>
-    <div class="tags" id="room-tags"></div>
-    <p class="muted" id="room-status"></p>
-    <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio"></button>
+<!-- ============ Edit profile ============ -->
+<section id="screen-edit" class="screen" hidden>
+  <header class="appbar">
+    <button class="icon-btn" type="button" data-back="main" aria-label="back"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="title" data-i18n="editProfile"></div>
+  </header>
+  <div class="wrap" style="padding-bottom:40px">
+    <form id="edit-form" class="card">
+      <button type="button" class="avatar-pick" id="edit-photo-btn">
+        <div class="av" id="edit-photo-preview">📷</div>
+        <span data-i18n="choosePhoto"></span>
+      </button>
+      <label class="lbl" for="edit-name" data-i18n="yourName"></label>
+      <input id="edit-name" maxlength="30" dir="auto" required>
+      <label class="lbl" for="edit-country" data-i18n="country"></label>
+      <select id="edit-country"></select>
+      <label class="lbl" for="edit-native" data-i18n="nativeLang"></label>
+      <select id="edit-native"></select>
+      <label class="lbl" data-i18n="learningLangs"></label>
+      <div id="edit-learning"></div>
+      <button type="button" class="btn ghost sm" id="edit-add-lang" data-i18n="addLanguage"></button>
+      <label class="lbl" for="edit-bio" data-i18n="bio"></label>
+      <textarea id="edit-bio" maxlength="200" dir="auto" data-i18n-ph="bioPh"></textarea>
+      <div style="height:18px"></div>
+      <button class="btn block" type="submit" data-i18n="save"></button>
+    </form>
+  </div>
+</section>
+
+<!-- ============ Saved words ============ -->
+<section id="screen-saved" class="screen" hidden>
+  <header class="appbar">
+    <button class="icon-btn" type="button" data-back="main" aria-label="back"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="title" data-i18n="savedWords"></div>
+  </header>
+  <div class="wrap" style="padding-bottom:40px"><div id="saved-list"></div></div>
+</section>
+
+<!-- ============ Voice room ============ -->
+<section id="screen-room" class="screen" hidden>
+  <header class="appbar">
+    <button class="icon-btn" type="button" id="room-back" aria-label="leave"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="title" id="room-title-view" dir="auto"></div>
+    <button class="icon-btn" type="button" id="room-share" aria-label="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+    <button class="icon-btn" type="button" id="room-more" aria-label="more"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+  </header>
+  <div class="wrap" style="padding-bottom:calc(110px + env(safe-area-inset-bottom))">
+    <div class="rc-tags" id="room-tags"></div>
+    <p class="muted small" id="room-status" style="margin:8px 0 0"></p>
+    <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio" style="margin-top:12px"></button>
+    <div id="topic-box"></div>
+    <button class="btn ghost sm" id="topic-btn" type="button" hidden data-i18n="topicNew"></button>
     <div class="group-title" data-i18n="speakers"></div>
     <div class="people" id="people-speakers"></div>
     <div class="group-title" id="listeners-title" data-i18n="listeners"></div>
     <div class="people" id="people-listeners"></div>
-
-    <div class="card chat">
-      <div class="group-title" style="margin:0 0 8px" data-i18n="chat"></div>
+    <div class="card" style="margin-top:22px">
+      <div class="group-title" style="margin:0" data-i18n="chat"></div>
       <div class="chat-list" id="chat-list"></div>
       <form class="chat-form" id="chat-form">
         <input id="chat-input" maxlength="300" autocomplete="off" dir="auto" data-i18n-ph="chatPh">
         <button class="btn" type="submit" data-i18n="send"></button>
       </form>
     </div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="mic-btn" type="button" disabled></button>
+    <button class="btn" id="hand-btn" type="button" hidden></button>
+    <button class="btn line" id="leave-btn" type="button" data-i18n="leave"></button>
+    <button class="btn danger" id="end-btn" type="button" hidden data-i18n="endRoom"></button>
+  </div>
+</section>
 
-    <div class="controls">
-      <button class="btn" id="mic-btn" type="button" disabled></button>
-      <button class="btn" id="hand-btn" type="button" hidden></button>
-      <button class="btn ghost" id="leave-btn" type="button" data-i18n="leave"></button>
-      <button class="btn danger" id="end-btn" type="button" hidden data-i18n="endRoom"></button>
-    </div>
-  </section>
-
-</div>
-
+<div id="sheet-backdrop" hidden></div>
+<div id="sheet" class="sheet" hidden role="dialog"><div class="sheet-handle"></div><div id="sheet-body"></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="audio-sink" hidden></div>
+<input type="file" id="photo-input" accept="image/*" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.4/dist/livekit-client.umd.js"></script>
-<script>
-/* =========================================================
-   ⚙️ Only change these two lines (Supabase → Project Settings → API Keys)
-   ⚠️ Publishable / anon key ONLY — never a secret or service_role key!
-   ========================================================= */
-const CONFIG = {
-  SUPABASE_URL: "https://vjuqtzhefxpiqsmasfkb.supabase.co",
-  SUPABASE_KEY: "sb_publishable_hs16UKvg16dApnabYQM9Cw_l2S-_XAU",
-};
-
-/* ---------- Languages people can PRACTICE (shown in their own name) ---------- */
-const LANGS = {
-  en: "🇬🇧 English", ar: "🇸🇦 العربية", es: "🇪🇸 Español", fr: "🇫🇷 Français", de: "🇩🇪 Deutsch",
-  tr: "🇹🇷 Türkçe", fa: "🇮🇷 فارسی", ckb: "☀️ کوردی (سۆرانی)", kmr: "☀️ Kurdî (Kurmancî)",
-  it: "🇮🇹 Italiano", pt: "🇵🇹 Português", ru: "🇷🇺 Русский", zh: "🇨🇳 中文", ja: "🇯🇵 日本語",
-  ko: "🇰🇷 한국어", hi: "🇮🇳 हिन्दी", nl: "🇳🇱 Nederlands", sv: "🇸🇪 Svenska",
-};
-const LEVEL_CODES = { beginner: "A1–A2", intermediate: "B1–B2", advanced: "C1–C2" };
-
-/* ---------- App interface languages ---------- */
-const UI_LANGS = {
-  en: "English", ar: "العربية", ckb: "کوردی", tr: "Türkçe", fa: "فارسی", de: "Deutsch", fr: "Français", es: "Español",
-};
-const RTL = new Set(["ar", "ckb", "fa"]);
-const I18N = {
-  en: {
-    welcome: "Welcome 👋", intro: "Open a voice room or join one and practice speaking a new language.",
-    yourName: "What's your name?", namePh: "e.g. Alex", start: "Get started", nameShort: "Name must be at least 2 letters.",
-    anonDisabled: "Anonymous sign-ins are not enabled in Supabase.", error: "Error: ", changeName: "Change name",
-    openRooms: "Live rooms", allLangs: "🌍 All languages", noRooms: "🎧 No rooms yet.<br>Be the first to open one!",
-    loadFail: "Couldn't load the list.", join: "Join", newRoom: "＋ New room",
-    createTitle: "New room", roomTitle: "Room title", roomTitlePh: "e.g. Everyday English chat",
-    language: "Language", level: "Level", createJoin: "Create & join", cancel: "Cancel",
-    titleShort: "Title is too short.", createFail: "Couldn't create the room: ",
-    connecting: "Connecting…", connected: "✅ Connected — start talking!", tapAudio: "🔊 Tap to hear audio",
-    micOn: "🎙️ Mic on", micOff: "🔇 Mic off", leave: "🚪 Leave", endRoom: "⏹ End room",
-    endConfirm: "End this room for everyone?", roomEnded: "The host ended the room.", disconnected: "Connection lost.",
-    joinFail: "Couldn't join: ", micDenied: "Microphone blocked — allow it in your browser settings.", micFail: "Microphone error: ",
-    people: "👥 {n} in the room", you: "(you)", guest: "Guest",
-    beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced",
-    e_not_signed_in: "Please sign in first.", e_room_closed: "This room has ended.", e_bad_room: "Room not found.",
-    e_server_not_configured: "LiveKit secrets are not set in Supabase.",
-  },
-  ar: {
-    welcome: "أهلاً بك 👋", intro: "افتح غرفة صوتية أو انضم إلى غرفة وتدرّب على التحدث بلغة جديدة.",
-    yourName: "ما اسمك؟", namePh: "مثال: سارة", start: "ابدأ", nameShort: "يجب أن يتكون الاسم من حرفين على الأقل.",
-    anonDisabled: "تسجيل الدخول المجهول غير مفعّل في Supabase.", error: "خطأ: ", changeName: "تغيير الاسم",
-    openRooms: "الغرف المباشرة", allLangs: "🌍 كل اللغات", noRooms: "🎧 لا توجد غرف بعد.<br>كن أول من يفتح غرفة!",
-    loadFail: "تعذّر تحميل القائمة.", join: "انضم", newRoom: "＋ غرفة جديدة",
-    createTitle: "غرفة جديدة", roomTitle: "عنوان الغرفة", roomTitlePh: "مثال: محادثة يومية بالإنجليزية",
-    language: "اللغة", level: "المستوى", createJoin: "إنشاء والدخول", cancel: "إلغاء",
-    titleShort: "العنوان قصير جداً.", createFail: "تعذّر إنشاء الغرفة: ",
-    connecting: "جارٍ الاتصال…", connected: "✅ تم الاتصال — ابدأ الحديث!", tapAudio: "🔊 اضغط لسماع الصوت",
-    micOn: "🎙️ الميكروفون يعمل", micOff: "🔇 الميكروفون مغلق", leave: "🚪 مغادرة", endRoom: "⏹ إنهاء الغرفة",
-    endConfirm: "إنهاء الغرفة للجميع؟", roomEnded: "أنهى المضيف الغرفة.", disconnected: "انقطع الاتصال.",
-    joinFail: "تعذّر الانضمام: ", micDenied: "الميكروفون محظور — اسمح به من إعدادات المتصفح.", micFail: "خطأ في الميكروفون: ",
-    people: "👥 {n} في الغرفة", you: "(أنت)", guest: "ضيف",
-    beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم",
-    e_not_signed_in: "يرجى تسجيل الدخول أولاً.", e_room_closed: "انتهت هذه الغرفة.", e_bad_room: "الغرفة غير موجودة.",
-    e_server_not_configured: "مفاتيح LiveKit غير مضبوطة في Supabase.",
-  },
-  ckb: {
-    welcome: "بەخێربێیت 👋", intro: "ژووری دەنگی بکەرەوە یان بچۆ ناو ژوورێک و ڕاهێنان بکە لەسەر قسەکردن بە زمانێکی نوێ.",
-    yourName: "ناوت چییە؟", namePh: "بۆ نموونە: ئاری", start: "دەست پێبکە", nameShort: "ناوەکە لانیکەم ٢ پیت بێت.",
-    anonDisabled: "لە Supabase دا Anonymous sign-ins کارا نەکراوە.", error: "هەڵە: ", changeName: "گۆڕینی ناو",
-    openRooms: "ژوورە کراوەکان", allLangs: "🌍 هەموو زمانەکان", noRooms: "🎧 هێشتا هیچ ژوورێک نییە.<br>یەکەم ژوور تۆ بیکەرەوە!",
-    loadFail: "نەتوانرا لیستەکە باربکرێت.", join: "بچۆ ژوورەوە", newRoom: "＋ ژووری نوێ",
-    createTitle: "ژووری نوێ", roomTitle: "ناونیشانی ژوور", roomTitlePh: "بۆ نموونە: گفتوگۆی ڕۆژانە بە ئینگلیزی",
-    language: "زمان", level: "ئاست", createJoin: "دروستکردن و چوونەژوورەوە", cancel: "پاشگەزبوونەوە",
-    titleShort: "ناونیشان کورتە.", createFail: "نەتوانرا ژوور دروست بکرێت: ",
-    connecting: "پەیوەندی دەکرێت…", connected: "✅ پەیوەندیت کرد — قسە بکە!", tapAudio: "🔊 کرتە بکە بۆ بیستنی دەنگ",
-    micOn: "🎙️ مایک کراوەیە", micOff: "🔇 مایک داخراوە", leave: "🚪 دەرچوون", endRoom: "⏹ داخستنی ژوور",
-    endConfirm: "ژوورەکە بۆ هەمووان دابخرێت؟", roomEnded: "خاوەنی ژوور ژوورەکەی داخست.", disconnected: "پەیوەندی پچڕا.",
-    joinFail: "نەتوانرا بچیتە ژوورەوە: ", micDenied: "ڕێگە بە مایک نەدرا — لە ڕێکخستنی وێبگەڕ ڕێگە بدە.", micFail: "مایک کار ناکات: ",
-    people: "👥 {n} کەس لە ژوورەکەدان", you: "(تۆ)", guest: "میوان",
-    beginner: "سەرەتایی", intermediate: "ناوەند", advanced: "پێشکەوتوو",
-    e_not_signed_in: "دەبێت سەرەتا بچیتە ژوورەوە.", e_room_closed: "ئەم ژوورە داخراوە.", e_bad_room: "ژوورەکە نەدۆزرایەوە.",
-    e_server_not_configured: "Secret ـەکانی LiveKit لە Supabase دانەنراون.",
-  },
-  tr: {
-    welcome: "Hoş geldin 👋", intro: "Bir sesli oda aç ya da bir odaya katıl ve yeni bir dili konuşarak pratik yap.",
-    yourName: "Adın ne?", namePh: "ör. Elif", start: "Başla", nameShort: "İsim en az 2 harf olmalı.",
-    anonDisabled: "Supabase'de anonim giriş etkin değil.", error: "Hata: ", changeName: "İsmi değiştir",
-    openRooms: "Canlı odalar", allLangs: "🌍 Tüm diller", noRooms: "🎧 Henüz oda yok.<br>İlk odayı sen aç!",
-    loadFail: "Liste yüklenemedi.", join: "Katıl", newRoom: "＋ Yeni oda",
-    createTitle: "Yeni oda", roomTitle: "Oda başlığı", roomTitlePh: "ör. Günlük İngilizce sohbet",
-    language: "Dil", level: "Seviye", createJoin: "Oluştur ve katıl", cancel: "İptal",
-    titleShort: "Başlık çok kısa.", createFail: "Oda oluşturulamadı: ",
-    connecting: "Bağlanıyor…", connected: "✅ Bağlandın — konuşmaya başla!", tapAudio: "🔊 Sesi duymak için dokun",
-    micOn: "🎙️ Mikrofon açık", micOff: "🔇 Mikrofon kapalı", leave: "🚪 Ayrıl", endRoom: "⏹ Odayı kapat",
-    endConfirm: "Oda herkes için kapatılsın mı?", roomEnded: "Oda sahibi odayı kapattı.", disconnected: "Bağlantı koptu.",
-    joinFail: "Katılınamadı: ", micDenied: "Mikrofon engellendi — tarayıcı ayarlarından izin ver.", micFail: "Mikrofon hatası: ",
-    people: "👥 Odada {n} kişi", you: "(sen)", guest: "Misafir",
-    beginner: "Başlangıç", intermediate: "Orta", advanced: "İleri",
-    e_not_signed_in: "Önce giriş yapmalısın.", e_room_closed: "Bu oda kapandı.", e_bad_room: "Oda bulunamadı.",
-    e_server_not_configured: "LiveKit anahtarları Supabase'de ayarlanmamış.",
-  },
-  fa: {
-    welcome: "خوش آمدید 👋", intro: "یک اتاق صوتی باز کنید یا به یک اتاق بپیوندید و صحبت کردن به زبانی جدید را تمرین کنید.",
-    yourName: "اسم شما چیست؟", namePh: "مثلاً: سارا", start: "شروع", nameShort: "نام باید حداقل ۲ حرف باشد.",
-    anonDisabled: "ورود ناشناس در Supabase فعال نیست.", error: "خطا: ", changeName: "تغییر نام",
-    openRooms: "اتاق‌های زنده", allLangs: "🌍 همه زبان‌ها", noRooms: "🎧 هنوز اتاقی نیست.<br>اولین اتاق را شما باز کنید!",
-    loadFail: "بارگذاری فهرست ممکن نشد.", join: "ورود", newRoom: "＋ اتاق جدید",
-    createTitle: "اتاق جدید", roomTitle: "عنوان اتاق", roomTitlePh: "مثلاً: گفتگوی روزانه به انگلیسی",
-    language: "زبان", level: "سطح", createJoin: "ساختن و ورود", cancel: "انصراف",
-    titleShort: "عنوان خیلی کوتاه است.", createFail: "ساختن اتاق ممکن نشد: ",
-    connecting: "در حال اتصال…", connected: "✅ وصل شدید — صحبت کنید!", tapAudio: "🔊 برای شنیدن صدا ضربه بزنید",
-    micOn: "🎙️ میکروفون روشن", micOff: "🔇 میکروفون خاموش", leave: "🚪 خروج", endRoom: "⏹ بستن اتاق",
-    endConfirm: "اتاق برای همه بسته شود؟", roomEnded: "میزبان اتاق را بست.", disconnected: "اتصال قطع شد.",
-    joinFail: "ورود ممکن نشد: ", micDenied: "میکروفون مسدود است — در تنظیمات مرورگر اجازه دهید.", micFail: "خطای میکروفون: ",
-    people: "👥 {n} نفر در اتاق", you: "(شما)", guest: "مهمان",
-    beginner: "مبتدی", intermediate: "متوسط", advanced: "پیشرفته",
-    e_not_signed_in: "ابتدا وارد شوید.", e_room_closed: "این اتاق بسته شده است.", e_bad_room: "اتاق پیدا نشد.",
-    e_server_not_configured: "کلیدهای LiveKit در Supabase تنظیم نشده‌اند.",
-  },
-  de: {
-    welcome: "Willkommen 👋", intro: "Eröffne einen Sprachraum oder tritt einem bei und übe, eine neue Sprache zu sprechen.",
-    yourName: "Wie heißt du?", namePh: "z. B. Lena", start: "Los geht's", nameShort: "Der Name muss mindestens 2 Zeichen haben.",
-    anonDisabled: "Anonyme Anmeldung ist in Supabase nicht aktiviert.", error: "Fehler: ", changeName: "Namen ändern",
-    openRooms: "Live-Räume", allLangs: "🌍 Alle Sprachen", noRooms: "🎧 Noch keine Räume.<br>Eröffne den ersten!",
-    loadFail: "Liste konnte nicht geladen werden.", join: "Beitreten", newRoom: "＋ Neuer Raum",
-    createTitle: "Neuer Raum", roomTitle: "Raumtitel", roomTitlePh: "z. B. Alltags-Englisch",
-    language: "Sprache", level: "Niveau", createJoin: "Erstellen & beitreten", cancel: "Abbrechen",
-    titleShort: "Titel ist zu kurz.", createFail: "Raum konnte nicht erstellt werden: ",
-    connecting: "Verbinde…", connected: "✅ Verbunden — leg los!", tapAudio: "🔊 Tippen, um Ton zu hören",
-    micOn: "🎙️ Mikro an", micOff: "🔇 Mikro aus", leave: "🚪 Verlassen", endRoom: "⏹ Raum beenden",
-    endConfirm: "Raum für alle beenden?", roomEnded: "Der Host hat den Raum beendet.", disconnected: "Verbindung verloren.",
-    joinFail: "Beitritt fehlgeschlagen: ", micDenied: "Mikrofon blockiert — in den Browser-Einstellungen erlauben.", micFail: "Mikrofonfehler: ",
-    people: "👥 {n} im Raum", you: "(du)", guest: "Gast",
-    beginner: "Anfänger", intermediate: "Mittelstufe", advanced: "Fortgeschritten",
-    e_not_signed_in: "Bitte zuerst anmelden.", e_room_closed: "Dieser Raum wurde beendet.", e_bad_room: "Raum nicht gefunden.",
-    e_server_not_configured: "LiveKit-Schlüssel sind in Supabase nicht gesetzt.",
-  },
-  fr: {
-    welcome: "Bienvenue 👋", intro: "Ouvre un salon vocal ou rejoins-en un pour pratiquer une nouvelle langue à l'oral.",
-    yourName: "Comment t'appelles-tu ?", namePh: "ex. Léa", start: "Commencer", nameShort: "Le nom doit contenir au moins 2 lettres.",
-    anonDisabled: "La connexion anonyme n'est pas activée dans Supabase.", error: "Erreur : ", changeName: "Changer de nom",
-    openRooms: "Salons en direct", allLangs: "🌍 Toutes les langues", noRooms: "🎧 Aucun salon pour l'instant.<br>Ouvre le premier !",
-    loadFail: "Impossible de charger la liste.", join: "Rejoindre", newRoom: "＋ Nouveau salon",
-    createTitle: "Nouveau salon", roomTitle: "Titre du salon", roomTitlePh: "ex. Anglais du quotidien",
-    language: "Langue", level: "Niveau", createJoin: "Créer et rejoindre", cancel: "Annuler",
-    titleShort: "Le titre est trop court.", createFail: "Impossible de créer le salon : ",
-    connecting: "Connexion…", connected: "✅ Connecté — parle !", tapAudio: "🔊 Touchez pour entendre le son",
-    micOn: "🎙️ Micro activé", micOff: "🔇 Micro coupé", leave: "🚪 Quitter", endRoom: "⏹ Fermer le salon",
-    endConfirm: "Fermer le salon pour tout le monde ?", roomEnded: "L'hôte a fermé le salon.", disconnected: "Connexion perdue.",
-    joinFail: "Impossible de rejoindre : ", micDenied: "Micro bloqué — autorise-le dans les réglages du navigateur.", micFail: "Erreur du micro : ",
-    people: "👥 {n} dans le salon", you: "(toi)", guest: "Invité",
-    beginner: "Débutant", intermediate: "Intermédiaire", advanced: "Avancé",
-    e_not_signed_in: "Connecte-toi d'abord.", e_room_closed: "Ce salon est fermé.", e_bad_room: "Salon introuvable.",
-    e_server_not_configured: "Les clés LiveKit ne sont pas configurées dans Supabase.",
-  },
-  es: {
-    welcome: "Bienvenido 👋", intro: "Abre una sala de voz o únete a una y practica hablando un idioma nuevo.",
-    yourName: "¿Cómo te llamas?", namePh: "p. ej. Ana", start: "Empezar", nameShort: "El nombre debe tener al menos 2 letras.",
-    anonDisabled: "El inicio de sesión anónimo no está activado en Supabase.", error: "Error: ", changeName: "Cambiar nombre",
-    openRooms: "Salas en vivo", allLangs: "🌍 Todos los idiomas", noRooms: "🎧 Aún no hay salas.<br>¡Abre la primera!",
-    loadFail: "No se pudo cargar la lista.", join: "Unirse", newRoom: "＋ Nueva sala",
-    createTitle: "Nueva sala", roomTitle: "Título de la sala", roomTitlePh: "p. ej. Inglés del día a día",
-    language: "Idioma", level: "Nivel", createJoin: "Crear y entrar", cancel: "Cancelar",
-    titleShort: "El título es demasiado corto.", createFail: "No se pudo crear la sala: ",
-    connecting: "Conectando…", connected: "✅ Conectado — ¡habla!", tapAudio: "🔊 Toca para oír el audio",
-    micOn: "🎙️ Micrófono activado", micOff: "🔇 Micrófono desactivado", leave: "🚪 Salir", endRoom: "⏹ Cerrar sala",
-    endConfirm: "¿Cerrar la sala para todos?", roomEnded: "El anfitrión cerró la sala.", disconnected: "Se perdió la conexión.",
-    joinFail: "No se pudo entrar: ", micDenied: "Micrófono bloqueado — permítelo en los ajustes del navegador.", micFail: "Error del micrófono: ",
-    people: "👥 {n} en la sala", you: "(tú)", guest: "Invitado",
-    beginner: "Principiante", intermediate: "Intermedio", advanced: "Avanzado",
-    e_not_signed_in: "Inicia sesión primero.", e_room_closed: "Esta sala ha terminado.", e_bad_room: "Sala no encontrada.",
-    e_server_not_configured: "Las claves de LiveKit no están configuradas en Supabase.",
-  },
-};
-
-/* ---------- v2 strings: photos, speakers/listeners, raise hand, chat ---------- */
-const I18N_V2 = {
-  en: { choosePhoto: "📷 Choose photo", photoFail: "Couldn't upload the photo: ", speakers: "🎙️ Speakers", listeners: "🎧 Listeners",
-    raiseHand: "✋ Raise hand", lowerHand: "✋ Lower hand", handSent: "Request sent — the host will decide.",
-    handRaisedBy: "✋ {name} wants to speak", allow: "🎙️ Allow", toListener: "⬇️ Listener",
-    youCanSpeak: "🎙️ The host let you speak!", youAreListener: "🎧 You are a listener now.",
-    chat: "💬 Chat", chatPh: "Write a message…", send: "Send", noMessages: "No messages yet.", e_not_host: "Only the host can do this." },
-  ar: { choosePhoto: "📷 اختر صورة", photoFail: "تعذّر رفع الصورة: ", speakers: "🎙️ المتحدثون", listeners: "🎧 المستمعون",
-    raiseHand: "✋ ارفع يدك", lowerHand: "✋ أنزل يدك", handSent: "تم إرسال الطلب — سيقرّر المضيف.",
-    handRaisedBy: "✋ {name} يريد التحدث", allow: "🎙️ اسمح", toListener: "⬇️ مستمع",
-    youCanSpeak: "🎙️ سمح لك المضيف بالتحدث!", youAreListener: "🎧 أنت الآن مستمع.",
-    chat: "💬 الدردشة", chatPh: "اكتب رسالة…", send: "إرسال", noMessages: "لا توجد رسائل بعد.", e_not_host: "هذا متاح للمضيف فقط." },
-  ckb: { choosePhoto: "📷 وێنە هەڵبژێرە", photoFail: "نەتوانرا وێنەکە باربکرێت: ", speakers: "🎙️ قسەکەران", listeners: "🎧 گوێگران",
-    raiseHand: "✋ دەست بەرزکردنەوە", lowerHand: "✋ دەست نزمکردنەوە", handSent: "داواکاری نێردرا — خاوەنی ژوور بڕیار دەدات.",
-    handRaisedBy: "✋ {name} دەیەوێت قسە بکات", allow: "🎙️ ڕێگە بدە", toListener: "⬇️ گوێگر",
-    youCanSpeak: "🎙️ خاوەنی ژوور ڕێگەی پێدایت قسە بکەیت!", youAreListener: "🎧 ئێستا گوێگریت.",
-    chat: "💬 چات", chatPh: "نامەیەک بنووسە…", send: "ناردن", noMessages: "هێشتا هیچ نامەیەک نییە.", e_not_host: "تەنها خاوەنی ژوور دەتوانێت ئەمە بکات." },
-  tr: { choosePhoto: "📷 Fotoğraf seç", photoFail: "Fotoğraf yüklenemedi: ", speakers: "🎙️ Konuşmacılar", listeners: "🎧 Dinleyiciler",
-    raiseHand: "✋ El kaldır", lowerHand: "✋ Eli indir", handSent: "İstek gönderildi — oda sahibi karar verecek.",
-    handRaisedBy: "✋ {name} konuşmak istiyor", allow: "🎙️ İzin ver", toListener: "⬇️ Dinleyici",
-    youCanSpeak: "🎙️ Oda sahibi konuşmana izin verdi!", youAreListener: "🎧 Artık dinleyicisin.",
-    chat: "💬 Sohbet", chatPh: "Bir mesaj yaz…", send: "Gönder", noMessages: "Henüz mesaj yok.", e_not_host: "Bunu sadece oda sahibi yapabilir." },
-  fa: { choosePhoto: "📷 انتخاب عکس", photoFail: "بارگذاری عکس ممکن نشد: ", speakers: "🎙️ سخنران‌ها", listeners: "🎧 شنونده‌ها",
-    raiseHand: "✋ بالا بردن دست", lowerHand: "✋ پایین آوردن دست", handSent: "درخواست فرستاده شد — میزبان تصمیم می‌گیرد.",
-    handRaisedBy: "✋ {name} می‌خواهد صحبت کند", allow: "🎙️ اجازه بده", toListener: "⬇️ شنونده",
-    youCanSpeak: "🎙️ میزبان به شما اجازهٔ صحبت داد!", youAreListener: "🎧 اکنون شنونده هستید.",
-    chat: "💬 گفتگو", chatPh: "پیامی بنویسید…", send: "ارسال", noMessages: "هنوز پیامی نیست.", e_not_host: "فقط میزبان می‌تواند این کار را انجام دهد." },
-  de: { choosePhoto: "📷 Foto wählen", photoFail: "Foto konnte nicht hochgeladen werden: ", speakers: "🎙️ Sprecher", listeners: "🎧 Zuhörer",
-    raiseHand: "✋ Hand heben", lowerHand: "✋ Hand senken", handSent: "Anfrage gesendet — der Host entscheidet.",
-    handRaisedBy: "✋ {name} möchte sprechen", allow: "🎙️ Erlauben", toListener: "⬇️ Zuhörer",
-    youCanSpeak: "🎙️ Der Host hat dich sprechen lassen!", youAreListener: "🎧 Du bist jetzt Zuhörer.",
-    chat: "💬 Chat", chatPh: "Nachricht schreiben…", send: "Senden", noMessages: "Noch keine Nachrichten.", e_not_host: "Nur der Host kann das tun." },
-  fr: { choosePhoto: "📷 Choisir une photo", photoFail: "Impossible d'envoyer la photo : ", speakers: "🎙️ Intervenants", listeners: "🎧 Auditeurs",
-    raiseHand: "✋ Lever la main", lowerHand: "✋ Baisser la main", handSent: "Demande envoyée — l'hôte décidera.",
-    handRaisedBy: "✋ {name} veut parler", allow: "🎙️ Autoriser", toListener: "⬇️ Auditeur",
-    youCanSpeak: "🎙️ L'hôte t'a donné la parole !", youAreListener: "🎧 Tu es maintenant auditeur.",
-    chat: "💬 Chat", chatPh: "Écris un message…", send: "Envoyer", noMessages: "Aucun message pour l'instant.", e_not_host: "Seul l'hôte peut faire cela." },
-  es: { choosePhoto: "📷 Elegir foto", photoFail: "No se pudo subir la foto: ", speakers: "🎙️ Oradores", listeners: "🎧 Oyentes",
-    raiseHand: "✋ Levantar la mano", lowerHand: "✋ Bajar la mano", handSent: "Solicitud enviada — el anfitrión decidirá.",
-    handRaisedBy: "✋ {name} quiere hablar", allow: "🎙️ Permitir", toListener: "⬇️ Oyente",
-    youCanSpeak: "🎙️ ¡El anfitrión te dejó hablar!", youAreListener: "🎧 Ahora eres oyente.",
-    chat: "💬 Chat", chatPh: "Escribe un mensaje…", send: "Enviar", noMessages: "Aún no hay mensajes.", e_not_host: "Solo el anfitrión puede hacer esto." },
-};
-for (const [l, o] of Object.entries(I18N_V2)) Object.assign(I18N[l], o);
-
-const $ = (s) => document.querySelector(s);
-const esc =(s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-/* ---------- pick interface language: saved choice → phone language → English ---------- */
-function pickUiLang() {
-  try { const saved = localStorage.getItem("uiLang"); if (saved && I18N[saved]) return saved; } catch {}
-  for (const l of navigator.languages || [navigator.language || "en"]) {
-    const code = String(l).toLowerCase();
-    if (code.startsWith("ckb") || code === "ku-iq" || code === "ku-arab") return "ckb";
-    const base = code.split("-")[0];
-    if (I18N[base]) return base;
-  }
-  return "en";
-}
-let uiLang = pickUiLang();
-const t = (key, vars) => {
-  let s = (I18N[uiLang] && I18N[uiLang][key]) ?? I18N.en[key] ?? key;
-  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, v);
-  return s;
-};
-const levelLabel = (lv) => `${t(lv)} (${LEVEL_CODES[lv] || ""})`;
-
-function applyI18n() {
-  document.documentElement.lang = uiLang;
-  document.documentElement.dir = RTL.has(uiLang) ? "rtl" : "ltr";
-  document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
-  document.querySelectorAll("[data-i18n-ph]").forEach((el) => (el.placeholder = t(el.dataset.i18nPh)));
-  $("#me-chip").title = t("changeName");
-  // selects
-  const keepFilter = $("#filter-lang").value, keepLang = $("#room-lang").value, keepLevel = $("#room-level").value;
-  $("#filter-lang").innerHTML = `<option value="">${esc(t("allLangs"))}</option>` +
-    Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
-  $("#room-lang").innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
-  $("#room-level").innerHTML = Object.keys(LEVEL_CODES).map((k) => `<option value="${k}">${esc(levelLabel(k))}</option>`).join("");
-  $("#filter-lang").value = keepFilter; if (keepLang) $("#room-lang").value = keepLang; if (keepLevel) $("#room-level").value = keepLevel;
-  // live parts
-  if (!$("#screen-list").hidden) loadRooms();
-  if (currentRoom) { setRoomTags(currentRoom); renderPeople(); }
-}
-
-$("#ui-lang").innerHTML = Object.entries(UI_LANGS).map(([k, v]) => `<option value="${k}">🌐 ${esc(v)}</option>`).join("");
-$("#ui-lang").value = uiLang;
-$("#ui-lang").addEventListener("change", (e) => {
-  uiLang = e.target.value;
-  try { localStorage.setItem("uiLang", uiLang); } catch {}
-  applyI18n();
-});
-
-let toastTimer;
-function toast(msg) {
-  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3500);
-}
-function show(id) { document.querySelectorAll(".wrap > section").forEach((s) => (s.hidden = s.id !== id)); }
-function myName() { return me?.user_metadata?.name || t("guest"); }
-
-/* ---------- profile photos ---------- */
-const AVATAR_PREFIX = CONFIG.SUPABASE_URL + "/storage/v1/object/public/avatars/";
-const safeAvatar = (u) => (typeof u === "string" && u.startsWith(AVATAR_PREFIX) && u.length < 500 ? u : "");
-function myAvatar() { return safeAvatar(me?.user_metadata?.avatar_url); }
-function faceHtml(name, url) {
-  return url ? `<img src="${esc(url)}" alt="" loading="lazy">` : esc([...(name || "?")][0] || "?");
-}
-function partMeta(p) { try { return JSON.parse(p.metadata || "{}"); } catch { return {}; } }
-
-let pendingPhoto = null;
-$("#photo-input").addEventListener("change", (e) => {
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  pendingPhoto = f;
-  $("#photo-preview").innerHTML = `<img src="${URL.createObjectURL(f)}" alt="">`;
-});
-
-// shrink to a 256×256 JPEG so uploads are small and fast
-function shrinkPhoto(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const size = 256, c = document.createElement("canvas");
-      c.width = c.height = size;
-      const s = Math.min(img.width, img.height);
-      c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-      URL.revokeObjectURL(img.src);
-      c.toBlob((b) => (b ? resolve(b) : reject(new Error("image"))), "image/jpeg", 0.85);
-    };
-    img.onerror = () => reject(new Error("image"));
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-async function uploadPhoto(file) {
-  const blob = await shrinkPhoto(file);
-  const path = `${me.id}/avatar.jpg`;
-  const up = await sb.storage.from("avatars").upload(path, blob, { upsert: true, contentType: "image/jpeg", cacheControl: "60" });
-  if (up.error) throw up.error;
-  const url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl + "?v=" + Date.now();
-  const res = await sb.auth.updateUser({ data: { avatar_url: url } });
-  if (res.error) throw res.error;
-  me = res.data.user;
-}
-
-let sb = null, me = null, lk = null, currentRoom = null, listChannel = null;
-applyI18n();
-
-/* ---------- start ---------- */
-const configured = !CONFIG.SUPABASE_URL.startsWith("PASTE") && !CONFIG.SUPABASE_KEY.startsWith("PASTE");
-if (!configured) show("screen-setup"); else init();
-
-async function init() {
-  sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
-  const { data: { session } } = await sb.auth.getSession();
-  if (session?.user?.user_metadata?.name) { me = session.user; enterApp(); }
-  else show("screen-name");
-}
-
-/* ---------- name / sign in ---------- */
-$("#name-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const name = $("#name-input").value.trim();
-  if (name.length < 2) return toast(t("nameShort"));
-  const btn = e.submitter; if (btn) btn.disabled = true;
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    const res = session
-      ? await sb.auth.updateUser({ data: { name } })
-      : await sb.auth.signInAnonymously({ options: { data: { name } } });
-    if (res.error) throw res.error;
-    me = res.data.user;
-    if (pendingPhoto) {
-      try { await uploadPhoto(pendingPhoto); pendingPhoto = null; }
-      catch (err) { console.error(err); toast(t("photoFail") + (err?.message || err)); }
-    }
-    enterApp();
-  } catch (err) {
-    console.error(err);
-    toast(/anonymous/i.test(err?.message || "") ? t("anonDisabled") : t("error") + (err?.message || err));
-  } finally { if (btn) btn.disabled = false; }
-});
-
-$("#me-chip").addEventListener("click", () => {
-  if (currentRoom) return;
-  $("#name-input").value = myName();
-  pendingPhoto = null;
-  $("#photo-preview").innerHTML = myAvatar() ? faceHtml(myName(), myAvatar()) : "📷";
-  show("screen-name");
-});
-
-function enterApp() {
-  const chip = $("#me-chip"); chip.hidden = false;
-  chip.innerHTML = `<span class="mini face">${faceHtml(myName(), myAvatar())}</span><span>${esc(myName())}</span>`;
-  goList();
-  if (!listChannel) {
-    listChannel = sb.channel("rooms-list")
-      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, (payload) => {
-        const row = payload.new;
-        if (currentRoom && row && row.id === currentRoom.id && row.is_live === false && row.host_id !== me.id) {
-          toast(t("roomEnded"));
-          leaveRoom();
-          return;
-        }
-        if (!$("#screen-list").hidden) loadRooms();
-      })
-      .subscribe();
-  }
-}
-
-/* ---------- room list ---------- */
-function goList() { show("screen-list"); loadRooms(); }
-$("#filter-lang").addEventListener("change", loadRooms);
-$("#refresh-btn").addEventListener("click", loadRooms);
-
-let loadSeq = 0;
-async function loadRooms() {
-  if (!sb) return;
-  const seq = ++loadSeq;
-  const since = new Date(Date.now() - 12 * 3600e3).toISOString();
-  let q = sb.from("rooms").select("*").eq("is_live", true).gte("created_at", since)
-    .order("created_at", { ascending: false }).limit(50);
-  const lang = $("#filter-lang").value;
-  if (lang) q = q.eq("language", lang);
-  const { data, error } = await q;
-  if (seq !== loadSeq) return;
-  const box = $("#room-list");
-  if (error) { box.innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
-  if (!data.length) { box.innerHTML = `<div class="empty">${t("noRooms")}</div>`; return; }
-  box.innerHTML = data.map((r) => `
-    <div class="card room-card">
-      <div class="title" dir="auto">${esc(r.title)}</div>
-      <div class="tags"><span class="tag">${esc(LANGS[r.language] || r.language)}</span><span class="tag">${esc(levelLabel(r.level))}</span></div>
-      <div class="muted host-line"><span class="mini">${faceHtml(r.host_name, safeAvatar(r.host_avatar))}</span><span dir="auto">👑 ${esc(r.host_name)}</span></div>
-      <button class="btn block" data-join="${esc(r.id)}" type="button">${esc(t("join"))}</button>
-    </div>`).join("");
-  box.querySelectorAll("[data-join]").forEach((b) =>
-    b.addEventListener("click", () => joinRoom(data.find((r) => r.id === b.dataset.join))));
-}
-
-/* ---------- create room ---------- */
-$("#new-room-btn").addEventListener("click", () => {
-  $("#room-title").value = "";
-  const f = $("#filter-lang").value; if (f) $("#room-lang").value = f;
-  show("screen-create");
-});
-$("#create-cancel").addEventListener("click", goList);
-$("#create-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const title = $("#room-title").value.trim();
-  if (title.length < 2) return toast(t("titleShort"));
-  const btn = $("#create-submit"); btn.disabled = true;
-  const { data, error } = await sb.from("rooms").insert({
-    title, language: $("#room-lang").value, level: $("#room-level").value, host_name: myName().slice(0, 40),
-    host_avatar: myAvatar() || null,
-  }).select().single();
-  btn.disabled = false;
-  if (error) { console.error(error); return toast(t("createFail") + error.message); }
-  joinRoom(data);
-});
-
-/* ---------- voice room (LiveKit) ---------- */
-function setRoomTags(row) {
-  $("#room-tags").innerHTML = `<span class="tag">${esc(LANGS[row.language] || row.language)}</span><span class="tag">${esc(levelLabel(row.level))}</span>`;
-}
-
-async function joinRoom(row) {
-  if (!row || lk) return;
-  currentRoom = row;
-  const titleEl = $("#room-title-view"); titleEl.textContent = row.title; titleEl.dir = "auto";
-  setRoomTags(row);
-  $("#room-status").textContent = t("connecting");
-  $("#people-speakers").innerHTML = ""; $("#people-listeners").innerHTML = "";
-  $("#chat-list").innerHTML = `<div class="muted" id="chat-empty">${esc(t("noMessages"))}</div>`;
-  $("#mic-btn").disabled = true; $("#mic-btn").textContent = t("micOff");
-  $("#mic-btn").hidden = false; $("#hand-btn").hidden = true;
-  $("#end-btn").hidden = row.host_id !== me.id;
-  $("#me-chip").disabled = true;
-  show("screen-room");
-
-  try {
-    const { data, error } = await sb.functions.invoke("smooth-worker", { body: { roomId: row.id } });
-    if (error) {
-      let code = "";
-      try { code = (await error.context.json()).error; } catch {}
-      throw new Error(code && I18N.en["e_" + code] ? t("e_" + code) : (code || error.message));
-    }
-    const E = LivekitClient.RoomEvent;
-    const room = new LivekitClient.Room({
-      adaptiveStream: true, dynacast: true,
-      audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
-    lk = room;
-    room
-      .on(E.TrackSubscribed, (track) => {
-        if (track.kind === "audio") $("#audio-sink").appendChild(track.attach());
-        renderPeople();
-      })
-      .on(E.TrackUnsubscribed, (track) => { track.detach().forEach((el) => el.remove()); renderPeople(); })
-      .on(E.ParticipantConnected, renderPeople)
-      .on(E.ParticipantDisconnected, renderPeople)
-      .on(E.ActiveSpeakersChanged, renderPeople)
-      .on(E.TrackMuted, renderPeople)
-      .on(E.TrackUnmuted, renderPeople)
-      .on(E.LocalTrackPublished, renderPeople)
-      .on(E.LocalTrackUnpublished, renderPeople)
-      .on(E.AudioPlaybackStatusChanged, updateAudioUnlock)
-      .on(E.ParticipantPermissionsChanged, async (prev, p) => {
-        const canSpeak = !!room.localParticipant.permissions?.canPublish;
-        if (p === room.localParticipant && prev && !!prev.canPublish !== canSpeak) {
-          if (canSpeak) {
-            toast(t("youCanSpeak"));
-            try { await room.localParticipant.setMicrophoneEnabled(true); } catch { toast(t("micDenied")); }
-          } else {
-            toast(t("youAreListener"));
-          }
-        }
-        renderPeople();
-      })
-      .on(E.ParticipantAttributesChanged, (changed, p) => {
-        if (amHost() && p !== room.localParticipant && changed.hand === "1") toast(t("handRaisedBy", { name: p.name || t("guest") }));
-        renderPeople();
-      })
-      .on(E.ParticipantMetadataChanged, renderPeople)
-      .on(E.DataReceived, (payload, p, _kind, topic) => {
-        if (topic !== "chat" || !p) return;
-        try {
-          const msg = JSON.parse(new TextDecoder().decode(payload));
-          if (msg && msg.type === "chat" && typeof msg.text === "string") addChat(p, msg.text.slice(0, 300));
-        } catch {}
-      })
-      .on(E.Disconnected, () => {
-        if (lk === room) { toast(t("disconnected")); leaveRoom(); }
-      });
-
-    await room.connect(data.url, data.token);
-    $("#room-status").textContent = t("connected");
-    try { await room.startAudio(); } catch {}
-    if (room.localParticipant.permissions?.canPublish) {
-      try { await room.localParticipant.setMicrophoneEnabled(true); }
-      catch (err) { console.warn(err); toast(t("micDenied")); }
-    }
-    $("#mic-btn").disabled = false;
-    updateAudioUnlock(); renderPeople();
-  } catch (err) {
-    console.error(err);
-    toast(t("joinFail") + (err?.message || err));
-    leaveRoom();
-  }
-}
-
-function updateAudioUnlock() { $("#audio-unlock").hidden = !lk || lk.canPlaybackAudio; }
-$("#audio-unlock").addEventListener("click", async () => { try { await lk?.startAudio(); } catch {} updateAudioUnlock(); });
-
-function amHost() { return !!(currentRoom && me && currentRoom.host_id === me.id); }
-function isSpeaker(p) { return p.identity === currentRoom.host_id || !!p.permissions?.canPublish; }
-function handUp(p) { return p.attributes?.hand === "1"; }
-
-function personHtml(p) {
-  const name = p.name || t("guest");
-  const isHost = p.identity === currentRoom.host_id;
-  const isMe = p === lk.localParticipant;
-  const speaker = isSpeaker(p);
-  const badge = speaker ? (!p.isMicrophoneEnabled ? "🔇" : isHost ? "👑" : "") : "";
-  let actions = "";
-  if (amHost() && !isMe && !isHost) {
-    actions = speaker
-      ? `<button class="mini-btn" data-speaker="${esc(p.identity)}" data-allow="0" type="button">${esc(t("toListener"))}</button>`
-      : `<button class="mini-btn" data-speaker="${esc(p.identity)}" data-allow="1" type="button">${esc(t("allow"))}</button>`;
-  }
-  return `<div class="person">
-    <div class="avatar ${speaker && p.isSpeaking && p.isMicrophoneEnabled ? "speaking" : ""}">${faceHtml(name, safeAvatar(partMeta(p).avatar))}
-      ${badge ? `<span class="badge">${badge}</span>` : ""}${!speaker && handUp(p) ? `<span class="hand">✋</span>` : ""}</div>
-    <div class="pname" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</div>
-    ${actions}
-  </div>`;
-}
-
-function renderPeople() {
-  if (!lk || !currentRoom) return;
-  const all = [lk.localParticipant, ...lk.remoteParticipants.values()];
-  const speakers = all.filter(isSpeaker);
-  // listeners with a raised hand go first
-  const listeners = all.filter((p) => !isSpeaker(p)).sort((a, b) => handUp(b) - handUp(a));
-  $("#people-speakers").innerHTML = speakers.map(personHtml).join("");
-  $("#people-listeners").innerHTML = listeners.map(personHtml).join("");
-  $("#listeners-title").hidden = listeners.length === 0;
-  $("#room-status").textContent = t("people", { n: all.length });
-
-  const local = lk.localParticipant;
-  const canSpeak = isSpeaker(local);
-  $("#mic-btn").hidden = !canSpeak;
-  $("#hand-btn").hidden = canSpeak;
-  const micOn = local.isMicrophoneEnabled;
-  $("#mic-btn").textContent = micOn ? t("micOn") : t("micOff");
-  $("#mic-btn").classList.toggle("ghost", !micOn);
-  $("#hand-btn").textContent = handUp(local) ? t("lowerHand") : t("raiseHand");
-  $("#hand-btn").classList.toggle("ghost", handUp(local));
-}
-
-/* host: allow to speak / move back to listeners */
-document.addEventListener("click", async (e) => {
-  const b = e.target.closest("[data-speaker]");
-  if (!b || !lk || !currentRoom) return;
-  b.disabled = true;
-  const { error } = await sb.functions.invoke("smooth-worker", {
-    body: { roomId: currentRoom.id, action: "set_speaker", identity: b.dataset.speaker, allow: b.dataset.allow === "1" },
-  });
-  if (error) {
-    let code = ""; try { code = (await error.context.json()).error; } catch {}
-    toast(t("error") + (code && I18N.en["e_" + code] ? t("e_" + code) : (code || error.message)));
-  }
-  b.disabled = false;
-});
-
-/* listener: raise / lower hand */
-$("#hand-btn").addEventListener("click", async () => {
-  if (!lk) return;
-  const up = !handUp(lk.localParticipant);
-  try {
-    await lk.localParticipant.setAttributes({ hand: up ? "1" : "0" });
-    if (up) toast(t("handSent"));
-  } catch (err) { toast(t("error") + (err?.message || err)); }
-  renderPeople();
-});
-
-/* chat (sent through the voice connection; only people in the room see it) */
-function addChat(p, text) {
-  const list = $("#chat-list");
-  $("#chat-empty")?.remove();
-  const mine = lk && p === lk.localParticipant;
-  const name = p.name || t("guest");
-  const div = document.createElement("div");
-  div.className = "msg" + (mine ? " mine" : "");
-  div.innerHTML = `<span class="mini">${faceHtml(name, safeAvatar(partMeta(p).avatar))}</span>
-    <div class="body"><div class="who" dir="auto">${esc(name)}</div><div dir="auto">${esc(text)}</div></div>`;
-  list.appendChild(div);
-  while (list.children.length > 100) list.firstElementChild.remove();
-  list.scrollTop = list.scrollHeight;
-}
-let lastChatAt = 0;
-$("#chat-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const input = $("#chat-input");
-  const text = input.value.trim().slice(0, 300);
-  if (!text || !lk || Date.now() - lastChatAt < 700) return;
-  lastChatAt = Date.now();
-  try {
-    await lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "chat", text })), { reliable: true, topic: "chat" });
-    addChat(lk.localParticipant, text);
-    input.value = "";
-  } catch (err) { toast(t("error") + (err?.message || err)); }
-});
-
-$("#mic-btn").addEventListener("click", async () => {
-  if (!lk) return;
-  const btn = $("#mic-btn"); btn.disabled = true;
-  try { await lk.localParticipant.setMicrophoneEnabled(!lk.localParticipant.isMicrophoneEnabled); }
-  catch (err) { toast(t("micFail") + (err?.message || err)); }
-  btn.disabled = false; renderPeople();
-});
-
-async function leaveRoom() {
-  const room = lk; lk = null; currentRoom = null;
-  if (room) { try { await room.disconnect(); } catch {} }
-  $("#audio-sink").innerHTML = "";
-  $("#chat-list").innerHTML = "";
-  $("#audio-unlock").hidden = true;
-  $("#me-chip").disabled = false;
-  goList();
-}
-$("#leave-btn").addEventListener("click", leaveRoom);
-
-$("#end-btn").addEventListener("click", async () => {
-  if (!currentRoom || !confirm(t("endConfirm"))) return;
-  const { error } = await sb.from("rooms").update({ is_live: false }).eq("id", currentRoom.id);
-  if (error) return toast(t("error") + error.message);
-  leaveRoom();
-});
-
-window.addEventListener("pagehide", () => { try { lk?.disconnect(); } catch {} });
-
-/* ---------- PWA ---------- */
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
-</script>
+<script src="i18n.js"></script>
+<script src="topics.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

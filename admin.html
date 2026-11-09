@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talk Together — Admin</title>
+<meta name="theme-color" content="#6d4aff">
+<meta name="robots" content="noindex">
+<link rel="icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f5fb;--card:#fff;--ink:#17142b;--muted:#6e6888;--line:#ebe8f5;--brand:#6d4aff;--soft:#efeaff;--danger:#ef4444;--ok:#16a34a}
+@media (prefers-color-scheme: dark){:root{--bg:#0f0d1a;--card:#1a1729;--ink:#f3f1ff;--muted:#a49fbe;--line:#2a2541;--brand:#8b72ff;--soft:#262043}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Arabic",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:820px;margin:0 auto;padding:20px 16px 60px}
+h1{margin:0 0 4px} .muted{color:var(--muted)}
+.tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+.tabs button,.btn{border:0;border-radius:12px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;background:var(--soft);color:var(--brand)}
+.tabs button.on{background:var(--brand);color:#fff}
+.btn.danger{background:var(--danger);color:#fff} .btn.ok{background:var(--ok);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:10px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.tag{background:var(--soft);color:var(--brand);border-radius:999px;padding:2px 10px;font-size:.8rem;font-weight:700}
+.empty{text-align:center;padding:30px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛡️ پانێڵی بەڕێوەبەر</h1>
+  <div class="muted">Talk Together — ڕاپۆرت، بلۆکی هەمیشەیی، داخستنی ژوور</div>
+  <div class="tabs">
+    <button class="on" data-t="open">🚩 ڕاپۆرتە کراوەکان</button>
+    <button data-t="resolved">✅ چارەسەرکراو</button>
+    <button data-t="banned">⛔ بلۆککراوەکان</button>
+    <button data-t="rooms">🎙️ ژوورە کراوەکان</button>
+  </div>
+  <div id="box"><div class="empty">…</div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = "https://vjuqtzhefxpiqsmasfkb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_hs16UKvg16dApnabYQM9Cw_l2S-_XAU";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const REASONS = { spam: "سپام", harassment: "هەراسان", inappropriate: "ناوەڕۆکی نەشیاو", underage: "کەمتر لە ١٣ ساڵ", other: "تر" };
+let tab = "open";
+
+document.querySelector(".tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-t]"); if (!b) return;
+  tab = b.dataset.t;
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  load();
+});
+
+async function start() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("#box").innerHTML = `<div class="empty">سەرەتا ئەپەکە لەم وێبگەڕەدا بکەرەوە و بچۆ ژوورەوە.</div>`; return; }
+  const { data: isAdmin } = await sb.rpc("is_admin");
+  if (!isAdmin) {
+    $("#box").innerHTML = `<div class="card">⛔ تۆ بەڕێوەبەر نیت.<br><span class="muted">ID ـەکەت: <code>${esc(session.user.id)}</code></span></div>`;
+    return;
+  }
+  load();
+}
+
+async function names(ids) {
+  const list = [...new Set(ids.filter(Boolean))];
+  if (!list.length) return {};
+  const { data } = await sb.from("profiles").select("id,name,banned").in("id", list);
+  return Object.fromEntries((data || []).map((p) => [p.id, p]));
+}
+
+async function load() {
+  const box = $("#box");
+  box.innerHTML = `<div class="empty">…</div>`;
+  if (tab === "open" || tab === "resolved") {
+    const { data, error } = await sb.from("reports").select("*").eq("status", tab).order("created_at", { ascending: false }).limit(100);
+    if (error) { box.innerHTML = `<div class="card">${esc(error.message)}</div>`; return; }
+    const ppl = await names((data || []).flatMap((r) => [r.reporter, r.reported_user]));
+    box.innerHTML = (data || []).map((r) => {
+      const who = ppl[r.reported_user];
+      return `<div class="card">
+        <div><span class="tag">${esc(REASONS[r.reason] || r.reason)}</span> <span class="muted">${new Date(r.created_at).toLocaleString()}</span></div>
+        <div style="margin-top:6px">👤 ڕاپۆرت لەسەر: <b>${esc(who?.name || (r.reported_user ? r.reported_user.slice(0, 8) : "—"))}</b> ${who?.banned ? "⛔" : ""}</div>
+        ${r.room_id ? `<div>🎙️ ژوور: <code>${esc(r.room_id.slice(0, 8))}</code></div>` : ""}
+        <div class="muted">ڕاپۆرتدەر: ${esc(ppl[r.reporter]?.name || "—")}</div>
+        ${r.details ? `<div style="margin-top:6px">💬 ${esc(r.details)}</div>` : ""}
+        <div class="row">
+          ${r.reported_user ? (who?.banned
+            ? `<button class="btn" data-unban="${esc(r.reported_user)}">لابردنی بلۆک</button>`
+            : `<button class="btn danger" data-ban="${esc(r.reported_user)}">⛔ بلۆکی هەمیشەیی</button>`) : ""}
+          ${r.room_id ? `<button class="btn" data-close="${esc(r.room_id)}">داخستنی ژوور</button>` : ""}
+          ${tab === "open" ? `<button class="btn ok" data-resolve="${r.id}">✅ چارەسەر کرا</button>` : ""}
+        </div></div>`;
+    }).join("") || `<div class="empty">هیچ ڕاپۆرتێک نییە 🎉</div>`;
+  }
+  if (tab === "banned") {
+    const { data } = await sb.from("profiles").select("id,name,created_at").eq("banned", true).limit(200);
+    box.innerHTML = (data || []).map((p) => `<div class="card"><b>${esc(p.name)}</b> <span class="muted">${esc(p.id.slice(0, 8))}</span>
+      <div class="row"><button class="btn" data-unban="${esc(p.id)}">لابردنی بلۆک</button></div></div>`).join("") || `<div class="empty">کەس بلۆک نەکراوە</div>`;
+  }
+  if (tab === "rooms") {
+    const { data } = await sb.from("rooms").select("*").eq("is_live", true).order("created_at", { ascending: false }).limit(100);
+    box.innerHTML = (data || []).map((r) => `<div class="card"><b dir="auto">${esc(r.title)}</b> ${r.is_private ? "🔒" : ""}
+      <div class="muted">👑 ${esc(r.host_name)} · ${esc(r.language)} · ${new Date(r.created_at).toLocaleString()}</div>
+      <div class="row"><button class="btn" data-close="${esc(r.id)}">داخستنی ژوور</button><button class="btn danger" data-ban="${esc(r.host_id)}">⛔ بلۆکی خاوەن</button></div></div>`).join("")
+      || `<div class="empty">هیچ ژوورێکی کراوە نییە</div>`;
+  }
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-ban],[data-unban],[data-close],[data-resolve]");
+  if (!b) return;
+  let res;
+  if (b.dataset.ban) { if (!confirm("ئەم بەکارهێنەرە بە هەمیشەیی بلۆک بکرێت؟ ژوورەکانیشی دادەخرێن.")) return; res = await sb.rpc("admin_set_ban", { p_user: b.dataset.ban, p_banned: true }); }
+  if (b.dataset.unban) res = await sb.rpc("admin_set_ban", { p_user: b.dataset.unban, p_banned: false });
+  if (b.dataset.close) res = await sb.rpc("admin_close_room", { p_room: b.dataset.close });
+  if (b.dataset.resolve) res = await sb.from("reports").update({ status: "resolved" }).eq("id", Number(b.dataset.resolve));
+  if (res?.error) alert(res.error.message);
+  load();
+});
+
+start();
+</script>
+</body>
+</html>

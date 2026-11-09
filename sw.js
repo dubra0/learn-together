@@ -1,6 +1,6 @@
 // Simple service worker: keeps the app shell available, never caches Supabase / LiveKit traffic.
-const CACHE = "talk-together-v2";
-const SHELL = ["./", "index.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
+const CACHE = "talk-together-v3";
+const SHELL = ["./", "index.html", "app.js", "i18n.js", "topics.js", "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -14,9 +14,10 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+// network first, so new versions show up right away; cache only as offline fallback
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== location.origin) return; // only our own files
+  if (e.request.method !== "GET" || url.origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
@@ -24,6 +25,6 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy));
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match("index.html"))),
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match("index.html"))),
   );
 });

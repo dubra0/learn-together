@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talk Together — Privacy & Terms</title>
+<meta name="theme-color" content="#6d4aff">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{--bg:#f6f5fb;--card:#fff;--ink:#17142b;--muted:#6e6888;--line:#ebe8f5;--brand:#6d4aff}
+@media (prefers-color-scheme: dark){:root{--bg:#0f0d1a;--card:#1a1729;--ink:#f3f1ff;--muted:#a49fbe;--line:#2a2541;--brand:#8b72ff}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.65}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 60px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+header img{width:48px;height:48px;border-radius:14px}
+h1{margin:0;font-size:1.6rem} h2{margin-top:28px;font-size:1.15rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin:16px 0}
+.muted{color:var(--muted)} a{color:var(--brand)}
+li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="icons/icon-192.png" alt=""><div><h1>Talk Together</h1><div class="muted">Privacy Policy &amp; Terms of Use · Last updated: 9 November 2026</div></div></header>
+
+  <div class="card">
+    <h2 id="privacy">1. Privacy Policy</h2>
+    <p>Talk Together ("the app") lets people practice languages in live voice rooms. This policy explains what we collect and why.</p>
+    <h3>What we collect</h3>
+    <ul>
+      <li><b>Account:</b> a random account ID created when you start, and the display name you choose.</li>
+      <li><b>Profile (optional):</b> profile photo, country, languages, level and a short bio that you add yourself.</li>
+      <li><b>Activity:</b> rooms you create, people you follow or block, words you save, and practice statistics (minutes, points, streak).</li>
+      <li><b>Reports:</b> if you report someone, we store the report and the reason you give.</li>
+    </ul>
+    <h3>Voice and chat</h3>
+    <ul>
+      <li>Voice in rooms is transmitted live and is <b>not recorded or stored</b> by us.</li>
+      <li>Chat messages in rooms are sent live to people in the room and are <b>not stored</b> on our servers.</li>
+      <li>Everything you say or write in a room can be heard or seen by everyone in that room.</li>
+    </ul>
+    <h3>Services we use</h3>
+    <ul>
+      <li><b>Supabase</b> — account, profiles and room list storage.</li>
+      <li><b>LiveKit</b> — real-time voice delivery.</li>
+      <li><b>Google Translate</b> — only if you tap "Translate"; the text opens in Google Translate.</li>
+    </ul>
+    <p>We do not sell your data and we do not show ads based on your data.</p>
+    <h3>Children</h3>
+    <p>The app is for people aged <b>13 and older</b>. If we learn that a user is under 13, the account will be removed.</p>
+    <h3 id="delete">Deleting your account</h3>
+    <p>In the app open <b>Me → Delete account</b>. This permanently deletes your account, profile, photo, rooms, follows and saved words.
+      You can also ask us to delete your data by email (see Contact).</p>
+  </div>
+
+  <div class="card">
+    <h2 id="terms">2. Terms of Use</h2>
+    <ul>
+      <li>You must be 13 years or older to use the app.</li>
+      <li>Be respectful. Harassment, hate speech, sexual content, threats, spam and sharing other people's private information are not allowed.</li>
+      <li>Hosts can move people to listeners or remove them from a room. Moderators can block accounts that break these rules.</li>
+      <li>Use <b>Report</b> on a profile or room to tell us about a problem. Use <b>Block</b> to stop hearing and seeing someone.</li>
+      <li>The app is provided "as is" without guarantees. We may change or stop features at any time.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2 id="contact">3. Contact</h2>
+    <p>Questions or data requests: <b id="contact-email">[contact email]</b></p>
+  </div>
+</div>
+</body>
+</html>
