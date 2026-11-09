@@ -407,3 +407,32 @@ const I18N_V3 = {
   },
 };
 for (const [l, o] of Object.entries(I18N_V3)) Object.assign(I18N[l], o);
+
+/* ---------- v4 strings: stage, invites, replies ---------- */
+const I18N_V4 = {
+  en: { stageFull: "The stage is full (8 seats).", inviteToStage: "Invite to stage", inviteBtn: "Invite", invitedYou: "{name} invited you to speak on stage", accept: "Accept", decline: "Decline",
+    inviteSent: "Invitation sent ✉️", inviteDeclined: "{name} declined the invitation", reply: "Reply", replyingTo: "Replying to {name}", othersCount: "Others",
+    listeningCount: "🎧 {n} listening", joined: "{name} joined the room 👋", leaveEndConfirm: "You are the host. If you leave, the room ends for everyone. Leave?" },
+  ar: { stageFull: "المنصة ممتلئة (8 مقاعد).", inviteToStage: "دعوة إلى المنصة", inviteBtn: "دعوة", invitedYou: "{name} يدعوك للتحدث على المنصة", accept: "قبول", decline: "رفض",
+    inviteSent: "تم إرسال الدعوة ✉️", inviteDeclined: "{name} رفض الدعوة", reply: "رد", replyingTo: "رد على {name}", othersCount: "آخرون",
+    listeningCount: "🎧 {n} يستمعون", joined: "انضم {name} إلى الغرفة 👋", leaveEndConfirm: "أنت المضيف. إذا غادرت ستنتهي الغرفة للجميع. هل تغادر؟" },
+  ckb: { stageFull: "شانۆکە پڕە (٨ کورسی).", inviteToStage: "بانگهێشت بۆ سەر شانۆ", inviteBtn: "بانگهێشت", invitedYou: "{name} بانگهێشتت دەکات بۆ قسەکردن لەسەر شانۆ", accept: "قبوڵکردن", decline: "ڕەتکردنەوە",
+    inviteSent: "بانگهێشتەکە نێردرا ✉️", inviteDeclined: "{name} بانگهێشتەکەی ڕەت کردەوە", reply: "وەڵامدانەوە", replyingTo: "وەڵام بۆ {name}", othersCount: "ئەوانی تر",
+    listeningCount: "🎧 {n} گوێ دەگرن", joined: "{name} هاتە ناو ژوورەکە 👋", leaveEndConfirm: "تۆ خاوەنی ژووریت. ئەگەر دەربچیت، ژوورەکە بۆ هەمووان دادەخرێت. دەردەچیت؟" },
+  tr: { stageFull: "Sahne dolu (8 koltuk).", inviteToStage: "Sahneye davet et", inviteBtn: "Davet et", invitedYou: "{name} seni sahnede konuşmaya davet ediyor", accept: "Kabul et", decline: "Reddet",
+    inviteSent: "Davet gönderildi ✉️", inviteDeclined: "{name} daveti reddetti", reply: "Yanıtla", replyingTo: "{name} kişisine yanıt", othersCount: "Diğerleri",
+    listeningCount: "🎧 {n} dinliyor", joined: "{name} odaya katıldı 👋", leaveEndConfirm: "Oda sahibisin. Ayrılırsan oda herkes için kapanır. Ayrılmak istiyor musun?" },
+  fa: { stageFull: "صحنه پر است (۸ صندلی).", inviteToStage: "دعوت به صحنه", inviteBtn: "دعوت", invitedYou: "{name} شما را برای صحبت روی صحنه دعوت می‌کند", accept: "پذیرفتن", decline: "رد کردن",
+    inviteSent: "دعوت فرستاده شد ✉️", inviteDeclined: "{name} دعوت را رد کرد", reply: "پاسخ", replyingTo: "پاسخ به {name}", othersCount: "دیگران",
+    listeningCount: "🎧 {n} نفر گوش می‌دهند", joined: "{name} به اتاق آمد 👋", leaveEndConfirm: "شما میزبان هستید. اگر بروید اتاق برای همه بسته می‌شود. خارج می‌شوید؟" },
+  de: { stageFull: "Die Bühne ist voll (8 Plätze).", inviteToStage: "Auf die Bühne einladen", inviteBtn: "Einladen", invitedYou: "{name} lädt dich ein, auf der Bühne zu sprechen", accept: "Annehmen", decline: "Ablehnen",
+    inviteSent: "Einladung gesendet ✉️", inviteDeclined: "{name} hat die Einladung abgelehnt", reply: "Antworten", replyingTo: "Antwort an {name}", othersCount: "Weitere",
+    listeningCount: "🎧 {n} hören zu", joined: "{name} ist dem Raum beigetreten 👋", leaveEndConfirm: "Du bist der Host. Wenn du gehst, endet der Raum für alle. Verlassen?" },
+  fr: { stageFull: "La scène est pleine (8 places).", inviteToStage: "Inviter sur scène", inviteBtn: "Inviter", invitedYou: "{name} t'invite à parler sur scène", accept: "Accepter", decline: "Refuser",
+    inviteSent: "Invitation envoyée ✉️", inviteDeclined: "{name} a refusé l'invitation", reply: "Répondre", replyingTo: "Réponse à {name}", othersCount: "Autres",
+    listeningCount: "🎧 {n} écoutent", joined: "{name} a rejoint le salon 👋", leaveEndConfirm: "Tu es l'hôte. Si tu pars, le salon se ferme pour tout le monde. Partir ?" },
+  es: { stageFull: "El escenario está lleno (8 asientos).", inviteToStage: "Invitar al escenario", inviteBtn: "Invitar", invitedYou: "{name} te invita a hablar en el escenario", accept: "Aceptar", decline: "Rechazar",
+    inviteSent: "Invitación enviada ✉️", inviteDeclined: "{name} rechazó la invitación", reply: "Responder", replyingTo: "Respondiendo a {name}", othersCount: "Otros",
+    listeningCount: "🎧 {n} escuchando", joined: "{name} entró en la sala 👋", leaveEndConfirm: "Eres el anfitrión. Si sales, la sala termina para todos. ¿Salir?" },
+};
+for (const [l, o] of Object.entries(I18N_V4)) Object.assign(I18N[l], o);

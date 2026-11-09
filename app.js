@@ -330,7 +330,9 @@ async function loadRooms() {
   const now = Date.now(), H12 = 12 * 3600e3, D7 = 7 * 24 * 3600e3;
   const rows = (data || []).filter((r) => !blocked.has(r.host_id));
   const startOf = (r) => (r.starts_at ? new Date(r.starts_at).getTime() : new Date(r.created_at).getTime());
-  const live = rows.filter((r) => startOf(r) <= now && now - startOf(r) < H12);
+  // a live room must have heard from its host recently (rooms from before update 3 have no last_seen)
+  const alive = (r) => !("last_seen" in r) || now - new Date(r.last_seen).getTime() < 150e3;
+  const live = rows.filter((r) => startOf(r) <= now && now - startOf(r) < H12 && alive(r));
   const upcoming = rows.filter((r) => startOf(r) > now && startOf(r) - now < D7).sort((a, b) => startOf(a) - startOf(b));
   $("#live-list").innerHTML = live.length ? live.map(roomCard).join("")
     : `<div class="empty"><span class="big">🎧</span>${t("noRooms")}</div>`;
@@ -368,7 +370,10 @@ function roomCard(r) {
 }
 async function startScheduled(r) {
   if (!r) return;
-  const { data, error } = await sb.from("rooms").update({ starts_at: new Date().toISOString() }).eq("id", r.id).select().single();
+  const nowIso = new Date().toISOString();
+  const patch = { starts_at: nowIso };
+  if ("last_seen" in r) patch.last_seen = nowIso;
+  const { data, error } = await sb.from("rooms").update(patch).eq("id", r.id).select().single();
   if (error) return toast(t("error") + error.message);
   joinRoom(data);
 }
@@ -383,10 +388,14 @@ function subscribeRooms() {
       if (currentRoom && row && row.id === currentRoom.id && row.is_live === false && row.host_id !== me.id) {
         toast(t("roomEnded")); leaveRoom(); return;
       }
-      if (!$("#screen-main").hidden && currentTab === "rooms") loadRooms();
+      if (!$("#screen-main").hidden && currentTab === "rooms") reloadRoomsSoon();
     })
     .subscribe();
+  // drop rooms whose host disappeared, even when nothing else changes
+  setInterval(() => { if (!$("#screen-main").hidden && currentTab === "rooms") loadRooms(); }, 45000);
 }
+let reloadTimer = null;
+function reloadRoomsSoon() { clearTimeout(reloadTimer); reloadTimer = setTimeout(loadRooms, 1500); }
 
 /* ---------------- Create room ---------------- */
 let createType = "public", createWhen = "now";
@@ -676,7 +685,11 @@ async function openProfile(id, participant) {
   if (!isMe) {
     actions += `<button class="btn ${following.has(id) ? "ghost" : ""}" id="sh-follow">${esc(following.has(id) ? t("unfollow") : t("follow"))}</button>`;
     if (hostHere) {
-      actions += `<button class="btn ghost" id="sh-speaker">${esc(speaker ? t("toListener") : t("allow"))}</button>`;
+      if (speaker) actions += `<button class="btn ghost" id="sh-speaker">${esc(t("toListener"))}</button>`;
+      else {
+        actions += `<button class="btn ghost" id="sh-invite">🎙️ ${esc(t("inviteToStage"))}</button>`;
+        if (handUp(participant)) actions += `<button class="btn ghost" id="sh-speaker">${esc(t("allow"))}</button>`;
+      }
       actions += `<button class="btn danger-ghost" id="sh-kick">🚪 ${esc(t("removeFromRoom"))}</button>`;
     }
     actions += `<button class="btn line" id="sh-report">🚩 ${esc(t("report"))}</button>`;
@@ -696,6 +709,7 @@ async function openProfile(id, participant) {
   $("#sh-block")?.addEventListener("click", () => toggleBlock(id).then(() => closeSheet()));
   $("#sh-report")?.addEventListener("click", () => openReport({ userId: id }));
   $("#sh-speaker")?.addEventListener("click", async () => { closeSheet(); await setSpeaker(id, !speaker); });
+  $("#sh-invite")?.addEventListener("click", async () => { closeSheet(); await inviteToStage(id); });
   $("#sh-kick")?.addEventListener("click", async () => {
     if (!confirm(t("removeConfirm", { name: p.name }))) return;
     closeSheet(); await hostAction({ action: "kick", identity: id });
@@ -739,36 +753,45 @@ function openReport({ userId, roomId }) {
 }
 
 /* =====================================================================
-   Voice room (LiveKit)
+   Voice room (LiveKit) — stage with seats, audience, chat with replies
    ===================================================================== */
+const MAX_STAGE = 8;               // seats on stage, host included
+let replyTo = null, heartbeatTimer = null, accessToken = null;
+const pendingInvites = new Set();  // people the host invited to the stage
+const enc = (o) => new TextEncoder().encode(JSON.stringify(o));
+
 function amHost() { return !!(currentRoom && me && currentRoom.host_id === me.id); }
 function isSpeaker(p) { return !!p && (p.identity === currentRoom?.host_id || !!p.permissions?.canPublish); }
 function handUp(p) { return p?.attributes?.hand === "1"; }
-function hostParticipant() {
-  if (!lk || !currentRoom) return null;
-  if (lk.localParticipant.identity === currentRoom.host_id) return lk.localParticipant;
-  return [...lk.remoteParticipants.values()].find((p) => p.identity === currentRoom.host_id) || null;
-}
+function allParticipants() { return lk ? [lk.localParticipant, ...lk.remoteParticipants.values()] : []; }
+function stageCount() { return allParticipants().filter(isSpeaker).length; }
+function findParticipant(id) { return !lk ? null : id === lk.localParticipant.identity ? lk.localParticipant : lk.remoteParticipants.get(id); }
+function hostParticipant() { return currentRoom ? findParticipant(currentRoom.host_id) : null; }
+
 function setRoomHeader(row) {
   $("#room-title-view").textContent = row.title;
-  $("#room-tags").innerHTML = `<span class="tag live">LIVE</span><span class="tag">${esc(LANGS[row.language] || row.language)}</span><span class="tag blue">${esc(levelLabel(row.level))}</span>${row.is_private ? `<span class="tag">${esc(t("privateTag"))}</span>` : ""}`;
+  $("#room-tags").innerHTML = `<span class="tg live">LIVE</span><span class="tg">${esc(LANGS[row.language] || row.language)}</span>
+    <span class="tg lv">${esc(LEVEL_CODES[row.level] || "")}</span>${row.is_private ? `<span class="tg">🔒</span>` : ""}`;
+  const f = $("#room-follow");
+  f.hidden = !me || row.host_id === me.id;
+  if (!f.hidden) { const on = following.has(row.host_id); f.textContent = on ? t("unfollow") : t("follow"); f.classList.toggle("on", on); }
 }
+$("#room-follow").addEventListener("click", async () => { if (!currentRoom) return; await toggleFollow(currentRoom.host_id); setRoomHeader(currentRoom); });
 
 async function joinRoom(row, code) {
   if (!row || lk) return;
   if (profile?.banned) return toast(t("e_banned"));
   currentRoom = row; currentCode = code || row.join_code || null;
+  replyTo = null; $("#reply-bar").hidden = true; pendingInvites.clear();
   setRoomHeader(row);
   $("#room-status").textContent = t("connecting");
-  $("#people-speakers").innerHTML = ""; $("#people-listeners").innerHTML = "";
-  $("#topic-box").innerHTML = ""; $("#topic-btn").hidden = true;
-  $("#chat-list").innerHTML = `<div class="muted small" id="chat-empty">${esc(t("noMessages"))}</div>`;
-  $("#mic-btn").disabled = true; $("#mic-btn").textContent = t("micOff");
-  $("#mic-btn").hidden = false; $("#hand-btn").hidden = true;
-  $("#end-btn").hidden = row.host_id !== me.id;
+  $("#seats").innerHTML = ""; $("#audience").innerHTML = ""; $("#topic-box").innerHTML = ""; $("#chat-list").innerHTML = "";
+  $("#mic-btn").disabled = true; $("#mic-btn").hidden = true; $("#hand-btn").hidden = true; $("#topic-btn").hidden = true;
   show("screen-room");
 
   try {
+    const { data: { session } } = await sb.auth.getSession();
+    accessToken = session?.access_token || null;
     const { data, error } = await sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId: row.id, code: currentCode } });
     if (error) {
       let code2 = "";
@@ -788,8 +811,8 @@ async function joinRoom(row, code) {
         renderPeople();
       })
       .on(E.TrackUnsubscribed, (track) => { track.detach().forEach((el) => el.remove()); renderPeople(); })
-      .on(E.ParticipantConnected, renderPeople)
-      .on(E.ParticipantDisconnected, renderPeople)
+      .on(E.ParticipantConnected, (p) => { if (!blocked.has(p.identity)) addSystem(t("joined", { name: p.name || t("guest") })); renderPeople(); })
+      .on(E.ParticipantDisconnected, (p) => { pendingInvites.delete(p.identity); renderPeople(); })
       .on(E.ActiveSpeakersChanged, renderPeople)
       .on(E.TrackMuted, renderPeople)
       .on(E.TrackUnmuted, renderPeople)
@@ -813,8 +836,16 @@ async function joinRoom(row, code) {
       .on(E.DataReceived, (payload, p, _kind, topic) => {
         if (!p) return;
         let msg; try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
-        if (topic === "chat" && msg?.type === "chat" && typeof msg.text === "string") addChat(p, msg.text.slice(0, 300));
-        if (topic === "control" && msg?.type === "end" && p.identity === currentRoom?.host_id) { toast(t("roomEnded")); leaveRoom(); }
+        if (topic === "chat" && msg?.type === "chat" && typeof msg.text === "string") addChat(p, msg.text.slice(0, 300), cleanReply(msg.reply));
+        if (topic !== "control" || !msg) return;
+        const fromHost = p.identity === currentRoom?.host_id;
+        if (msg.type === "end" && fromHost) { toast(t("roomEnded")); leaveRoom(); }
+        if (msg.type === "invite" && fromHost) showInvite(p);
+        if (msg.type === "invite_accept" && amHost() && pendingInvites.has(p.identity)) {
+          pendingInvites.delete(p.identity);
+          if (stageCount() >= MAX_STAGE) toast(t("stageFull")); else setSpeaker(p.identity, true);
+        }
+        if (msg.type === "invite_decline" && amHost()) { pendingInvites.delete(p.identity); toast(t("inviteDeclined", { name: p.name || t("guest") })); }
       })
       .on(E.Disconnected, (reason) => {
         if (lk !== room) return;
@@ -823,13 +854,13 @@ async function joinRoom(row, code) {
       });
 
     await room.connect(data.url, data.token);
-    $("#room-status").textContent = t("connected");
     try { await room.startAudio(); } catch {}
     if (room.localParticipant.permissions?.canPublish) {
       try { await room.localParticipant.setMicrophoneEnabled(true); } catch (err) { console.warn(err); toast(t("micDenied")); }
     }
     $("#mic-btn").disabled = false;
-    $("#topic-btn").hidden = !amHost();
+    addSystem(t("connected"));
+    if (amHost()) startHeartbeat();
     applyBlockToRoom(); updateAudioUnlock(); renderPeople(); renderTopic();
     startPractice();
   } catch (err) {
@@ -839,6 +870,14 @@ async function joinRoom(row, code) {
   }
 }
 
+/* the host's app tells the server every 30 s that the room is still alive */
+function startHeartbeat() {
+  clearInterval(heartbeatTimer);
+  const beat = () => { if (currentRoom && amHost()) sb.from("rooms").update({ last_seen: new Date().toISOString() }).eq("id", currentRoom.id).then(() => {}); };
+  beat();
+  heartbeatTimer = setInterval(beat, 30000);
+}
+
 function applyBlockToRoom() {
   if (!lk) return;
   lk.remoteParticipants.forEach((p) => p.setVolume?.(blocked.has(p.identity) ? 0 : 1));
@@ -846,48 +885,83 @@ function applyBlockToRoom() {
 function updateAudioUnlock() { $("#audio-unlock").hidden = !lk || lk.canPlaybackAudio; }
 $("#audio-unlock").addEventListener("click", async () => { try { await lk?.startAudio(); } catch {} updateAudioUnlock(); });
 
-function personHtml(p) {
-  const name = p.name || t("guest");
-  const isHost = p.identity === currentRoom.host_id;
-  const isMe = p === lk.localParticipant;
-  const speaker = isSpeaker(p);
-  const meta = partMeta(p);
-  const badge = speaker ? (!p.isMicrophoneEnabled ? "🔇" : isHost ? "👑" : "") : "";
-  const speaking = speaker && p.isSpeaking && p.isMicrophoneEnabled;
-  const quick = amHost() && !isMe && !isHost && !speaker && handUp(p)
-    ? `<span class="btn sm" data-allow="${esc(p.identity)}" style="min-height:28px;padding:2px 10px;font-size:.75rem">${esc(t("allow"))}</span>` : "";
-  return `<button type="button" class="person ${speaking ? "speaking" : ""}" data-pid="${esc(p.identity)}" ${blocked.has(p.identity) ? 'style="opacity:.4"' : ""}>
-    <span class="face">${avHtml(name, meta.avatar, "md")}${badge ? `<span class="badge">${badge}</span>` : ""}${!speaker && handUp(p) ? `<span class="hand">✋</span>` : ""}</span>
-    <span class="pname" dir="auto">${esc(name)} ${flag(meta.country)}${isMe ? " " + esc(t("you")) : ""}</span>${quick}</button>`;
+/* ---------- stage + audience ---------- */
+const SEAT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>`;
+function seatHtml(p, i) {
+  if (!p) return `<button type="button" class="seat empty" data-seat="${i}"><span class="ring2">${i === 0 ? "👑" : SEAT_SVG}</span><span class="nm">${i + 1}</span></button>`;
+  const name = p.name || t("guest"), meta = partMeta(p);
+  const isHost = p.identity === currentRoom.host_id, isMe = p === lk.localParticipant;
+  const speaking = p.isSpeaking && p.isMicrophoneEnabled;
+  return `<button type="button" class="seat ${speaking ? "speaking" : ""}" data-pid="${esc(p.identity)}" ${blocked.has(p.identity) ? 'style="opacity:.4"' : ""}>
+    <span class="ring2">${avHtml(name, meta.avatar, "md")}${!p.isMicrophoneEnabled ? '<span class="muted-ic">🔇</span>' : ""}
+      ${meta.country ? `<span class="flag-b">${flag(meta.country)}</span>` : ""}${isHost ? '<span class="host-b">👑</span>' : ""}</span>
+    <span class="nm" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</span></button>`;
 }
+function audHtml(p) {
+  const name = p.name || t("guest"), meta = partMeta(p);
+  return `<button type="button" class="aud" data-pid="${esc(p.identity)}" ${blocked.has(p.identity) ? 'style="opacity:.4"' : ""}>
+    ${avHtml(name, meta.avatar, "sm")}${handUp(p) ? '<span class="hand">✋</span>' : ""}${meta.country ? `<span class="fl">${flag(meta.country)}</span>` : ""}
+    <span class="nm" dir="auto">${esc(name)}</span></button>`;
+}
+const AUD_SHOW = 12;
+function listenersSorted() { return allParticipants().filter((p) => !isSpeaker(p)).sort((a, b) => handUp(b) - handUp(a)); }
 function renderPeople() {
   if (!lk || !currentRoom) return;
-  const all = [lk.localParticipant, ...lk.remoteParticipants.values()];
-  const speakers = all.filter(isSpeaker);
-  const listeners = all.filter((p) => !isSpeaker(p)).sort((a, b) => handUp(b) - handUp(a));
-  $("#people-speakers").innerHTML = speakers.map(personHtml).join("");
-  $("#people-listeners").innerHTML = listeners.map(personHtml).join("");
-  $("#listeners-title").hidden = listeners.length === 0;
-  $("#room-status").textContent = t("people", { n: all.length });
-  const local = lk.localParticipant, canSpeak = isSpeaker(local);
-  $("#mic-btn").hidden = !canSpeak; $("#hand-btn").hidden = canSpeak;
-  const micOn = local.isMicrophoneEnabled;
-  $("#mic-btn").textContent = micOn ? t("micOn") : t("micOff");
-  $("#mic-btn").classList.toggle("ghost", !micOn);
-  $("#hand-btn").textContent = handUp(local) ? t("lowerHand") : t("raiseHand");
-  $("#hand-btn").classList.toggle("ghost", handUp(local));
-}
-document.addEventListener("click", (e) => {
-  const allow = e.target.closest("[data-allow]");
-  if (allow && lk) { e.stopPropagation(); setSpeaker(allow.dataset.allow, true); return; }
-  const person = e.target.closest("[data-pid]");
-  if (person && lk) {
-    const id = person.dataset.pid;
-    const p = id === lk.localParticipant.identity ? lk.localParticipant : lk.remoteParticipants.get(id);
-    openProfile(id, p);
-  }
-}, true);
+  const all = allParticipants();
+  const host = all.find((p) => p.identity === currentRoom.host_id) || null;
+  const stage = [host, ...all.filter((p) => isSpeaker(p) && p !== host)].slice(0, MAX_STAGE);
+  while (stage.length < MAX_STAGE) stage.push(null);
+  $("#seats").innerHTML = stage.map(seatHtml).join("");
+  const listeners = listenersSorted();
+  $("#audience").innerHTML = listeners.slice(0, AUD_SHOW).map(audHtml).join("") +
+    (listeners.length > AUD_SHOW ? `<button type="button" class="aud more" id="aud-more"><span class="av">+${listeners.length - AUD_SHOW}</span><span class="nm">${esc(t("othersCount"))}</span></button>` : "");
+  $("#audience").hidden = !listeners.length;
+  $("#room-status").textContent = t("people", { n: all.length }) + (listeners.length ? ` · ${t("listeningCount", { n: listeners.length })}` : "");
 
+  const local = lk.localParticipant, canSpeak = isSpeaker(local), micOn = local.isMicrophoneEnabled;
+  $("#mic-btn").hidden = !canSpeak; $("#hand-btn").hidden = canSpeak; $("#topic-btn").hidden = !amHost();
+  $("#mic-btn").textContent = micOn ? "🎙️" : "🔇";
+  $("#mic-btn").classList.toggle("on", micOn); $("#mic-btn").classList.toggle("off", !micOn);
+  $("#mic-btn").title = micOn ? t("micOn") : t("micOff");
+  $("#hand-btn").classList.toggle("on", handUp(local));
+  $("#hand-btn").title = handUp(local) ? t("lowerHand") : t("raiseHand");
+}
+
+/* taps inside the room */
+document.addEventListener("click", (e) => {
+  if (!lk || $("#screen-room").hidden) return;
+  const seat = e.target.closest("[data-seat]");
+  if (seat) { onEmptySeat(); return; }
+  if (e.target.closest("#aud-more")) { openAudienceSheet(); return; }
+  const inv = e.target.closest("[data-invite]");
+  if (inv) { closeSheet(); inviteToStage(inv.dataset.invite); return; }
+  const person = e.target.closest("[data-pid]");
+  if (person) { closeSheet(); openProfile(person.dataset.pid, findParticipant(person.dataset.pid)); }
+});
+function onEmptySeat() {
+  const local = lk.localParticipant;
+  if (amHost()) return openInvitePicker();
+  if (!isSpeaker(local) && !handUp(local)) $("#hand-btn").click();
+}
+function openInvitePicker() {
+  const list = listenersSorted();
+  openSheet(`<h1>🎙️ ${esc(t("inviteToStage"))}</h1>` + (list.length ? list.map((p) => {
+    const name = p.name || t("guest"), meta = partMeta(p);
+    return `<div class="row-item" style="cursor:default">${avHtml(name, meta.avatar, "sm")}
+      <div class="info"><div class="name" dir="auto">${esc(name)} ${flag(meta.country)} ${handUp(p) ? "✋" : ""}</div></div>
+      <button type="button" class="btn sm" data-invite="${esc(p.identity)}">${esc(t("inviteBtn"))}</button></div>`;
+  }).join("") : `<div class="empty">—</div>`));
+}
+function openAudienceSheet() {
+  const list = listenersSorted();
+  openSheet(`<h1>🎧 ${esc(t("listeners"))} (${list.length})</h1>` + list.map((p) => {
+    const name = p.name || t("guest"), meta = partMeta(p);
+    return `<div class="row-item" data-pid="${esc(p.identity)}">${avHtml(name, meta.avatar, "sm")}
+      <div class="info"><div class="name" dir="auto">${esc(name)} ${flag(meta.country)} ${handUp(p) ? "✋" : ""}</div></div></div>`;
+  }).join(""));
+}
+
+/* ---------- host actions ---------- */
 async function hostAction(body) {
   const { error } = await sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId: currentRoom.id, code: currentCode, ...body } });
   if (error) {
@@ -895,8 +969,31 @@ async function hostAction(body) {
     toast(t("error") + errText(code, error.message));
   }
 }
-const setSpeaker = (identity, allow) => hostAction({ action: "set_speaker", identity, allow });
+async function setSpeaker(identity, allow) {
+  if (allow && stageCount() >= MAX_STAGE) return toast(t("stageFull"));
+  await hostAction({ action: "set_speaker", identity, allow });
+}
+async function sendControl(obj, identities) {
+  if (!lk) return;
+  try { await lk.localParticipant.publishData(enc(obj), { reliable: true, topic: "control", destinationIdentities: identities }); }
+  catch (err) { toast(t("error") + (err?.message || err)); }
+}
+async function inviteToStage(identity) {
+  if (!amHost()) return;
+  if (stageCount() >= MAX_STAGE) return toast(t("stageFull"));
+  pendingInvites.add(identity);
+  await sendControl({ type: "invite" }, [identity]);
+  toast(t("inviteSent"));
+}
+function showInvite(hostP) {
+  const name = hostP.name || t("guest");
+  openSheet(`<div class="invite-card"><div class="big">🎙️</div><h1>${esc(t("invitedYou", { name }))}</h1></div>
+    <div class="actions"><button type="button" class="btn line" id="inv-no">${esc(t("decline"))}</button><button type="button" class="btn" id="inv-yes">${esc(t("accept"))}</button></div>`);
+  $("#inv-yes").addEventListener("click", () => { closeSheet(); sendControl({ type: "invite_accept" }, [hostP.identity]); });
+  $("#inv-no").addEventListener("click", () => { closeSheet(); sendControl({ type: "invite_decline" }, [hostP.identity]); });
+}
 
+/* ---------- controls ---------- */
 $("#mic-btn").addEventListener("click", async () => {
   if (!lk) return;
   const btn = $("#mic-btn"); btn.disabled = true;
@@ -914,8 +1011,7 @@ $("#hand-btn").addEventListener("click", async () => {
 
 /* topic cards (host draws, everyone sees — kept on the host's attributes) */
 function renderTopic() {
-  const h = hostParticipant();
-  const topic = h?.attributes?.topic || "";
+  const topic = hostParticipant()?.attributes?.topic || "";
   $("#topic-box").innerHTML = topic ? `<div class="topic"><div class="lbl">🃏 ${esc(t("topicTitle"))}</div><div class="txt">${esc(topic)}</div></div>` : "";
 }
 $("#topic-btn").addEventListener("click", async () => {
@@ -928,24 +1024,52 @@ $("#topic-btn").addEventListener("click", async () => {
   renderTopic();
 });
 
-/* chat */
-function addChat(p, text) {
+/* ---------- chat with replies ---------- */
+function cleanReply(r) {
+  return r && typeof r.name === "string" && typeof r.text === "string" ? { name: r.name.slice(0, 40), text: r.text.slice(0, 80) } : null;
+}
+function scrollChat() {
+  const body = $(".stage-body");
+  if (body.scrollHeight - body.scrollTop - body.clientHeight < 220) body.scrollTop = body.scrollHeight;
+}
+function trimChat() { const list = $("#chat-list"); while (list.children.length > 150) list.firstElementChild.remove(); }
+function addSystem(text) {
+  const div = document.createElement("div");
+  div.className = "smsg sys";
+  div.innerHTML = `<div class="bub">${esc(text)}</div>`;
+  $("#chat-list").appendChild(div); trimChat(); scrollChat();
+}
+function addChat(p, text, reply) {
   if (blocked.has(p.identity)) return;
-  const list = $("#chat-list");
-  $("#chat-empty")?.remove();
-  const mine = lk && p === lk.localParticipant;
+  const mine = lk && p === lk.localParticipant, isHost = p.identity === currentRoom?.host_id;
   const name = p.name || t("guest");
   const div = document.createElement("div");
-  div.className = "msg" + (mine ? " mine" : "");
-  div.innerHTML = `${avHtml(name, partMeta(p).avatar, "xs")}
-    <div class="bubble"><div class="who" dir="auto">${esc(name)}</div><div dir="auto">${esc(text)}</div></div>
-    <div class="acts"><button type="button" title="${esc(t("translate"))}" data-a="tr">🌐</button><button type="button" title="${esc(t("saveWord"))}" data-a="save">⭐</button></div>`;
-  div.querySelector('[data-a="tr"]').addEventListener("click", () => translateText(text));
-  div.querySelector('[data-a="save"]').addEventListener("click", () => saveWord(text));
-  list.appendChild(div);
-  while (list.children.length > 100) list.firstElementChild.remove();
-  list.scrollTop = list.scrollHeight;
+  div.className = `smsg ${mine ? "mine" : ""} ${isHost ? "host" : ""}`;
+  div.innerHTML = `${avHtml(name, partMeta(p).avatar, "xs")}<div class="bub">
+    ${reply ? `<div class="quote" dir="auto">↩ ${esc(reply.name)}: ${esc(reply.text)}</div>` : ""}
+    <span class="who" dir="auto">${isHost ? "👑 " : ""}${esc(name)}</span><span dir="auto">${esc(text)}</span></div>`;
+  div.querySelector(".bub").addEventListener("click", () => msgActions(name, text));
+  $("#chat-list").appendChild(div); trimChat(); scrollChat();
 }
+function msgActions(name, text) {
+  openSheet(`<div class="muted small" dir="auto" style="margin-bottom:8px"><b>${esc(name)}:</b> ${esc(text)}</div>
+    <div class="menu" style="box-shadow:none">
+      <button type="button" id="ma-reply">↩️ ${esc(t("reply"))}</button>
+      <button type="button" id="ma-tr">🌐 ${esc(t("translate"))}</button>
+      <button type="button" id="ma-save">⭐ ${esc(t("saveWord"))}</button>
+      <button type="button" id="ma-close">${esc(t("close"))}</button></div>`);
+  $("#ma-reply").addEventListener("click", () => { closeSheet(); setReply(name, text); });
+  $("#ma-tr").addEventListener("click", () => { closeSheet(); translateText(text); });
+  $("#ma-save").addEventListener("click", () => { closeSheet(); saveWord(text); });
+  $("#ma-close").addEventListener("click", closeSheet);
+}
+function setReply(name, text) {
+  replyTo = cleanReply({ name, text });
+  $("#reply-text").textContent = `↩️ ${t("replyingTo", { name })}: ${text}`;
+  $("#reply-bar").hidden = false;
+  $("#chat-input").focus();
+}
+$("#reply-cancel").addEventListener("click", () => { replyTo = null; $("#reply-bar").hidden = true; });
 let lastChatAt = 0;
 $("#chat-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -953,10 +1077,13 @@ $("#chat-form").addEventListener("submit", async (e) => {
   const text = input.value.trim().slice(0, 300);
   if (!text || !lk || Date.now() - lastChatAt < 700) return;
   lastChatAt = Date.now();
+  const msg = { type: "chat", text };
+  if (replyTo) msg.reply = replyTo;
   try {
-    await lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "chat", text })), { reliable: true, topic: "chat" });
-    addChat(lk.localParticipant, text);
-    input.value = "";
+    await lk.localParticipant.publishData(enc(msg), { reliable: true, topic: "chat" });
+    addChat(lk.localParticipant, text, replyTo);
+    input.value = ""; replyTo = null; $("#reply-bar").hidden = true;
+    $(".stage-body").scrollTop = $(".stage-body").scrollHeight;
   } catch (err) { toast(t("error") + (err?.message || err)); }
 });
 
@@ -978,35 +1105,60 @@ function startPractice() {
   }, 60000);
 }
 
-/* share / more / leave / end */
+/* ---------- share / menu / leave / end ---------- */
 $("#room-share").addEventListener("click", () => shareRoom({ ...currentRoom, join_code: currentCode || currentRoom?.join_code }));
 $("#room-more").addEventListener("click", () => {
   openSheet(`<div class="menu" style="box-shadow:none">
     <button type="button" id="rm-share">🔗 ${esc(t("share"))}</button>
-    ${amHost() ? "" : `<button type="button" id="rm-report" class="danger">🚩 ${esc(t("reportRoom"))}</button>`}
+    ${amHost() ? `<button type="button" id="rm-invite">🎙️ ${esc(t("inviteToStage"))}</button>` : ""}
+    ${amHost() ? `<button type="button" id="rm-end" class="danger">⏹ ${esc(t("endRoom"))}</button>`
+               : `<button type="button" id="rm-report" class="danger">🚩 ${esc(t("reportRoom"))}</button>`}
+    <button type="button" id="rm-leave">🚪 ${esc(t("leave"))}</button>
     <button type="button" id="rm-close">${esc(t("close"))}</button></div>`);
   $("#rm-share").addEventListener("click", () => { closeSheet(); $("#room-share").click(); });
+  $("#rm-invite")?.addEventListener("click", openInvitePicker);
+  $("#rm-end")?.addEventListener("click", () => { closeSheet(); endRoom(true); });
   $("#rm-report")?.addEventListener("click", () => openReport({ roomId: currentRoom?.id }));
+  $("#rm-leave").addEventListener("click", () => { closeSheet(); tryLeave(); });
   $("#rm-close").addEventListener("click", closeSheet);
 });
 async function leaveRoom() {
   clearInterval(practiceTimer); practiceTimer = null;
-  const room = lk; lk = null; currentRoom = null; currentCode = null;
+  clearInterval(heartbeatTimer); heartbeatTimer = null;
+  const room = lk; lk = null; currentRoom = null; currentCode = null; replyTo = null; pendingInvites.clear();
   if (room) { try { await room.disconnect(); } catch {} }
-  $("#audio-sink").innerHTML = ""; $("#chat-list").innerHTML = ""; $("#audio-unlock").hidden = true;
+  $("#audio-sink").innerHTML = ""; $("#chat-list").innerHTML = ""; $("#audio-unlock").hidden = true; $("#reply-bar").hidden = true;
   closeSheet();
   if (me && profile) goMain("rooms");
 }
-$("#leave-btn").addEventListener("click", leaveRoom);
-$("#room-back").addEventListener("click", leaveRoom);
-$("#end-btn").addEventListener("click", async () => {
-  if (!currentRoom || !confirm(t("endConfirm"))) return;
-  try { await lk?.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "end" })), { reliable: true, topic: "control" }); } catch {}
+/* when the host leaves, the room ends for everyone */
+async function endRoom(ask) {
+  if (!currentRoom) return;
+  if (ask && !confirm(t("endConfirm"))) return;
+  try { await lk?.localParticipant.publishData(enc({ type: "end" }), { reliable: true, topic: "control" }); } catch {}
   const { error } = await sb.from("rooms").update({ is_live: false }).eq("id", currentRoom.id);
-  if (error) return toast(t("error") + error.message);
+  if (error) toast(t("error") + error.message);
   leaveRoom();
+}
+function tryLeave() {
+  if (amHost()) { if (confirm(t("leaveEndConfirm"))) endRoom(false); }
+  else leaveRoom();
+}
+$("#room-back").addEventListener("click", tryLeave);
+
+window.addEventListener("pagehide", () => {
+  // host closed the page: end the room right away (keepalive lets the request finish)
+  if (currentRoom && amHost() && accessToken) {
+    try {
+      fetch(`${CONFIG.SUPABASE_URL}/rest/v1/rooms?id=eq.${encodeURIComponent(currentRoom.id)}`, {
+        method: "PATCH", keepalive: true,
+        headers: { apikey: CONFIG.SUPABASE_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ is_live: false }),
+      });
+    } catch {}
+  }
+  try { lk?.disconnect(); } catch {}
 });
-window.addEventListener("pagehide", () => { try { lk?.disconnect(); } catch {} });
 
 /* ---------- PWA ---------- */
 if ("serviceWorker" in navigator && location.protocol === "https:") {

@@ -234,6 +234,70 @@ html[dir="rtl"] .flip{transform:scaleX(-1)}
 .notice{background:#fff7e6;color:#7a4b00;border:1px solid #ffd591;border-radius:14px;padding:12px;margin:12px 0}
 code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;display:inline-block}
 @media (min-width:700px){ .people{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))} }
+
+/* ================= voice room "stage" ================= */
+.stage-screen{--st-bg1:#2b1d72;--st-bg2:#160f3d;--st-card:rgba(255,255,255,.08);--st-card2:rgba(255,255,255,.14);--st-ink:#fff;--st-muted:rgba(255,255,255,.65);
+  background:radial-gradient(120% 60% at 50% 0%,#4a35b8 0%,var(--st-bg1) 45%,var(--st-bg2) 100%);color:var(--st-ink);
+  display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+.stage-head{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 8px}
+.s-btn{width:40px;height:40px;border-radius:50%;border:0;background:var(--st-card);color:#fff;display:grid;place-items:center;cursor:pointer;flex:0 0 40px}
+.s-btn svg{width:20px;height:20px}
+.s-title{flex:1;min-width:0}
+.s-title .t{font-weight:800;font-size:1.08rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-sub{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px}
+.s-sub .tg{background:var(--st-card2);border-radius:8px;padding:1px 8px;font-size:.72rem;font-weight:700}
+.s-sub .tg.lv{background:linear-gradient(135deg,#6d4aff,#3b82f6)}
+.s-sub .tg.live{background:#ef4444}
+.s-follow{border:0;border-radius:999px;padding:7px 14px;font-weight:800;background:#8b5cf6;color:#fff;cursor:pointer;font-size:.85rem}
+.s-follow.on{background:var(--st-card2)}
+.stage-body{flex:1;overflow-y:auto;padding:6px 14px 12px;max-width:680px;width:100%;margin:0 auto}
+.seats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px;padding:8px 0 4px}
+.seat{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;color:#fff;cursor:pointer;padding:0;min-width:0}
+.seat .ring2{position:relative;width:70px;height:70px;border-radius:50%;padding:3px;transition:box-shadow .2s}
+.seat .ring2 .av{width:64px;height:64px;font-size:1.4rem;background:#5b47c9;color:#fff}
+.seat.speaking .ring2{box-shadow:0 0 0 3px #4ade80,0 0 18px 4px rgba(74,222,128,.55);animation:glow 1s infinite}
+@keyframes glow{50%{box-shadow:0 0 0 3px #4ade80,0 0 26px 8px rgba(74,222,128,.25)}}
+.seat .muted-ic{position:absolute;bottom:0;inset-inline-end:0;width:22px;height:22px;border-radius:50%;background:#ef4444;display:grid;place-items:center;font-size:.65rem;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.seat .flag-b{position:absolute;bottom:0;inset-inline-start:0;font-size:1rem;line-height:1;background:#fff;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.seat .host-b{position:absolute;top:-4px;inset-inline-end:-2px;font-size:1rem}
+.seat .nm{font-size:.8rem;font-weight:600;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty .ring2{background:var(--st-card);display:grid;place-items:center;width:70px;height:70px}
+.seat.empty .ring2 svg{width:28px;height:28px;opacity:.85}
+.seat.empty .nm{color:var(--st-muted)}
+.aud-head{display:flex;align-items:center;gap:6px;margin:14px 0 6px;color:var(--st-muted);font-size:.85rem;font-weight:700}
+.audience{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none}
+.audience::-webkit-scrollbar{display:none}
+.aud{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;width:54px;background:none;border:0;color:#fff;cursor:pointer;padding:0;position:relative}
+.aud .av{width:46px;height:46px;font-size:1rem;background:#5b47c9;color:#fff;border:2px solid rgba(255,255,255,.25)}
+.aud .nm{font-size:.7rem;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--st-muted)}
+.aud .hand{position:absolute;top:-4px;inset-inline-end:0;font-size:1rem;animation:wave 1s infinite}
+.aud .fl{position:absolute;top:30px;inset-inline-start:2px;font-size:.75rem}
+.aud.more .av{background:var(--st-card2);font-size:.8rem}
+.stage-screen .topic{margin:10px 0;background:linear-gradient(135deg,#7c3aed,#2563eb);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.s-chat{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.smsg{display:flex;gap:8px;align-items:flex-start;max-width:92%}
+.smsg .av{width:30px;height:30px;font-size:.75rem;background:#5b47c9;color:#fff;margin-top:2px}
+.smsg .bub{background:rgba(0,0,0,.28);border-radius:16px;padding:7px 12px;cursor:pointer;word-break:break-word;font-size:.92rem}
+.smsg .who{color:#c4b5fd;font-weight:700;margin-inline-end:6px}
+.smsg.host .who{color:#fcd34d}
+.smsg.mine .bub{background:rgba(139,92,246,.45)}
+.smsg .quote{border-inline-start:3px solid #a78bfa;padding-inline-start:8px;margin-bottom:4px;color:var(--st-muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.smsg.sys .bub{background:rgba(255,255,255,.1);color:var(--st-muted);font-size:.82rem;cursor:default}
+.s-bottom{padding:8px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(10,6,30,.55) 30%)}
+.s-form{display:flex;gap:8px;align-items:center;max-width:680px;margin:0 auto}
+.s-form input{flex:1;background:rgba(255,255,255,.12);border:0;border-radius:999px;color:#fff;padding:12px 16px}
+.s-form input::placeholder{color:rgba(255,255,255,.55)}
+.s-round{width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:1.15rem;display:grid;place-items:center;cursor:pointer;flex:0 0 44px}
+.s-round svg{width:20px;height:20px}
+.s-round.on{background:#22c55e}
+.s-round.off{background:rgba(239,68,68,.85)}
+.s-round.send{background:linear-gradient(135deg,#8b5cf6,#3b82f6)}
+.s-round:disabled{opacity:.45}
+.reply-bar{display:flex;align-items:center;gap:8px;max-width:680px;margin:0 auto 6px;background:rgba(255,255,255,.1);border-radius:12px;padding:6px 10px;font-size:.82rem;color:var(--st-muted)}
+.reply-bar span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reply-bar button{background:none;border:0;color:#fff;cursor:pointer}
+.invite-card{text-align:center;padding:10px 0}
+.invite-card .big{font-size:3rem}
 </style>
 </head>
 <body>
@@ -391,37 +455,34 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
 </section>
 
 <!-- ============ Voice room ============ -->
-<section id="screen-room" class="screen" hidden>
-  <header class="appbar">
-    <button class="icon-btn" type="button" id="room-back" aria-label="leave"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-    <div class="title" id="room-title-view" dir="auto"></div>
-    <button class="icon-btn" type="button" id="room-share" aria-label="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button>
-    <button class="icon-btn" type="button" id="room-more" aria-label="more"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
-  </header>
-  <div class="wrap" style="padding-bottom:calc(110px + env(safe-area-inset-bottom))">
-    <div class="rc-tags" id="room-tags"></div>
-    <p class="muted small" id="room-status" style="margin:8px 0 0"></p>
-    <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio" style="margin-top:12px"></button>
-    <div id="topic-box"></div>
-    <button class="btn ghost sm" id="topic-btn" type="button" hidden data-i18n="topicNew"></button>
-    <div class="group-title" data-i18n="speakers"></div>
-    <div class="people" id="people-speakers"></div>
-    <div class="group-title" id="listeners-title" data-i18n="listeners"></div>
-    <div class="people" id="people-listeners"></div>
-    <div class="card" style="margin-top:22px">
-      <div class="group-title" style="margin:0" data-i18n="chat"></div>
-      <div class="chat-list" id="chat-list"></div>
-      <form class="chat-form" id="chat-form">
-        <input id="chat-input" maxlength="300" autocomplete="off" dir="auto" data-i18n-ph="chatPh">
-        <button class="btn" type="submit" data-i18n="send"></button>
-      </form>
+<section id="screen-room" class="screen stage-screen" hidden>
+  <header class="stage-head">
+    <button class="s-btn" type="button" id="room-back" aria-label="leave"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="s-title">
+      <div class="t" id="room-title-view" dir="auto"></div>
+      <div class="s-sub" id="room-tags"></div>
     </div>
+    <button class="s-follow" type="button" id="room-follow" hidden></button>
+    <button class="s-btn" type="button" id="room-share" aria-label="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+    <button class="s-btn" type="button" id="room-more" aria-label="more"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+  </header>
+  <div class="stage-body">
+    <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio" style="margin-bottom:12px"></button>
+    <div class="seats" id="seats"></div>
+    <div class="aud-head"><span id="room-status"></span></div>
+    <div class="audience" id="audience"></div>
+    <div id="topic-box"></div>
+    <div class="s-chat" id="chat-list"></div>
   </div>
-  <div class="controls">
-    <button class="btn" id="mic-btn" type="button" disabled></button>
-    <button class="btn" id="hand-btn" type="button" hidden></button>
-    <button class="btn line" id="leave-btn" type="button" data-i18n="leave"></button>
-    <button class="btn danger" id="end-btn" type="button" hidden data-i18n="endRoom"></button>
+  <div class="s-bottom">
+    <div class="reply-bar" id="reply-bar" hidden><span id="reply-text" dir="auto"></span><button type="button" id="reply-cancel" aria-label="cancel">✕</button></div>
+    <form class="s-form" id="chat-form">
+      <input id="chat-input" maxlength="300" autocomplete="off" dir="auto" data-i18n-ph="chatPh">
+      <button class="s-round" id="topic-btn" type="button" hidden title="topic">🃏</button>
+      <button class="s-round" id="hand-btn" type="button" hidden title="hand">✋</button>
+      <button class="s-round" id="mic-btn" type="button" disabled title="mic">🎙️</button>
+      <button class="s-round send" type="submit" aria-label="send"><svg class="flip" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6l.1 6.5L15 12 3.5 13.9z"/></svg></button>
+    </form>
   </div>
 </section>
 
