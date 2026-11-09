@@ -317,6 +317,8 @@ $("#tabbar").addEventListener("click", (e) => {
 function renderTab() {
   document.querySelectorAll("#tabbar [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === currentTab));
   ["rooms", "feed", "partners", "ranking", "me"].forEach((k) => ($("#tab-" + k).hidden = k !== currentTab));
+  $("#screen-main").classList.toggle("feed-mode", currentTab === "feed");
+  $("#tab-feed").classList.toggle("reels", currentTab === "feed");
   $("#new-room-btn").hidden = currentTab !== "rooms";
   $("#new-post-btn").hidden = currentTab !== "feed";
   if (currentTab === "rooms") renderRoomsTab();
@@ -370,7 +372,7 @@ async function loadRooms() {
   $("#upcoming-list").innerHTML = upcoming.map(roomCard).join("");
   const all = [...live, ...upcoming];
   document.querySelectorAll("#tab-rooms [data-join]").forEach((b) =>
-    b.addEventListener("click", () => joinRoom(all.find((r) => r.id === b.dataset.join))));
+    b.addEventListener("click", () => { liveMode = false; joinRoom(all.find((r) => r.id === b.dataset.join)); }));
   document.querySelectorAll("#tab-rooms [data-start]").forEach((b) =>
     b.addEventListener("click", () => startScheduled(all.find((r) => r.id === b.dataset.start))));
   document.querySelectorAll("#tab-rooms [data-share]").forEach((b) =>
@@ -1273,6 +1275,7 @@ async function joinRoom(row, code) {
     if (amHost()) startHeartbeat();
     applyBlockToRoom(); updateAudioUnlock(); renderPeople(); renderTopic();
     startPractice();
+    showLiveHint();
   } catch (err) {
     console.error(err);
     const msg = err?.message || String(err);
@@ -1879,7 +1882,7 @@ $("#room-more").addEventListener("click", () => {
   $("#rm-leave").addEventListener("click", () => { closeSheet(); tryLeave(); });
   $("#rm-close").addEventListener("click", closeSheet);
 });
-async function leaveRoom() {
+async function leaveRoom(stay) {
   clearInterval(practiceTimer); practiceTimer = null;
   clearInterval(heartbeatTimer); heartbeatTimer = null;
   stopBattleState();
@@ -1891,7 +1894,10 @@ async function leaveRoom() {
   if (room) { try { await room.disconnect(); } catch {} }
   $("#audio-sink").innerHTML = ""; $("#chat-list").innerHTML = ""; $("#audio-unlock").hidden = true; $("#reply-bar").hidden = true;
   closeSheet();
-  if (me && profile) goMain("rooms");
+  if (stay) return; // switching to the next live: don't go back to the lists
+  const fromLive = liveMode;
+  liveMode = false;
+  if (me && profile) goMain(fromLive ? "feed" : "rooms");
 }
 /* when the host leaves, the room ends for everyone */
 async function endRoom(ask) {
@@ -2115,33 +2121,171 @@ async function sendVoice(blob, mime, secs) {
 let feedKind = "all";
 const likedSet = new Set(), feedCache = new Map();
 
+/* full-screen vertical feed: one post per screen, swipe up for the next one */
+let feedLast = null, feedLoading = false, feedDone = false;
 async function renderFeedTab() {
   const box = $("#tab-feed");
-  box.innerHTML = `<div class="seg-tabs" id="feed-seg">
-      <button type="button" data-k="all">${esc(t("forYou"))}</button>
-      <button type="button" data-k="following">${esc(t("followingFeed"))}</button></div>
-    <div id="feed-list"><div class="empty">…</div></div>`;
-  box.querySelectorAll("#feed-seg [data-k]").forEach((b) => {
-    b.classList.toggle("on", b.dataset.k === feedKind);
-    b.addEventListener("click", () => { feedKind = b.dataset.k; renderFeedTab(); });
-  });
+  box.innerHTML = `<div class="feed-top">
+      <button type="button" class="tab live" data-k="live">LIVE</button>
+      <button type="button" class="tab ${feedKind === "following" ? "on" : ""}" data-k="following">${esc(t("followingFeed"))}</button>
+      <button type="button" class="tab ${feedKind === "all" ? "on" : ""}" data-k="all">${esc(t("forYou"))}</button>
+      <button type="button" class="plus" id="feed-new" aria-label="post">＋</button>
+    </div>
+    <div id="feed-list"><section class="reel reel-empty">…</section></div>`;
+  box.querySelectorAll(".feed-top [data-k]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.k === "live") return startLives();
+    feedKind = b.dataset.k; box.scrollTop = 0; renderFeedTab();
+  }));
+  $("#feed-new").addEventListener("click", openCompose);
+  feedLast = null; feedDone = false; feedLoading = false;
+  box.onscroll = () => { if (box.scrollTop + box.clientHeight * 2.5 > box.scrollHeight) loadMoreFeed(); };
+  await loadMoreFeed(true);
+}
+async function loadMoreFeed(first) {
+  if (feedLoading || feedDone) return;
+  feedLoading = true;
   const kind = feedKind;
-  let q = sb.from("posts").select("*").order("created_at", { ascending: false }).limit(50);
-  if (kind === "following") {
-    const ids = [...following];
-    if (!ids.length) { $("#feed-list").innerHTML = `<div class="empty"><span class="big">👥</span>${esc(t("noFollowingPosts"))}</div>`; return; }
-    q = q.in("user_id", ids.slice(0, 200));
+  try {
+    let q = sb.from("posts").select("*").order("created_at", { ascending: false }).limit(15);
+    if (feedLast) q = q.lt("created_at", feedLast);
+    if (kind === "following") {
+      const ids = [...following];
+      if (!ids.length) { $("#feed-list").innerHTML = `<section class="reel reel-empty"><div><div style="font-size:3rem">👥</div>${esc(t("noFollowingPosts"))}</div></section>`; feedDone = true; return; }
+      q = q.in("user_id", ids.slice(0, 200));
+    }
+    const { data, error } = await q;
+    if (kind !== feedKind || !$("#feed-list")) return;
+    if (error) { if (first) $("#feed-list").innerHTML = `<section class="reel reel-empty">${esc(t("loadFail"))}</section>`; return; }
+    const posts = (data || []).filter((p) => !blocked.has(p.user_id));
+    if ((data || []).length < 15) feedDone = true;
+    if (data && data.length) feedLast = data[data.length - 1].created_at;
+    await hydratePosts(posts);
+    if (kind !== feedKind || !$("#feed-list")) return;
+    if (first) $("#feed-list").innerHTML = "";
+    if (first && !posts.length) {
+      $("#feed-list").innerHTML = `<section class="reel reel-empty"><div><div style="font-size:3rem">📝</div>${esc(t("noPosts"))}<br><br>
+        <button type="button" class="btn" id="feed-first">＋ ${esc(t("newPost"))}</button></div></section>`;
+      $("#feed-first")?.addEventListener("click", openCompose);
+      return;
+    }
+    const tmp = document.createElement("div");
+    tmp.innerHTML = posts.map(reelHtml).join("");
+    wireReels(tmp);
+    [...tmp.children].forEach((el) => $("#feed-list").appendChild(el));
+  } finally { feedLoading = false; }
+}
+function reelHtml(post) {
+  const u = profileCache.get(post.user_id) || { name: t("guest") };
+  const img = post.image_url && safeAvatar(post.image_url) ? post.image_url : "";
+  const canFollow = post.user_id !== me.id && !following.has(post.user_id);
+  return `<section class="reel ${img ? "" : "tg" + (post.id % 6)}" data-post="${post.id}">
+    ${img ? `<div class="reel-bg" style="background-image:url('${esc(img)}')"></div><img class="reel-img" src="${esc(img)}" alt="" loading="lazy">`
+          : `<div class="reel-text" dir="auto">${esc(post.body || "")}</div>`}
+    <div class="reel-shade"></div>
+    <div class="reel-rail">
+      <div class="rail-av" data-person="${esc(post.user_id)}">${avHtml(u.name, u.avatar_url, "sm")}
+        ${canFollow ? `<button type="button" class="plus" data-rfollow="${esc(post.user_id)}" aria-label="follow">+</button>` : ""}</div>
+      <button type="button" class="rail-btn ${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
+      <button type="button" class="rail-btn" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
+      ${post.body ? `<button type="button" class="rail-btn" data-ptr="${post.id}"><span>🌐</span><span>${esc(t("translate"))}</span></button>` : ""}
+      <button type="button" class="rail-btn" data-pshare="${post.id}"><span>↪️</span><span>${esc(t("share"))}</span></button>
+      <button type="button" class="rail-btn" data-pmore="${post.id}"><span>⋯</span><span></span></button>
+    </div>
+    <div class="reel-info">
+      <div class="nm" data-person="${esc(post.user_id)}" dir="auto">@${esc(u.name)} ${flag(u.country)} ${lvHtml(u.xp)}</div>
+      <div class="tm">${esc(shortTime(post.created_at))}</div>
+      ${img && post.body ? `<div class="cap" dir="auto">${esc(post.body)}</div>` : ""}
+    </div>
+  </section>`;
+}
+function wireReels(root) {
+  root.querySelectorAll("[data-like]").forEach((b) => b.addEventListener("click", () => toggleLike(Number(b.dataset.like))));
+  root.querySelectorAll("[data-cm]").forEach((b) => b.addEventListener("click", () => openComments(Number(b.dataset.cm))));
+  root.querySelectorAll("[data-ptr]").forEach((b) => b.addEventListener("click", () => translateText(feedCache.get(Number(b.dataset.ptr))?.body || "")));
+  root.querySelectorAll("[data-pmore]").forEach((b) => b.addEventListener("click", () => postMenu(Number(b.dataset.pmore))));
+  root.querySelectorAll("[data-pshare]").forEach((b) => b.addEventListener("click", () => sharePost(Number(b.dataset.pshare))));
+  root.querySelectorAll("[data-rfollow]").forEach((b) => b.addEventListener("click", async (e) => {
+    e.stopPropagation(); b.remove();
+    const id = b.dataset.rfollow;
+    await toggleFollow(id);
+    document.querySelectorAll(`[data-rfollow="${CSS.escape(id)}"]`).forEach((x) => x.remove());
+  }));
+  root.querySelectorAll(".reel [data-person]").forEach((el) => el.addEventListener("click", (e) => { if (!e.target.closest("[data-rfollow]")) openProfile(el.dataset.person); }));
+  // double-tap anywhere to like
+  root.querySelectorAll(".reel[data-post]").forEach((el) => {
+    let last = 0;
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("button, .reel-rail, .reel-info")) return;
+      const now = Date.now();
+      if (now - last < 330) { last = 0; likeWithHeart(Number(el.dataset.post), el); } else last = now;
+    });
+  });
+}
+async function sharePost(id) {
+  const post = feedCache.get(id); if (!post) return;
+  const url = location.href.split("?")[0].split("#")[0];
+  const text = `${t("sharePostText")}${post.body ? `: “${post.body.slice(0, 120)}”` : ""}`;
+  if (navigator.share) { try { await navigator.share({ title: "Talk Together", text, url }); return; } catch (e) { if (e?.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(`${text}\n${url}`); toast(t("linkCopied")); } catch { prompt(t("share"), url); }
+}
+
+/* ---- LIVE: open camera lives one after another, swipe up/down to switch ---- */
+let liveQueue = [], liveIdx = -1, liveMode = false, liveHintShown = false;
+async function startLives() {
+  const box = $("#feed-list");
+  if (box) box.innerHTML = `<section class="reel reel-empty">…</section>`;
+  const { data } = await sb.from("rooms").select("*").eq("is_live", true).eq("video", true).eq("is_private", false)
+    .neq("host_id", me.id).order("created_at", { ascending: false }).limit(40);
+  const now = Date.now();
+  liveQueue = (data || []).filter((r) => !blocked.has(r.host_id)
+    && (!("last_seen" in r) || now - new Date(r.last_seen).getTime() < 90e3)
+    && (!r.starts_at || new Date(r.starts_at).getTime() <= now));
+  if (!liveQueue.length) {
+    if ($("#feed-list")) {
+      $("#feed-list").innerHTML = `<section class="reel reel-empty"><div><div style="font-size:3rem">📹</div>${esc(t("noLives"))}<br><br>
+        <button type="button" class="btn" id="go-live">🔴 ${esc(t("startLive"))}</button></div></section>`;
+      $("#go-live").addEventListener("click", () => {
+        currentTab = "rooms"; renderTab(); $("#new-room-btn").click();
+        setSeg("#room-media", (createMedia = "video"));
+      });
+    }
+    return;
   }
-  const { data, error } = await q;
-  if (kind !== feedKind || !$("#feed-list")) return;
-  if (error) { $("#feed-list").innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
-  const posts = (data || []).filter((p) => !blocked.has(p.user_id));
-  await hydratePosts(posts);
-  if (kind !== feedKind || !$("#feed-list")) return;
-  $("#feed-list").innerHTML = posts.length ? posts.map(postHtml).join("")
-    : `<div class="empty"><span class="big">📝</span>${esc(t("noPosts"))}<br><br><button type="button" class="btn sm" id="feed-first">＋ ${esc(t("newPost"))}</button></div>`;
-  $("#feed-first")?.addEventListener("click", openCompose);
-  wirePosts($("#feed-list"));
+  liveMode = true; liveIdx = 0;
+  joinRoom(liveQueue[0]);
+}
+async function switchLive(dir) {
+  if (!liveMode || !liveQueue.length || !lk || switchingLive) return;
+  const next = liveIdx + dir;
+  if (next < 0 || next >= liveQueue.length) return toast(t("noMoreLives"));
+  switchingLive = true;
+  liveIdx = next;
+  try { await leaveRoom(true); await joinRoom(liveQueue[next]); }
+  finally { switchingLive = false; }
+}
+let switchingLive = false, wheelAt = 0;
+(() => {
+  const el = $("#screen-room");
+  let y0 = null, t0 = 0;
+  const skip = (e) => e.target.closest(".s-bottom, .stage-head, #sheet, .s-chat, button, input, #video-viewer");
+  el.addEventListener("touchstart", (e) => { if (!liveMode || skip(e)) { y0 = null; return; } y0 = e.touches[0].clientY; t0 = Date.now(); }, { passive: true });
+  el.addEventListener("touchend", (e) => {
+    if (y0 === null) return;
+    const dy = e.changedTouches[0].clientY - y0; y0 = null;
+    if (Date.now() - t0 < 700 && Math.abs(dy) > 70) switchLive(dy < 0 ? 1 : -1);
+  }, { passive: true });
+  el.addEventListener("wheel", (e) => {
+    if (!liveMode || Math.abs(e.deltaY) < 40 || Date.now() - wheelAt < 1200 || skip(e)) return;
+    wheelAt = Date.now(); switchLive(e.deltaY > 0 ? 1 : -1);
+  }, { passive: true });
+})();
+function showLiveHint() {
+  if (!liveMode || liveHintShown || liveQueue.length < 2) return;
+  liveHintShown = true;
+  const h = document.createElement("div");
+  h.className = "live-hint"; h.textContent = "⌃ " + t("swipeHint");
+  $("#screen-room").appendChild(h);
+  setTimeout(() => h.remove(), 3100);
 }
 async function hydratePosts(posts) {
   const uids = [...new Set(posts.map((p) => p.user_id))].filter((id) => !profileCache.has(id));

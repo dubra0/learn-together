@@ -668,3 +668,16 @@ const I18N_V12 = {
     g_rose: "Rosa", g_heart: "Corazón", g_choco: "Chocolate", g_star: "Estrella", g_crown: "Corona", g_rocket: "Cohete", g_castle: "Castillo", g_lion: "León" },
 };
 for (const [l, o] of Object.entries(I18N_V12)) Object.assign(I18N[l], o);
+
+/* ---------- v13 strings: full-screen feed and LIVE ---------- */
+const I18N_V13 = {
+  en: { noLives: "No one is live right now.", startLive: "Go live", swipeHint: "Swipe up for the next live", noMoreLives: "No more lives right now", sharePostText: "Look at this post on Talk Together" },
+  ar: { noLives: "لا يوجد أحد في بث مباشر الآن.", startLive: "ابدأ بثاً", swipeHint: "اسحب للأعلى للبث التالي", noMoreLives: "لا توجد بثوث أخرى الآن", sharePostText: "شاهد هذا المنشور على Talk Together" },
+  ckb: { noLives: "ئێستا کەس Live ـی نییە.", startLive: "Live بکەرەوە", swipeHint: "بۆ Live ی دواتر بۆ سەرەوە ڕایبکێشە", noMoreLives: "ئێستا Live ی تر نییە", sharePostText: "سەیری ئەم پۆستە بکە لە Talk Together" },
+  tr: { noLives: "Şu an kimse canlı yayında değil.", startLive: "Canlı yayın aç", swipeHint: "Sonraki canlı için yukarı kaydır", noMoreLives: "Şu an başka canlı yok", sharePostText: "Talk Together'daki bu gönderiye bak" },
+  fa: { noLives: "اکنون کسی لایو نیست.", startLive: "لایو شروع کن", swipeHint: "برای لایو بعدی به بالا بکشید", noMoreLives: "فعلاً لایو دیگری نیست", sharePostText: "این پست را در Talk Together ببین" },
+  de: { noLives: "Gerade ist niemand live.", startLive: "Live gehen", swipeHint: "Nach oben wischen für das nächste Live", noMoreLives: "Gerade keine weiteren Lives", sharePostText: "Schau dir diesen Beitrag auf Talk Together an" },
+  fr: { noLives: "Personne n'est en direct pour l'instant.", startLive: "Lancer un live", swipeHint: "Glisse vers le haut pour le live suivant", noMoreLives: "Pas d'autres lives pour l'instant", sharePostText: "Regarde cette publication sur Talk Together" },
+  es: { noLives: "Nadie está en directo ahora.", startLive: "Hacer directo", swipeHint: "Desliza hacia arriba para el siguiente directo", noMoreLives: "No hay más directos ahora", sharePostText: "Mira esta publicación en Talk Together" },
+};
+for (const [l, o] of Object.entries(I18N_V13)) Object.assign(I18N[l], o);
