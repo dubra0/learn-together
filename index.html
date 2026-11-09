@@ -395,6 +395,31 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
 .seat.has-video .ring2{box-shadow:0 0 0 2px rgba(255,255,255,.5)}
 .seat.has-video.speaking .ring2{box-shadow:0 0 0 3px #4ade80,0 0 18px 4px rgba(74,222,128,.55)}
 .s-round.cam-on{background:#3b82f6}
+/* camera room = full-screen live: videos fill the screen, everything else floats on top */
+.stage-screen.video-mode{position:relative;background:#000}
+#video-grid{position:absolute;inset:0;z-index:0;display:grid;gap:2px;background:#000;grid-template-columns:1fr;grid-template-rows:1fr}
+#video-grid[data-n="2"]{grid-template-rows:1fr 1fr}
+#video-grid[data-n="3"],#video-grid[data-n="4"]{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+#video-grid[data-n="5"],#video-grid[data-n="6"]{grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr)}
+#video-grid[data-n="7"],#video-grid[data-n="8"]{grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr)}
+.vtile{position:relative;overflow:hidden;background:radial-gradient(circle at 50% 40%,#3b2a8f,#120c33);display:grid;place-items:center;cursor:pointer;min-height:0}
+.vtile .vslot2{position:absolute;inset:0}
+.vtile .vslot2 video{width:100%;height:100%;object-fit:cover;display:block}
+.vtile .av{width:88px;height:88px;font-size:2rem;background:#5b47c9;color:#fff;border:3px solid rgba(255,255,255,.3)}
+.vtile.speaking::after{content:"";position:absolute;inset:0;border:3px solid #4ade80;pointer-events:none;box-shadow:inset 0 0 22px rgba(74,222,128,.45)}
+.vlabel{position:absolute;bottom:8px;inset-inline-start:8px;background:rgba(0,0,0,.5);color:#fff;border-radius:999px;padding:3px 10px;font-size:.78rem;font-weight:700;
+  display:flex;gap:6px;align-items:center;max-width:calc(100% - 16px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(4px)}
+.video-mode .stage-head{position:relative;z-index:3;background:linear-gradient(180deg,rgba(0,0,0,.65),transparent)}
+.video-mode .stage-body{position:relative;z-index:2;display:flex;flex-direction:column;pointer-events:none;overflow:hidden;padding-bottom:4px}
+.video-mode .stage-body > *{pointer-events:auto}
+.video-mode #seats{display:none}
+.video-mode .aud-head{margin-top:2px;text-shadow:0 1px 4px rgba(0,0,0,.8);color:#fff}
+.video-mode .audience .av{width:38px;height:38px}
+.video-mode #topic-box{margin-top:auto}
+.video-mode .s-chat{max-height:34vh;overflow-y:auto;margin-top:auto;-webkit-mask-image:linear-gradient(180deg,transparent,#000 22%);mask-image:linear-gradient(180deg,transparent,#000 22%);padding-top:24px}
+.video-mode #topic-box ~ .s-chat{margin-top:6px}
+.video-mode .smsg .bub{background:rgba(0,0,0,.45);backdrop-filter:blur(6px)}
+.video-mode .s-bottom{position:relative;z-index:3;background:linear-gradient(180deg,transparent,rgba(0,0,0,.7) 40%)}
 #video-viewer{position:fixed;inset:0;z-index:70;background:#000;display:flex;flex-direction:column}
 #video-viewer video{flex:1;width:100%;height:100%;object-fit:contain;background:#000;min-height:0}
 .vv-top{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;color:#fff;position:absolute;inset-inline:0;top:0;z-index:2;
@@ -661,6 +686,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
 
 <!-- ============ Voice room ============ -->
 <section id="screen-room" class="screen stage-screen" hidden>
+  <div id="video-grid" hidden></div>
   <header class="stage-head">
     <button class="s-btn" type="button" id="room-back" aria-label="leave"><svg class="flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     <div class="s-title">

@@ -1202,13 +1202,20 @@ async function joinRoom(row, code) {
       .on(E.ParticipantPermissionsChanged, async (prev, p) => {
         const canSpeak = !!room.localParticipant.permissions?.canPublish;
         if (p === room.localParticipant && prev && !!prev.canPublish !== canSpeak) {
-          if (canSpeak) { toast(t("youCanSpeak")); try { await room.localParticipant.setMicrophoneEnabled(true); } catch { toast(t("micDenied")); } }
+          if (canSpeak) {
+            toast(t("youCanSpeak"));
+            try { await room.localParticipant.setMicrophoneEnabled(true); } catch { toast(t("micDenied")); }
+            if (currentRoom?.video) { try { await room.localParticipant.setCameraEnabled(true); } catch { toast(t("cameraDenied")); } }
+          }
           else toast(t("youAreListener"));
         }
         renderPeople();
       })
       .on(E.ParticipantAttributesChanged, (changed, p) => {
-        if (amHost() && p !== room.localParticipant && changed.hand === "1") toast(t("handRaisedBy", { name: p.name || t("guest") }));
+        // the host can accept straight from the alert
+        if (amHost() && p !== room.localParticipant && changed.hand === "1") {
+          toast(t("handRaisedBy", { name: p.name || t("guest") }), t("allow"), () => setSpeaker(p.identity, true));
+        }
         if ("topic" in changed) renderTopic();
         renderPeople();
       })
@@ -1237,6 +1244,8 @@ async function joinRoom(row, code) {
     try { await room.startAudio(); } catch {}
     if (room.localParticipant.permissions?.canPublish) {
       try { await room.localParticipant.setMicrophoneEnabled(true); } catch (err) { console.warn(err); toast(t("micDenied")); }
+      // camera room: the host starts on camera
+      if (row.video) { try { await room.localParticipant.setCameraEnabled(true); } catch (err) { console.warn(err); toast(t("cameraDenied")); } }
     }
     $("#mic-btn").disabled = false;
     addSystem(t("connected"));
@@ -1281,6 +1290,15 @@ function seatHtml(p, i) {
       ${meta.country ? `<span class="flag-b">${flag(meta.country)}</span>` : ""}${isHost ? '<span class="host-b">👑</span>' : ""}</span>
     <span class="nm" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</span></button>`;
 }
+function vtileHtml(p) {
+  const name = p.name || t("guest"), meta = partMeta(p);
+  const isHost = p.identity === currentRoom.host_id, isMe = p === lk.localParticipant;
+  const hasVideo = !blocked.has(p.identity) && !!videoTrackOf(p);
+  const speaking = p.isSpeaking && p.isMicrophoneEnabled;
+  return `<div class="vtile ${speaking ? "speaking" : ""} ${hasVideo ? "has-video" : ""}" data-pid="${esc(p.identity)}">
+    ${hasVideo ? `<span class="vslot2" data-vid="${esc(p.identity)}"></span>` : avHtml(name, meta.avatar, "lg")}
+    <span class="vlabel" dir="auto">${isHost ? "👑" : ""}${esc(name)} ${flag(meta.country)}${isMe ? " " + esc(t("you")) : ""}${!p.isMicrophoneEnabled ? " 🔇" : ""}</span></div>`;
+}
 function audHtml(p) {
   const name = p.name || t("guest"), meta = partMeta(p);
   return `<button type="button" class="aud" data-pid="${esc(p.identity)}" ${blocked.has(p.identity) ? 'style="opacity:.4"' : ""}>
@@ -1295,9 +1313,21 @@ function renderPeople() {
   const host = all.find((p) => p.identity === currentRoom.host_id) || null;
   const stage = [host, ...all.filter((p) => isSpeaker(p) && p !== host)].slice(0, MAX_STAGE);
   while (stage.length < MAX_STAGE) stage.push(null);
-  $("#seats").innerHTML = stage.map(seatHtml).join("");
-  // put the (kept-alive) video elements into their seats
-  document.querySelectorAll("#seats [data-vid]").forEach((slot) => {
+  const videoMode = !!currentRoom.video;
+  $("#screen-room").classList.toggle("video-mode", videoMode);
+  $("#video-grid").hidden = !videoMode;
+  if (videoMode) {
+    // camera room: speakers fill the screen (1 = full, 2 = halves, 3–4 = squares …)
+    const tiles = stage.filter(Boolean);
+    $("#video-grid").dataset.n = String(Math.max(1, tiles.length));
+    $("#video-grid").innerHTML = tiles.map(vtileHtml).join("");
+    $("#seats").innerHTML = "";
+  } else {
+    $("#video-grid").innerHTML = "";
+    $("#seats").innerHTML = stage.map(seatHtml).join("");
+  }
+  // put the (kept-alive) video elements into their places
+  document.querySelectorAll("#screen-room [data-vid]").forEach((slot) => {
     const el = videoElFor(findParticipant(slot.dataset.vid));
     if (el) { slot.appendChild(el); el.play().catch(() => {}); }
   });
