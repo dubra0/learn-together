@@ -111,7 +111,7 @@ document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("clic
 /* ---------- state ---------- */
 let sb = null, me = null, profile = null, isAdmin = false;
 let lk = null, currentRoom = null, currentCode = null, listChannel = null, practiceTimer = null;
-let currentTab = "rooms", roomFilter = "";
+let currentTab = "feed", roomFilter = "";
 const following = new Set(), blocked = new Set(), profileCache = new Map();
 const myFollowers = new Set(); // people who follow me
 
@@ -268,7 +268,7 @@ async function enterApp() {
     });
   }
   await Promise.all([loadSocial(), checkAdmin()]);
-  goMain("rooms");
+  goMain("feed");
   subscribeRooms();
   subscribeMessages();
   refreshUnread().catch(() => {});
@@ -615,7 +615,7 @@ function profileCardHtml(p, o) {
                 : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`);
   }
   return `<div class="card pf">
-      <div class="pf-cover"></div>
+      <div class="pf-cover">${o.isMe ? `<button type="button" class="pf-gear" data-act="settings" aria-label="settings">⚙️</button>` : ""}</div>
       <div class="pf-main">
         <button type="button" ${o.isMe ? 'data-act="edit"' : ""} style="background:none;border:0;padding:0;position:relative;cursor:${o.isMe ? "pointer" : "default"}">
           <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
@@ -624,39 +624,27 @@ function profileCardHtml(p, o) {
         <div class="pf-stats">${statsHtml({ following: "…", followers: "…", likes: "…" })}</div>
         <div class="pf-actions">${actions}</div>
         ${p.bio ? `<div class="muted" dir="auto">${esc(p.bio)}</div>` : ""}
-        <div class="muted small">${esc(langsLine(p))}</div>
       </div>
     </div>
-    <div class="card">
-      <div class="seg-tabs pf-seg">
-        <button type="button" data-pk="posts">▦ ${esc(t("postsTab"))}</button>
-        <button type="button" data-pk="photos">📷 ${esc(t("photos"))}</button>
-        <button type="button" data-pk="stats">🏅 ${esc(t("badges"))}</button>
-      </div>
-      <div class="pf-content"><div class="empty">…</div></div>
-    </div>`;
+    <div class="pf-content"><div class="empty">…</div></div>`;
 }
 function tileHtml(post) {
   return `<button type="button" class="ptile" data-ptile="${post.id}">
     ${post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="" loading="lazy">` : `<div class="txt" dir="auto">${esc(post.body || "")}</div>`}
     <span class="lk">❤️ ${post.like_count || 0}</span></button>`;
 }
+/* the profile shows only posts (photos, badges and the rest live in ⚙️ Settings) */
 function renderPfContent(root) {
-  const p = root._p, isMe = root._isMe, kind = root._kind || "posts";
-  root.querySelectorAll(".pf-seg [data-pk]").forEach((b) => b.classList.toggle("on", b.dataset.pk === kind));
+  const isMe = root._isMe;
   const box = root.querySelector(".pf-content");
   if (!box) return;
-  if (kind === "posts") {
-    const posts = root._posts || [];
-    box.innerHTML = posts.length ? `<div class="pgrid">${posts.map(tileHtml).join("")}</div>`
-      : `<div class="empty"><span class="big">📝</span>${esc(t("noPosts"))}${isMe ? `<br><br><button type="button" class="btn sm" data-act="newpost">＋ ${esc(t("newPost"))}</button>` : ""}</div>`;
-  } else if (kind === "photos") box.innerHTML = galleryHtml(p, isMe);
-  else box.innerHTML = `<div class="stats3" style="margin-top:0"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>${badgesHtml(p)}`;
+  const posts = root._posts;
+  if (!posts) return;
+  box.innerHTML = posts.length ? `<div class="pgrid">${posts.map(tileHtml).join("")}</div>`
+    : `<div class="empty"><span class="big">📝</span>${esc(t("noPosts"))}${isMe ? `<br><br><button type="button" class="btn sm" data-act="newpost">＋ ${esc(t("newPost"))}</button>` : ""}</div>`;
   box.querySelectorAll("[data-ptile]").forEach((b) => b.addEventListener("click", () => {
     const post = (root._posts || []).find((x) => x.id === Number(b.dataset.ptile)); if (post) openPostSheet(post);
   }));
-  box.querySelectorAll("[data-photo]").forEach((b) => b.addEventListener("click", () => viewPhoto(p, Number(b.dataset.photo), isMe)));
-  box.querySelectorAll("[data-addphoto]").forEach((b) => b.addEventListener("click", () => pickPhoto("gallery")));
   box.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
 }
 async function loadPfExtras(root) {
@@ -677,25 +665,38 @@ async function loadPfExtras(root) {
   renderPfContent(root);
 }
 function wireProfileCard(root, p, isMe, rerender) {
-  root._p = p; root._isMe = isMe; root._kind = root._kind || "posts";
+  root._p = p; root._isMe = isMe; root._posts = null;
   root.querySelectorAll('[data-act="edit"]').forEach((b) => b.addEventListener("click", openEditProfile));
+  root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
   root.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
   root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });
   root.querySelector('[data-act="msg"]')?.addEventListener("click", () => openDm(p.id));
   root.querySelector('[data-act="msg-locked"]')?.addEventListener("click", () => toast(t("mutualOnly")));
-  root.querySelectorAll(".pf-seg [data-pk]").forEach((b) => b.addEventListener("click", () => { root._kind = b.dataset.pk; renderPfContent(root); }));
-  renderPfContent(root);
   loadPfExtras(root);
 }
 
 /* ---------------- Me tab ---------------- */
 function renderMeTab() {
   const box = $("#tab-me");
+  box.innerHTML = profileCardHtml(profile || {}, { isMe: true });
+  wireProfileCard(box, profile || {}, true, renderMeTab);
+}
+
+/* ---------------- ⚙️ Settings: everything that isn't the profile itself ---------------- */
+function openSettings() {
   const p = profile || {};
-  box.innerHTML = profileCardHtml(p, { isMe: true }) + `
+  show("screen-settings");
+  $("#settings-body").innerHTML = `
     <div class="menu">
+      <button type="button" id="me-edit">✏️ ${esc(t("editProfile"))}</button>
+      <button type="button" id="me-photos">📷 ${esc(t("photos"))}<span class="end">${(p.photos || []).length}/6</span></button>
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
+    </div>
+    <div class="card">
+      <div class="group-title" style="margin:0 0 10px">🏅 ${esc(t("badges"))}</div>
+      <div class="stats3" style="margin-top:0"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
+      ${badgesHtml(p)}
     </div>
     <div class="menu">
       <label>🌐 ${esc(t("appLanguage"))}<select id="me-lang">${uiLangOptions()}</select></label>
@@ -704,7 +705,12 @@ function renderMeTab() {
       <button type="button" id="me-id">🪪 ${esc(t("yourId"))}<span class="end">${esc(me.id.slice(0, 8))}…</span></button>
       <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>
     </div>`;
-  wireProfileCard(box, p, true, renderMeTab);
+  $("#me-edit").addEventListener("click", openEditProfile);
+  $("#me-photos").addEventListener("click", () => {
+    openSheet(`<h1>📷 ${esc(t("photos"))}</h1>${galleryHtml(profile || {}, true)}`);
+    document.querySelectorAll("#sheet [data-photo]").forEach((b) => b.addEventListener("click", () => viewPhoto(profile, Number(b.dataset.photo), true)));
+    document.querySelectorAll("#sheet [data-addphoto]").forEach((b) => b.addEventListener("click", () => { closeSheet(); pickPhoto("gallery"); }));
+  });
   $("#me-saved").addEventListener("click", openSaved);
   $("#me-inbox").addEventListener("click", openInbox);
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
@@ -1777,7 +1783,8 @@ function postHtml(post) {
     ${post.image_url && safeAvatar(post.image_url) ? `<img class="post-img" src="${esc(post.image_url)}" alt="" loading="lazy">` : ""}
     <div class="post-f">
       <button type="button" class="${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
-      ${post.body ? `<button type="button" data-ptr="${post.id}">🌐 ${esc(t("translate"))}</button>` : ""}
+      <button type="button" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
+      ${post.body ? `<button type="button" data-ptr="${post.id}" title="${esc(t("translate"))}">🌐</button>` : ""}
       <span class="grow"></span>
       <button type="button" data-pmore="${post.id}" aria-label="more">⋯</button>
     </div></article>`;
@@ -1787,11 +1794,76 @@ function wirePosts(root) {
   root.querySelectorAll("[data-ptr]").forEach((b) => b.addEventListener("click", () => translateText(feedCache.get(Number(b.dataset.ptr))?.body || "")));
   root.querySelectorAll("[data-pmore]").forEach((b) => b.addEventListener("click", () => postMenu(Number(b.dataset.pmore))));
   root.querySelectorAll(".post-h[data-person]").forEach((h) => h.addEventListener("click", () => openProfile(h.dataset.person)));
-  // double-tap a photo to like it
-  root.querySelectorAll(".post-img").forEach((img) => img.addEventListener("dblclick", () => {
-    const id = Number(img.closest("[data-post]").dataset.post);
-    if (!likedSet.has(id)) toggleLike(id);
-  }));
+  root.querySelectorAll("[data-cm]").forEach((b) => b.addEventListener("click", () => openComments(Number(b.dataset.cm))));
+  // double-tap anywhere on a post to like it (with a big heart)
+  root.querySelectorAll(".post").forEach((el) => {
+    let last = 0;
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("button, .post-h, a")) return;
+      const now = Date.now();
+      if (now - last < 330) { last = 0; likeWithHeart(Number(el.dataset.post), el); }
+      else last = now;
+    });
+  });
+}
+function likeWithHeart(id, el) {
+  const h = document.createElement("span");
+  h.className = "big-heart"; h.textContent = "❤️";
+  el.appendChild(h);
+  setTimeout(() => h.remove(), 950);
+  if (!likedSet.has(id)) toggleLike(id);
+}
+
+/* ---- comments ---- */
+async function openComments(postId) {
+  const post = feedCache.get(postId); if (!post) return;
+  openSheet(`<h1>💬 ${esc(t("comments"))} <span class="muted" id="cm-count">${post.comment_count || 0}</span></h1>
+    <div id="cm-list"><div class="empty">…</div></div>
+    <form class="cm-form" id="cm-form"><input id="cm-input" maxlength="300" autocomplete="off" dir="auto" placeholder="${esc(t("commentPh"))}">
+      <button class="btn" type="submit">${esc(t("send"))}</button></form>`);
+  $("#cm-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("#cm-input").value.trim().slice(0, 300);
+    if (!body) return;
+    $("#cm-input").value = "";
+    const { data, error } = await sb.from("post_comments").insert({ post_id: postId, body }).select().single();
+    if (error) { $("#cm-input").value = body; return toast(t("error") + error.message); }
+    $("#cm-list .empty")?.remove();
+    $("#cm-list").insertAdjacentHTML("beforeend", cmRow(data, post));
+    setCommentCount(post, (post.comment_count || 0) + 1);
+    const list = $("#sheet"); list.scrollTop = list.scrollHeight;
+  });
+  $("#cm-list").addEventListener("click", async (e) => {
+    const del = e.target.closest("[data-cmdel]");
+    if (del) {
+      if (!confirm(t("deleteComment") + "?")) return;
+      const { error } = await sb.from("post_comments").delete().eq("id", Number(del.dataset.cmdel));
+      if (error) return toast(t("error") + error.message);
+      del.closest(".cm").remove();
+      setCommentCount(post, Math.max(0, (post.comment_count || 0) - 1));
+      return;
+    }
+    const who = e.target.closest("[data-person]");
+    if (who) openProfile(who.dataset.person);
+  });
+  const { data } = await sb.from("post_comments").select("*").eq("post_id", postId).order("created_at", { ascending: true }).limit(300);
+  const rows = (data || []).filter((c) => !blocked.has(c.user_id));
+  const missing = [...new Set(rows.map((c) => c.user_id))].filter((id) => !profileCache.has(id));
+  if (missing.length) { const r = await sb.from("profiles").select(PROFILE_COLS).in("id", missing); (r.data || []).forEach((p) => profileCache.set(p.id, p)); }
+  if (!$("#cm-list")) return;
+  $("#cm-list").innerHTML = rows.length ? rows.map((c) => cmRow(c, post)).join("") : `<div class="empty">${esc(t("noComments"))}</div>`;
+}
+function cmRow(c, post) {
+  const u = c.user_id === me.id ? profile : profileCache.get(c.user_id) || { name: t("guest") };
+  const canDel = c.user_id === me.id || post.user_id === me.id || isAdmin;
+  return `<div class="cm"><span data-person="${esc(c.user_id)}" style="cursor:pointer">${avHtml(u.name, u.avatar_url, "xs")}</span>
+    <div class="cm-b"><b dir="auto" data-person="${esc(c.user_id)}">${esc(u.name)}</b> <span dir="auto">${esc(c.body)}</span>
+      <div class="tm"><span>${esc(shortTime(c.created_at))}</span>${canDel ? `<button type="button" data-cmdel="${c.id}">${esc(t("deleteComment"))}</button>` : ""}</div></div></div>`;
+}
+function setCommentCount(post, n) {
+  post.comment_count = n;
+  if ($("#cm-count")) $("#cm-count").textContent = n;
+  document.querySelectorAll(`[data-cm="${post.id}"] span:last-child`).forEach((s) => (s.textContent = n));
 }
 async function toggleLike(id) {
   const post = feedCache.get(id); if (!post) return;

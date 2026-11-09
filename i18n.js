@@ -568,3 +568,16 @@ const I18N_V8 = {
     friendsTab: "Amigos", friendsTag: "🤝 Amigos" },
 };
 for (const [l, o] of Object.entries(I18N_V8)) Object.assign(I18N[l], o);
+
+/* ---------- v9 strings: comments ---------- */
+const I18N_V9 = {
+  en: { comments: "Comments", commentPh: "Add a comment…", noComments: "No comments yet. Be the first! 💬", deleteComment: "Delete" },
+  ar: { comments: "التعليقات", commentPh: "أضف تعليقاً…", noComments: "لا توجد تعليقات بعد. كن الأول! 💬", deleteComment: "حذف" },
+  ckb: { comments: "کۆمێنتەکان", commentPh: "کۆمێنتێک بنووسە…", noComments: "هێشتا کۆمێنت نییە. یەکەم کەس تۆ بە! 💬", deleteComment: "سڕینەوە" },
+  tr: { comments: "Yorumlar", commentPh: "Yorum ekle…", noComments: "Henüz yorum yok. İlk sen ol! 💬", deleteComment: "Sil" },
+  fa: { comments: "نظرها", commentPh: "نظری بنویسید…", noComments: "هنوز نظری نیست. اولین نفر باشید! 💬", deleteComment: "حذف" },
+  de: { comments: "Kommentare", commentPh: "Kommentar schreiben…", noComments: "Noch keine Kommentare. Sei der Erste! 💬", deleteComment: "Löschen" },
+  fr: { comments: "Commentaires", commentPh: "Ajouter un commentaire…", noComments: "Pas encore de commentaires. Sois le premier ! 💬", deleteComment: "Supprimer" },
+  es: { comments: "Comentarios", commentPh: "Añade un comentario…", noComments: "Aún no hay comentarios. ¡Sé el primero! 💬", deleteComment: "Eliminar" },
+};
+for (const [l, o] of Object.entries(I18N_V9)) Object.assign(I18N[l], o);
