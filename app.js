@@ -101,6 +101,7 @@ function show(id) {
   window.scrollTo(0, 0);
 }
 function openSheet(html) {
+  $("#sheet").classList.remove("compact");
   $("#sheet-body").innerHTML = html;
   $("#sheet").hidden = false; $("#sheet-backdrop").hidden = false;
 }
@@ -1205,7 +1206,11 @@ async function joinRoom(row, code) {
       .on(E.TrackMuted, renderPeople)
       .on(E.TrackUnmuted, renderPeople)
       .on(E.LocalTrackPublished, renderPeople)
-      .on(E.LocalTrackUnpublished, renderPeople)
+      .on(E.LocalTrackUnpublished, (pub) => {
+        // moved back to listeners by the host: switch the camera light off too
+        if (pub?.source === LivekitClient.Track.Source.Camera && !cam.busy && cam.stream) stopCamHardware();
+        renderPeople();
+      })
       .on(E.ParticipantMetadataChanged, renderPeople)
       .on(E.AudioPlaybackStatusChanged, updateAudioUnlock)
       .on(E.ParticipantPermissionsChanged, async (prev, p) => {
@@ -1214,7 +1219,7 @@ async function joinRoom(row, code) {
           if (canSpeak) {
             toast(t("youCanSpeak"));
             try { await room.localParticipant.setMicrophoneEnabled(true); } catch { toast(t("micDenied")); }
-            if (currentRoom?.video) { try { await room.localParticipant.setCameraEnabled(true); } catch { toast(t("cameraDenied")); } }
+            if (currentRoom?.video) await cameraOn();
           }
           else toast(t("youAreListener"));
         }
@@ -1236,6 +1241,8 @@ async function joinRoom(row, code) {
         let msg; try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
         if (topic === "chat" && msg?.type === "chat" && typeof msg.text === "string") addChat(p, msg.text.slice(0, 300), cleanReply(msg.reply));
         if (topic === "battle" && msg?.type === "vote" && amHost()) onBattleVote(p, msg.side);
+        if (topic === "battle" && msg?.type === "gift" && amHost()) onGiftReceived(p, msg);
+        if (topic === "battle" && msg?.type === "giftshow" && p.identity === currentRoom?.host_id) showGift(msg);
         if (topic !== "control" || !msg) return;
         const fromHost = p.identity === currentRoom?.host_id;
         if (msg.type === "end" && fromHost) { toast(t("roomEnded")); leaveRoom(); }
@@ -1259,7 +1266,7 @@ async function joinRoom(row, code) {
     if (room.localParticipant.permissions?.canPublish) {
       try { await room.localParticipant.setMicrophoneEnabled(true); } catch (err) { console.warn(err); toast(t("micDenied")); }
       // camera room: the host starts on camera
-      if (row.video) { try { await room.localParticipant.setCameraEnabled(true); } catch (err) { console.warn(err); toast(t("cameraDenied")); } }
+      if (row.video) await cameraOn();
     }
     $("#mic-btn").disabled = false;
     addSystem(t("connected"));
@@ -1365,6 +1372,10 @@ function renderPeople() {
   $("#cam-btn").title = camOn ? t("camOff") : t("camOn");
   $("#flip-btn").hidden = !(currentRoom.video && canSpeak && camOn);
   $("#flip-btn").title = t("flipCam");
+  $("#filter-btn").hidden = !(currentRoom.video && canSpeak && camOn);
+  $("#filter-btn").title = t("filters");
+  $("#gift-btn").hidden = giftTargets().length === 0;
+  $("#gift-btn").title = t("gifts");
   $("#stage-down-btn").title = t("leaveStage");
   $("#mic-btn").textContent = micOn ? "🎙️" : "🔇";
   $("#mic-btn").classList.toggle("on", micOn); $("#mic-btn").classList.toggle("off", !micOn);
@@ -1426,21 +1437,226 @@ function dropVideoEl(id) {
 $("#cam-btn").addEventListener("click", async () => {
   if (!lk || !currentRoom?.video) return;
   const btn = $("#cam-btn"); btn.disabled = true;
-  const on = !lk.localParticipant.isCameraEnabled;
-  try {
-    const V = LivekitClient.VideoPresets;
-    await lk.localParticipant.setCameraEnabled(on, { resolution: V.h1080.resolution, facingMode: camFacing });
-  } catch (err) { console.warn(err); toast(t("cameraDenied")); }
+  if (lk.localParticipant.isCameraEnabled) await cameraOff(); else await cameraOn();
   btn.disabled = false; renderPeople();
 });
 $("#flip-btn").addEventListener("click", async () => {
-  const tr = lk && videoTrackOf(lk.localParticipant);
-  if (!tr) return;
+  if (!cam.raw || !lk) return;
   camFacing = camFacing === "user" ? "environment" : "user";
-  try { await tr.restartTrack({ facingMode: camFacing, resolution: LivekitClient.VideoPresets.h1080.resolution }); }
-  catch (err) { console.warn(err); toast(t("error") + (err?.message || err)); }
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: camConstraints() });
+    const newRaw = s.getVideoTracks()[0];
+    const oldStream = cam.stream;
+    cam.stream = s; cam.raw = newRaw;
+    if (cam.video) cam.video.srcObject = new MediaStream([newRaw]);       // a filter is on: the canvas just reads the new camera
+    else lk.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera)?.track?.replaceTrack(newRaw);
+    oldStream?.getTracks().forEach((tr) => tr.stop());
+  } catch (err) { console.warn(err); toast(t("error") + (err?.message || err)); }
   renderPeople();
 });
+
+/* ---------- camera with ✨ filters ----------
+   Original = the camera itself (full 1080p). With a filter, each frame is drawn on a canvas with the effect,
+   and the canvas is what everyone sees. */
+const cam = { stream: null, raw: null, video: null, canvas: null, ctx: null, small: null, raf: 0, out: null, pub: null, filterId: 0 };
+const camConstraints = () => ({ width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 }, facingMode: camFacing });
+async function cameraOn() {
+  if (!lk || cam.starting || cam.stream) return; // already on, or starting right now
+  cam.starting = true;
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: camConstraints() });
+    cam.stream = s; cam.raw = s.getVideoTracks()[0];
+    await publishCam();
+  } catch (err) { console.warn(err); toast(t("cameraDenied")); stopCamHardware(); }
+  finally { cam.starting = false; }
+}
+async function publishCam() {
+  const V = LivekitClient.VideoPresets;
+  const track = cam.filterId ? startFilterPipeline() : cam.raw;
+  cam.busy = true; // our own switch, not "the host took my camera away"
+  try {
+    // take down every camera copy we are sending before sending the new one
+    for (const p of [...lk.localParticipant.trackPublications.values()]) {
+      if (p.source === LivekitClient.Track.Source.Camera && p.track) {
+        try { await lk.localParticipant.unpublishTrack(p.track, p.track.mediaStreamTrack !== cam.raw && p.track.mediaStreamTrack !== cam.out); } catch {}
+      }
+    }
+    cam.pub = track;
+    await lk.localParticipant.publishTrack(track, {
+      source: LivekitClient.Track.Source.Camera, name: "camera",
+      simulcast: true, videoEncoding: V.h1080.encoding, videoSimulcastLayers: [V.h180, V.h540],
+    });
+  } finally { cam.busy = false; }
+  if (!cam.filterId) stopFilterPipeline();
+  renderPeople();
+}
+async function cameraOff() {
+  if (lk) {
+    cam.busy = true;
+    for (const p of [...lk.localParticipant.trackPublications.values()]) {
+      if (p.source === LivekitClient.Track.Source.Camera && p.track) { try { await lk.localParticipant.unpublishTrack(p.track, true); } catch {} }
+    }
+    cam.busy = false;
+  }
+  stopCamHardware();
+}
+function stopCamHardware() {
+  stopFilterPipeline();
+  cam.out?.stop();
+  cam.stream?.getTracks().forEach((tr) => tr.stop());
+  cam.stream = null; cam.raw = null; cam.pub = null; cam.out = null;
+}
+cam.filterId = Math.min(Math.max(Number(store.get("camFilter")) || 0, 0), 100);
+function startFilterPipeline() {
+  if (cam.out && cam.video) return cam.out;
+  cam.video = document.createElement("video");
+  cam.video.muted = true; cam.video.playsInline = true; cam.video.autoplay = true;
+  cam.video.srcObject = new MediaStream([cam.raw]);
+  cam.video.play().catch(() => {});
+  cam.canvas = document.createElement("canvas");
+  const st = cam.raw.getSettings();
+  cam.canvas.width = Math.min(st.width || 1280, 1920); cam.canvas.height = Math.min(st.height || 720, 1080);
+  cam.ctx = cam.canvas.getContext("2d");
+  cam.small = document.createElement("canvas");
+  cam.out = cam.canvas.captureStream(30).getVideoTracks()[0];
+  const loop = () => { drawFiltered(); cam.raf = requestAnimationFrame(loop); };
+  loop();
+  return cam.out;
+}
+function stopFilterPipeline() {
+  cancelAnimationFrame(cam.raf); cam.raf = 0;
+  if (cam.out && cam.out !== cam.pub) cam.out.stop();
+  if (cam.video) { cam.video.srcObject = null; }
+  cam.video = null; cam.out = cam.out === cam.pub ? cam.out : null;
+}
+function drawFiltered() {
+  const v = cam.video, c = cam.canvas, ctx = cam.ctx, f = FILTERS[cam.filterId] || FILTERS[0];
+  if (!v || v.readyState < 2) return;
+  if (v.videoWidth && (c.width !== Math.min(v.videoWidth, 1920))) { c.width = Math.min(v.videoWidth, 1920); c.height = Math.round(c.width * v.videoHeight / v.videoWidth); }
+  const w = c.width, h = c.height;
+  ctx.filter = f.css || "none";
+  ctx.drawImage(v, 0, 0, w, h);
+  ctx.filter = "none";
+  if (f.beauty) { // soft skin: blend a blurred (small, cheap) copy over the picture
+    const sm = cam.small; sm.width = Math.round(w / 6); sm.height = Math.round(h / 6);
+    sm.getContext("2d").drawImage(v, 0, 0, sm.width, sm.height);
+    ctx.globalAlpha = 0.12 + f.beauty * 0.06;
+    ctx.filter = `blur(${f.beauty}px) brightness(1.08)`;
+    ctx.drawImage(sm, 0, 0, w, h);
+    ctx.filter = "none"; ctx.globalAlpha = 1;
+  }
+  if (f.tint) { ctx.globalCompositeOperation = "soft-light"; ctx.globalAlpha = f.tintA || 0.55; ctx.fillStyle = f.tint; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; }
+  if (f.vignette) {
+    const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.7);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${f.vignette})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
+  if (f.frame) drawFrameDeco(ctx, w, h, f.frame);
+  if (f.stickers) {
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const [e, x, y, s] of f.stickers) { ctx.font = `${Math.round(s * h)}px serif`; ctx.fillText(e, x * w, y * h); }
+  }
+}
+function drawFrameDeco(ctx, w, h, frame) {
+  const b = Math.round(Math.min(w, h) * 0.035);
+  const [kind, arg] = frame.split(":");
+  ctx.save();
+  if (kind === "solid") { ctx.strokeStyle = arg; ctx.lineWidth = b * 2; ctx.strokeRect(0, 0, w, h); }
+  if (kind === "polaroid") { ctx.fillStyle = "#fafafa"; ctx.fillRect(0, 0, w, b * 1.5); ctx.fillRect(0, 0, b * 1.5, h); ctx.fillRect(w - b * 1.5, 0, b * 1.5, h); ctx.fillRect(0, h - b * 5, w, b * 5); }
+  if (kind === "rainbow") {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    ["#ef4444", "#f59e0b", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6"].forEach((col, i, a) => g.addColorStop(i / (a.length - 1), col));
+    ctx.strokeStyle = g; ctx.lineWidth = b * 2; ctx.strokeRect(0, 0, w, h);
+  }
+  if (kind === "neon") { ctx.shadowColor = arg; ctx.shadowBlur = b * 3; ctx.strokeStyle = arg; ctx.lineWidth = b; ctx.strokeRect(b, b, w - b * 2, h - b * 2); }
+  if (kind === "film") {
+    ctx.fillStyle = "#111"; ctx.fillRect(0, 0, w, b * 2.2); ctx.fillRect(0, h - b * 2.2, w, b * 2.2);
+    ctx.fillStyle = "#eee"; for (let x = b; x < w; x += b * 2.4) { ctx.fillRect(x, b * 0.6, b, b); ctx.fillRect(x, h - b * 1.6, b, b); }
+  }
+  if (kind === "tv") {
+    ctx.fillStyle = "rgba(0,0,0,.18)"; for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+    ctx.strokeStyle = "#222"; ctx.lineWidth = b * 3; ctx.strokeRect(0, 0, w, h);
+  }
+  if (kind === "corners") {
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${Math.round(h * 0.11)}px serif`;
+    [[0.08, 0.1], [0.92, 0.1], [0.08, 0.9], [0.92, 0.9]].forEach(([x, y]) => ctx.fillText(arg, x * w, y * h));
+  }
+  ctx.restore();
+}
+async function setFilter(id) {
+  const was = cam.filterId;
+  cam.filterId = id;
+  store.set("camFilter", String(id));
+  if (!lk || !cam.raw) return;
+  if (!!was !== !!id) await publishCam(); // switching between "Original" and a filter changes what is sent
+}
+
+/* 101 filters, built from a few ingredients */
+const FILTERS = (() => {
+  const L = [];
+  const add = (name, cat, o = {}) => L.push({ id: L.length, name, cat, ...o });
+  add("✨ Original", "look");
+  [["☀️ Bright", "brightness(1.15) contrast(1.05)"], ["🔥 Warm", "sepia(.25) saturate(1.3) brightness(1.05)"], ["❄️ Cool", "hue-rotate(-12deg) saturate(1.1) brightness(1.05)"],
+   ["🌈 Vivid", "saturate(1.6) contrast(1.1)"], ["☁️ Soft", "contrast(.9) brightness(1.08) saturate(.9)"], ["⚫ B&W", "grayscale(1) contrast(1.1)"],
+   ["🎬 Noir", "grayscale(1) contrast(1.45) brightness(.9)"], ["📜 Sepia", "sepia(.85)"], ["📻 Vintage", "sepia(.4) contrast(.9) saturate(.8) brightness(1.05)"],
+   ["🌸 Pink", "hue-rotate(-20deg) saturate(1.3) brightness(1.05)"], ["💜 Purple", "hue-rotate(25deg) saturate(1.2)"], ["⚡ Neon", "saturate(2) contrast(1.2) hue-rotate(10deg)"],
+   ["🌅 Sunset", "sepia(.35) saturate(1.5) hue-rotate(-15deg)"], ["🌊 Ocean", "hue-rotate(-25deg) saturate(1.3) brightness(.98)"], ["🌲 Forest", "hue-rotate(35deg) saturate(1.1) contrast(1.05)"],
+   ["🏆 Golden", "sepia(.5) saturate(1.6) brightness(1.08)"], ["🌹 Rose", "sepia(.2) hue-rotate(-30deg) saturate(1.4)"], ["🍃 Mint", "hue-rotate(60deg) saturate(.9) brightness(1.08)"],
+   ["💭 Dream", "brightness(1.12) contrast(.85) saturate(1.2) blur(.4px)"], ["📼 Retro", "sepia(.3) hue-rotate(-10deg) contrast(1.2) saturate(1.3)"], ["🎞️ Film", "contrast(1.15) saturate(.85) sepia(.15)"],
+   ["🧊 Matte", "contrast(.85) brightness(1.1) saturate(.85)"], ["🎨 Pop", "saturate(1.9) contrast(1.15) brightness(1.05)"], ["🌧️ Moody", "contrast(1.2) brightness(.85) saturate(.75)"],
+   ["🏔️ Arctic", "hue-rotate(-30deg) brightness(1.15) saturate(.8)"], ["🏜️ Desert", "sepia(.45) saturate(1.2) contrast(1.05)"], ["🍬 Candy", "saturate(1.7) hue-rotate(-8deg) brightness(1.1)"],
+   ["🌃 Night", "brightness(.8) contrast(1.25) hue-rotate(-20deg) saturate(1.2)"], ["🌫️ Fade", "contrast(.8) brightness(1.15) saturate(.7)"], ["💡 Clarity", "contrast(1.3) saturate(1.1)"],
+  ].forEach(([n, css]) => add(n, "look", { css }));
+  [1, 2, 3, 4, 5].forEach((l) => add(`💄 Beauty ${l}`, "beauty", { beauty: l, css: `brightness(${(1 + l * 0.03).toFixed(2)}) saturate(${(1 + l * 0.03).toFixed(2)})` }));
+  [["💗 Pink tint", "#ff4fa3"], ["🧡 Peach", "#ff9a6b"], ["💛 Sunny", "#ffd23f"], ["💚 Lime", "#7ee081"], ["💙 Sky", "#4fb3ff"], ["💜 Lilac", "#b28dff"],
+   ["🤎 Coffee", "#9c6b4e"], ["🩵 Aqua", "#4fe0d2"], ["❤️ Red", "#ff4040"], ["🟠 Orange", "#ff8c1a"], ["🫐 Berry", "#6b5bff"], ["🌺 Coral", "#ff6f61"],
+   ["🍑 Apricot", "#ffb07c"], ["🌌 Galaxy", "#5b2a86"], ["🤍 Cream", "#fff1d6"],
+  ].forEach(([n, tint]) => add(n, "tint", { tint }));
+  [0.3, 0.45, 0.6, 0.75, 0.9].forEach((v, i) => add(`🌑 Vignette ${i + 1}`, "tint", { vignette: v }));
+  [["🖼️ Polaroid", "polaroid"], ["🌈 Rainbow", "rainbow"], ["💜 Neon", "neon:#a855f7"], ["💙 Neon blue", "neon:#3b82f6"], ["💚 Neon green", "neon:#22c55e"],
+   ["❤️ Neon red", "neon:#ef4444"], ["🟡 Gold", "solid:#f5c542"], ["⚪ White", "solid:#ffffff"], ["⚫ Black", "solid:#000000"], ["🎞️ Film strip", "film"],
+   ["📺 Retro TV", "tv"], ["🌸 Blossom", "corners:🌸"], ["💖 Hearts", "corners:💖"], ["⭐ Stars", "corners:⭐"], ["🍀 Clover", "corners:🍀"],
+  ].forEach(([n, frame]) => add(n, "frame", { frame }));
+  [["👑 Crown", [["👑", 0.5, 0.09, 0.2]]], ["😎 Cool", [["😎", 0.86, 0.13, 0.16]]], ["🐱 Kitty", [["🐱", 0.5, 0.08, 0.17]]],
+   ["✨ Sparkles", [["✨", 0.12, 0.1, 0.11], ["✨", 0.88, 0.15, 0.1], ["✨", 0.82, 0.85, 0.09]]], ["🎉 Party", [["🎉", 0.1, 0.12, 0.14], ["🎊", 0.9, 0.12, 0.14]]],
+   ["🔥 Fire", [["🔥", 0.1, 0.87, 0.15], ["🔥", 0.9, 0.87, 0.15]]], ["👋 Hello", [["👋", 0.88, 0.85, 0.15]]], ["📚 Study", [["📚", 0.12, 0.86, 0.14]]],
+   ["🌍 World", [["🌍", 0.88, 0.12, 0.13]]], ["🎧 Music", [["🎧", 0.12, 0.12, 0.13], ["🎵", 0.88, 0.14, 0.1]]], ["🌙 Night sky", [["🌙", 0.88, 0.1, 0.13], ["⭐", 0.12, 0.15, 0.08], ["⭐", 0.3, 0.07, 0.06]]],
+   ["☁️ Clouds", [["☁️", 0.15, 0.08, 0.15], ["☁️", 0.8, 0.06, 0.13]]], ["🦋 Butterflies", [["🦋", 0.85, 0.2, 0.12], ["🦋", 0.15, 0.75, 0.1]]], ["🍕 Pizza", [["🍕", 0.88, 0.85, 0.14]]],
+   ["⚽ Football", [["⚽", 0.12, 0.86, 0.14]]], ["🏆 Champion", [["🏆", 0.88, 0.84, 0.15], ["🥇", 0.12, 0.12, 0.12]]], ["🎂 Birthday", [["🎂", 0.12, 0.86, 0.15], ["🎈", 0.9, 0.15, 0.14]]],
+   ["🐶 Puppy", [["🐶", 0.5, 0.08, 0.17]]], ["🌺 Flowers", [["🌺", 0.08, 0.1, 0.12], ["🌸", 0.92, 0.1, 0.12], ["🌼", 0.5, 0.06, 0.1]]], ["😂 LOL", [["😂", 0.86, 0.14, 0.15]]],
+  ].forEach(([n, stickers]) => add(n, "sticker", { stickers }));
+  [["💕 Love", { tint: "#ff4fa3", css: "brightness(1.08)", stickers: [["💕", 0.88, 0.12, 0.13], ["💗", 0.12, 0.85, 0.11]] }],
+   ["🌅 Golden hour", { css: "sepia(.4) saturate(1.5) brightness(1.08)", vignette: 0.4 }], ["🎬 Cinema", { css: "contrast(1.2) saturate(.9)", frame: "film" }],
+   ["🌌 Dreamy night", { tint: "#5b2a86", css: "brightness(.95) contrast(1.1)", stickers: [["⭐", 0.1, 0.1, 0.07], ["🌙", 0.9, 0.1, 0.12]] }],
+   ["🍓 Sweet", { tint: "#ff6f91", css: "saturate(1.3) brightness(1.1)", frame: "corners:🍓" }], ["🧊 Ice", { css: "hue-rotate(-30deg) brightness(1.15) saturate(.8)", frame: "neon:#7dd3fc" }],
+   ["🌻 Summer", { css: "saturate(1.4) brightness(1.1) sepia(.15)", stickers: [["🌻", 0.1, 0.12, 0.13], ["☀️", 0.88, 0.1, 0.14]] }],
+   ["🎮 Gamer", { css: "saturate(1.6) contrast(1.2)", frame: "neon:#22c55e", stickers: [["🎮", 0.88, 0.86, 0.13]] }],
+   ["📸 Classic", { css: "grayscale(1) contrast(1.2)", frame: "polaroid" }], ["🌈 Happy", { css: "saturate(1.5) brightness(1.08)", frame: "rainbow", stickers: [["😊", 0.88, 0.12, 0.13]] }],
+  ].forEach(([n, o]) => add(n, "combo", o));
+  return L;
+})();
+
+/* filter picker (a small sheet so you can still see yourself) */
+const FILTER_CATS = [["look", "🎨"], ["beauty", "💄"], ["tint", "💗"], ["frame", "🖼️"], ["sticker", "👑"], ["combo", "🎁"]];
+let filterCat = "look";
+function filterSwatch(f) {
+  const bg = f.tint || (f.frame && f.frame.includes("#") ? f.frame.split(":")[1] : null) || (f.vignette ? "#222" : f.cat === "beauty" ? "#ffd6e7" : "linear-gradient(135deg,#6d4aff,#3b82f6)");
+  return `<span class="sw" style="background:${bg};filter:${f.css || "none"}">${esc([...f.name][0])}</span>`;
+}
+function openFilters() {
+  if (!lk || !cam.raw) return toast(t("cameraFirst"));
+  const render = () => {
+    const list = FILTERS.filter((f) => f.cat === filterCat || (f.id === 0));
+    openSheet(`<div class="fl-cats">${FILTER_CATS.map(([k, ic]) => `<button type="button" class="chip ${k === filterCat ? "on" : ""}" data-fc="${k}">${ic} ${esc(t("fc_" + k))}</button>`).join("")}</div>
+      <div class="fl-grid">${list.map((f) => `<button type="button" class="fl-item ${f.id === cam.filterId ? "on" : ""}" data-fid="${f.id}">${filterSwatch(f)}<span>${esc(f.name.replace(/^\S+\s/, ""))}</span></button>`).join("")}</div>`);
+    $("#sheet").classList.add("compact");
+    document.querySelectorAll("#sheet [data-fc]").forEach((b) => b.addEventListener("click", () => { filterCat = b.dataset.fc; render(); }));
+    document.querySelectorAll("#sheet [data-fid]").forEach((b) => b.addEventListener("click", async () => { await setFilter(Number(b.dataset.fid)); render(); }));
+  };
+  render();
+}
+$("#filter-btn").addEventListener("click", openFilters);
+$("#sheet-backdrop").addEventListener("click", () => $("#sheet").classList.remove("compact"));
 
 /* full screen: attach to a big element, so the best (1080p) copy is sent */
 let viewerTrack = null, viewerId = null;
@@ -1660,6 +1876,7 @@ async function leaveRoom() {
   clearInterval(practiceTimer); practiceTimer = null;
   clearInterval(heartbeatTimer); heartbeatTimer = null;
   stopBattleState();
+  stopCamHardware();
   closeVideoViewer();
   for (const [id] of videoEls) dropVideoEl(id);
   camFacing = "user";
@@ -2118,7 +2335,7 @@ $("#compose-form").addEventListener("submit", async (e) => {
    ⚔️ Live battle: two lives face each other for 3 minutes, viewers tap to give points
    The host of the room keeps the score and shares it through their LiveKit attributes.
    ===================================================================== */
-const BATTLE_MS = 3 * 60 * 1000;
+const BATTLE_MS = 4 * 60 * 1000;
 let hostBattle = null, battleLoop = null, battleLastPub = "", battleUiTimer = null, pendingBattleWith = null, battleChannel = null;
 const voteRate = new Map();
 
@@ -2308,6 +2525,103 @@ async function followHostToBattle(roomId) {
   toast(t("movingToBattle"));
   await leaveRoom();
   setTimeout(() => openRoomLink(roomId), 1200);
+}
+
+/* =====================================================================
+   🎁 Gifts: free for now. In a battle they add big points; everyone sees a 2-second animation.
+   The host checks every gift (cooldowns), counts the points, and tells everyone to play the animation.
+   ===================================================================== */
+const GIFTS = [
+  { id: "rose", e: "🌹", pts: 1, cd: 0, anim: "pop" },
+  { id: "heart", e: "💖", pts: 5, cd: 1, anim: "burst" },
+  { id: "choco", e: "🍫", pts: 10, cd: 3, anim: "pop" },
+  { id: "star", e: "⭐", pts: 20, cd: 5, anim: "spin" },
+  { id: "crown", e: "👑", pts: 50, cd: 10, anim: "drop" },
+  { id: "rocket", e: "🚀", pts: 100, cd: 20, anim: "fly" },
+  { id: "castle", e: "🏰", pts: 200, cd: 30, anim: "rise" },
+  { id: "lion", e: "🦁", pts: 500, cd: 60, anim: "roar" },
+];
+const giftById = (id) => GIFTS.find((g) => g.id === id);
+const giftSent = new Map();     // my own cooldowns
+const giftSeen = new Map();     // host: cooldowns per sender
+let giftTarget = null, giftFxCount = 0;
+
+/* who can receive a gift from me right now */
+function giftTargets() {
+  if (!lk || !currentRoom) return [];
+  const b = battleInfo();
+  if (b && !b.done) {
+    if (me.id === b.a || me.id === b.b) return [];
+    return [{ id: b.a, side: "a", name: nameOf(b.a) }, { id: b.b, side: "b", name: nameOf(b.b) }];
+  }
+  return allParticipants().filter((p) => isSpeaker(p) && p.identity !== me.id).map((p) => ({ id: p.identity, name: p.name || t("guest") }));
+}
+function openGifts() {
+  const targets = giftTargets();
+  if (!targets.length) return toast(t("giftNoTarget"));
+  if (!giftTarget || !targets.some((x) => x.id === giftTarget)) giftTarget = targets[0].id;
+  const render = () => {
+    const now = Date.now();
+    openSheet(`<h1>🎁 ${esc(t("gifts"))}</h1>
+      <div class="muted small">${esc(t("sendTo"))}</div>
+      <div class="gift-targets">${targets.map((x) => `<button type="button" class="btn sm ${x.id === giftTarget ? "" : "ghost"}" data-gt="${esc(x.id)}">${x.side === "a" ? "❤️ " : x.side === "b" ? "💙 " : ""}${esc(x.name)}</button>`).join("")}</div>
+      <div class="gift-grid">${GIFTS.map((g) => {
+        const wait = Math.ceil(((giftSent.get(g.id) || 0) + g.cd * 1000 - now) / 1000);
+        return `<button type="button" class="gift-item" data-gift="${g.id}" ${wait > 0 ? "disabled" : ""}>
+          <span class="ge">${g.e}</span><span class="gn">${esc(t("g_" + g.id))}</span>
+          <span class="gp">${wait > 0 ? esc(t("giftWait", { s: wait })) : `+${g.pts} ${esc(t("pts"))}`}</span></button>`;
+      }).join("")}</div>`);
+    document.querySelectorAll("#sheet [data-gt]").forEach((b) => b.addEventListener("click", () => { giftTarget = b.dataset.gt; render(); }));
+    document.querySelectorAll("#sheet [data-gift]").forEach((b) => b.addEventListener("click", () => { sendGift(b.dataset.gift); render(); }));
+  };
+  render();
+}
+$("#gift-btn").addEventListener("click", openGifts);
+function sendGift(id) {
+  const g = giftById(id); if (!g || !lk || !giftTarget) return;
+  const last = giftSent.get(id) || 0;
+  if (Date.now() - last < g.cd * 1000) return;
+  giftSent.set(id, Date.now());
+  lk.localParticipant.publishData(enc({ type: "gift", g: id, to: giftTarget }), { reliable: true, topic: "battle", destinationIdentities: [currentRoom.host_id] }).catch(() => {});
+}
+/* host: check, count, and tell everyone to show it */
+function onGiftReceived(p, msg) {
+  const g = giftById(msg.g);
+  const target = typeof msg.to === "string" ? findParticipant(msg.to) : null;
+  if (!g || !target || target.identity === p.identity || !isSpeaker(target)) return;
+  const key = `${p.identity}:${g.id}`, now = Date.now();
+  if (now - (giftSeen.get(key) || 0) < Math.max(g.cd * 1000 - 300, 150)) return; // too fast
+  giftSeen.set(key, now);
+  if (hostBattle && !(hostBattle.done)) {
+    if (target.identity === hostBattle.a) hostBattle.sa += g.pts;
+    else if (target.identity === hostBattle.b) hostBattle.sb += g.pts;
+  }
+  const show = { type: "giftshow", g: g.id, from: p.identity, fromName: (p.name || "").slice(0, 40), to: target.identity };
+  lk.localParticipant.publishData(enc(show), { reliable: true, topic: "battle" }).catch(() => {});
+  showGift(show);
+}
+/* everyone: the 2-second animation + a line in the chat */
+function showGift(m) {
+  const g = giftById(m.g); if (!g) return;
+  const fromName = m.fromName || nameOf(m.from), toName = nameOf(m.to);
+  addSystem(t("giftShow", { from: fromName, gift: `${g.e} ${t("g_" + g.id)}`, to: toName }));
+  if (giftFxCount >= 3) return; // don't stack too many at once
+  giftFxCount++;
+  const box = document.createElement("div");
+  box.className = `gfx gfx-${g.anim === "burst" ? "pop" : g.anim}`;
+  box.innerHTML = `<div class="ge">${g.e}</div><div class="gl" dir="auto">${esc(fromName)} → ${esc(toName)} · +${g.pts}</div>`;
+  if (g.anim === "burst" || g.anim === "roar" || g.anim === "rise") {
+    for (let i = 0; i < 12; i++) {
+      const s = document.createElement("span");
+      s.className = "bit"; s.textContent = g.anim === "burst" ? "💖" : g.anim === "roar" ? "✨" : "🎆";
+      const a = (i / 12) * Math.PI * 2;
+      s.style.setProperty("--dx", `${Math.cos(a) * 42}vw`); s.style.setProperty("--dy", `${Math.sin(a) * 36}vh`);
+      s.style.animationDelay = `${0.15 + (i % 3) * 0.08}s`;
+      box.appendChild(s);
+    }
+  }
+  $("#gift-fx").appendChild(box);
+  setTimeout(() => { box.remove(); giftFxCount--; }, 2000);
 }
 
 /* ---------- PWA ---------- */

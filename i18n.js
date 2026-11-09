@@ -639,3 +639,32 @@ const I18N_V11 = {
     wins: "¡{name} gana!", tie: "¡Empate!", battleOnlyLive: "Las batallas son para directos con cámara — abre primero un directo 📹." },
 };
 for (const [l, o] of Object.entries(I18N_V11)) Object.assign(I18N[l], o);
+
+/* ---------- v12 strings: filters and gifts ---------- */
+const I18N_V12 = {
+  en: { filters: "Filters", cameraFirst: "Turn your camera on first 📷", fc_look: "Looks", fc_beauty: "Beauty", fc_tint: "Colours", fc_frame: "Frames", fc_sticker: "Stickers", fc_combo: "Packs",
+    gifts: "Gifts", sendTo: "Send to", giftWait: "{s}s", pts: "pts", giftShow: "🎁 {from} sent {gift} to {to}", giftNoTarget: "Gifts go to the people on stage.",
+    g_rose: "Rose", g_heart: "Heart", g_choco: "Chocolate", g_star: "Star", g_crown: "Crown", g_rocket: "Rocket", g_castle: "Castle", g_lion: "Lion" },
+  ar: { filters: "الفلاتر", cameraFirst: "شغّل الكاميرا أولاً 📷", fc_look: "مظاهر", fc_beauty: "تجميل", fc_tint: "ألوان", fc_frame: "إطارات", fc_sticker: "ملصقات", fc_combo: "حزم",
+    gifts: "الهدايا", sendTo: "أرسل إلى", giftWait: "{s}ث", pts: "نقطة", giftShow: "🎁 {from} أرسل {gift} إلى {to}", giftNoTarget: "الهدايا تُرسل إلى من هم على المنصة.",
+    g_rose: "وردة", g_heart: "قلب", g_choco: "شوكولاتة", g_star: "نجمة", g_crown: "تاج", g_rocket: "صاروخ", g_castle: "قلعة", g_lion: "أسد" },
+  ckb: { filters: "فلتەرەکان", cameraFirst: "سەرەتا کامێراکەت بکەرەوە 📷", fc_look: "ڕووکار", fc_beauty: "جوانکاری", fc_tint: "ڕەنگ", fc_frame: "چوارچێوە", fc_sticker: "ستیکەر", fc_combo: "پاکێج",
+    gifts: "دیارییەکان", sendTo: "بینێرە بۆ", giftWait: "{s} چرکە", pts: "خاڵ", giftShow: "🎁 {from} {gift} ی بۆ {to} نارد", giftNoTarget: "دیاری بۆ ئەو کەسانە دەنێردرێت کە لەسەر شانۆن.",
+    g_rose: "گوڵ", g_heart: "دڵ", g_choco: "چوکلێت", g_star: "ئەستێرە", g_crown: "تاج", g_rocket: "ڕۆکێت", g_castle: "قەڵا", g_lion: "شێر" },
+  tr: { filters: "Filtreler", cameraFirst: "Önce kameranı aç 📷", fc_look: "Görünüm", fc_beauty: "Güzellik", fc_tint: "Renkler", fc_frame: "Çerçeveler", fc_sticker: "Çıkartmalar", fc_combo: "Paketler",
+    gifts: "Hediyeler", sendTo: "Gönderilecek kişi", giftWait: "{s} sn", pts: "puan", giftShow: "🎁 {from}, {to} kişisine {gift} gönderdi", giftNoTarget: "Hediyeler sahnedekilere gönderilir.",
+    g_rose: "Gül", g_heart: "Kalp", g_choco: "Çikolata", g_star: "Yıldız", g_crown: "Taç", g_rocket: "Roket", g_castle: "Kale", g_lion: "Aslan" },
+  fa: { filters: "فیلترها", cameraFirst: "اول دوربین را روشن کنید 📷", fc_look: "حالت‌ها", fc_beauty: "زیبایی", fc_tint: "رنگ‌ها", fc_frame: "قاب‌ها", fc_sticker: "استیکرها", fc_combo: "بسته‌ها",
+    gifts: "هدیه‌ها", sendTo: "ارسال به", giftWait: "{s} ث", pts: "امتیاز", giftShow: "🎁 {from} برای {to} {gift} فرستاد", giftNoTarget: "هدیه‌ها برای افراد روی صحنه است.",
+    g_rose: "گل رز", g_heart: "قلب", g_choco: "شکلات", g_star: "ستاره", g_crown: "تاج", g_rocket: "موشک", g_castle: "قلعه", g_lion: "شیر" },
+  de: { filters: "Filter", cameraFirst: "Schalte zuerst deine Kamera ein 📷", fc_look: "Looks", fc_beauty: "Beauty", fc_tint: "Farben", fc_frame: "Rahmen", fc_sticker: "Sticker", fc_combo: "Pakete",
+    gifts: "Geschenke", sendTo: "Senden an", giftWait: "{s}s", pts: "Pkt", giftShow: "🎁 {from} hat {to} {gift} geschickt", giftNoTarget: "Geschenke gehen an die Leute auf der Bühne.",
+    g_rose: "Rose", g_heart: "Herz", g_choco: "Schokolade", g_star: "Stern", g_crown: "Krone", g_rocket: "Rakete", g_castle: "Schloss", g_lion: "Löwe" },
+  fr: { filters: "Filtres", cameraFirst: "Active d'abord ta caméra 📷", fc_look: "Styles", fc_beauty: "Beauté", fc_tint: "Couleurs", fc_frame: "Cadres", fc_sticker: "Stickers", fc_combo: "Packs",
+    gifts: "Cadeaux", sendTo: "Envoyer à", giftWait: "{s}s", pts: "pts", giftShow: "🎁 {from} a envoyé {gift} à {to}", giftNoTarget: "Les cadeaux vont aux personnes sur scène.",
+    g_rose: "Rose", g_heart: "Cœur", g_choco: "Chocolat", g_star: "Étoile", g_crown: "Couronne", g_rocket: "Fusée", g_castle: "Château", g_lion: "Lion" },
+  es: { filters: "Filtros", cameraFirst: "Primero enciende tu cámara 📷", fc_look: "Estilos", fc_beauty: "Belleza", fc_tint: "Colores", fc_frame: "Marcos", fc_sticker: "Stickers", fc_combo: "Packs",
+    gifts: "Regalos", sendTo: "Enviar a", giftWait: "{s}s", pts: "pts", giftShow: "🎁 {from} envió {gift} a {to}", giftNoTarget: "Los regalos van a las personas en el escenario.",
+    g_rose: "Rosa", g_heart: "Corazón", g_choco: "Chocolate", g_star: "Estrella", g_crown: "Corona", g_rocket: "Cohete", g_castle: "Castillo", g_lion: "León" },
+};
+for (const [l, o] of Object.entries(I18N_V12)) Object.assign(I18N[l], o);
