@@ -273,6 +273,7 @@ async function enterApp() {
   subscribeMessages();
   refreshUnread().catch(() => {});
   subscribeFollows();
+  subscribeBattles();
   checkNewFollowers().catch(() => {});
   // opened from a shared link?
   const q = new URLSearchParams(location.search);
@@ -1190,7 +1191,15 @@ async function joinRoom(row, code) {
         else track.detach().forEach((el) => el.remove());
         renderPeople();
       })
-      .on(E.ParticipantConnected, (p) => { if (!blocked.has(p.identity)) addSystem(t("joined", { name: p.name || t("guest") })); renderPeople(); })
+      .on(E.ParticipantConnected, (p) => {
+        if (!blocked.has(p.identity)) addSystem(t("joined", { name: p.name || t("guest") }));
+        renderPeople();
+        // the live we challenged has arrived: bring them on stage and start the battle
+        if (amHost() && pendingBattleWith === p.identity) {
+          pendingBattleWith = null;
+          setSpeaker(p.identity, true).then(() => setTimeout(() => startBattle(p.identity), 2500));
+        }
+      })
       .on(E.ParticipantDisconnected, (p) => { pendingInvites.delete(p.identity); renderPeople(); })
       .on(E.ActiveSpeakersChanged, renderPeople)
       .on(E.TrackMuted, renderPeople)
@@ -1217,15 +1226,20 @@ async function joinRoom(row, code) {
           toast(t("handRaisedBy", { name: p.name || t("guest") }), t("allow"), () => setSpeaker(p.identity, true));
         }
         if ("topic" in changed) renderTopic();
+        if ("battle" in changed) renderBattle();
+        // the battle score changes every second: no need to rebuild the whole stage for that
+        if (Object.keys(changed).every((k) => k === "battle" || k === "topic")) return;
         renderPeople();
       })
       .on(E.DataReceived, (payload, p, _kind, topic) => {
         if (!p) return;
         let msg; try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch { return; }
         if (topic === "chat" && msg?.type === "chat" && typeof msg.text === "string") addChat(p, msg.text.slice(0, 300), cleanReply(msg.reply));
+        if (topic === "battle" && msg?.type === "vote" && amHost()) onBattleVote(p, msg.side);
         if (topic !== "control" || !msg) return;
         const fromHost = p.identity === currentRoom?.host_id;
         if (msg.type === "end" && fromHost) { toast(t("roomEnded")); leaveRoom(); }
+        if (msg.type === "move" && fromHost && typeof msg.roomId === "string") followHostToBattle(msg.roomId);
         if (msg.type === "invite" && fromHost) showInvite(p);
         if (msg.type === "invite_accept" && amHost() && pendingInvites.has(p.identity)) {
           pendingInvites.delete(p.identity);
@@ -1295,7 +1309,9 @@ function vtileHtml(p) {
   const isHost = p.identity === currentRoom.host_id, isMe = p === lk.localParticipant;
   const hasVideo = !blocked.has(p.identity) && !!videoTrackOf(p);
   const speaking = p.isSpeaking && p.isMicrophoneEnabled;
-  return `<div class="vtile ${speaking ? "speaking" : ""} ${hasVideo ? "has-video" : ""}" data-pid="${esc(p.identity)}">
+  const bt = battleInfo();
+  const fighter = bt && !bt.done ? (p.identity === bt.a ? "fighter-a" : p.identity === bt.b ? "fighter-b" : "") : "";
+  return `<div class="vtile ${speaking ? "speaking" : ""} ${hasVideo ? "has-video" : ""} ${fighter}" data-pid="${esc(p.identity)}">
     ${hasVideo ? `<span class="vslot2" data-vid="${esc(p.identity)}"></span>` : avHtml(name, meta.avatar, "lg")}
     <span class="vlabel" dir="auto">${isHost ? "👑" : ""}${esc(name)} ${flag(meta.country)}${isMe ? " " + esc(t("you")) : ""}${!p.isMicrophoneEnabled ? " 🔇" : ""}</span></div>`;
 }
@@ -1337,6 +1353,7 @@ function renderPeople() {
     (listeners.length > AUD_SHOW ? `<button type="button" class="aud more" id="aud-more"><span class="av">+${listeners.length - AUD_SHOW}</span><span class="nm">${esc(t("othersCount"))}</span></button>` : "");
   $("#audience").hidden = !listeners.length;
   $("#room-status").textContent = t("people", { n: all.length }) + (listeners.length ? ` · ${t("listeningCount", { n: listeners.length })}` : "");
+  renderBattle();
 
   const local = lk.localParticipant, canSpeak = isSpeaker(local), micOn = local.isMicrophoneEnabled;
   $("#mic-btn").hidden = !canSpeak; $("#hand-btn").hidden = canSpeak; $("#topic-btn").hidden = !amHost();
@@ -1366,6 +1383,12 @@ document.addEventListener("click", (e) => {
   if (inv) { closeSheet(); inviteToStage(inv.dataset.invite); return; }
   const person = e.target.closest("[data-pid]");
   if (person) {
+    // during a battle, tapping a fighter's half gives them a point
+    const b = battleInfo();
+    if (b && !b.done && person.classList.contains("vtile") && (person.dataset.pid === b.a || person.dataset.pid === b.b)) {
+      sendVote(person.dataset.pid === b.a ? "a" : "b", person, e);
+      return;
+    }
     closeSheet();
     const p = findParticipant(person.dataset.pid);
     // a seat showing a camera opens the big full-quality video; otherwise the profile
@@ -1620,12 +1643,14 @@ $("#room-more").addEventListener("click", () => {
   openSheet(`<div class="menu" style="box-shadow:none">
     <button type="button" id="rm-share">🔗 ${esc(t("share"))}</button>
     ${amHost() ? `<button type="button" id="rm-invite">🎙️ ${esc(t("inviteToStage"))}</button>` : ""}
+    ${amHost() && currentRoom?.video && !battleInfo() ? `<button type="button" id="rm-battle">⚔️ ${esc(t("battle"))}</button>` : ""}
     ${amHost() ? `<button type="button" id="rm-end" class="danger">⏹ ${esc(t("endRoom"))}</button>`
                : `<button type="button" id="rm-report" class="danger">🚩 ${esc(t("reportRoom"))}</button>`}
     <button type="button" id="rm-leave">🚪 ${esc(t("leave"))}</button>
     <button type="button" id="rm-close">${esc(t("close"))}</button></div>`);
   $("#rm-share").addEventListener("click", () => { closeSheet(); $("#room-share").click(); });
   $("#rm-invite")?.addEventListener("click", openInvitePicker);
+  $("#rm-battle")?.addEventListener("click", openBattlePicker);
   $("#rm-end")?.addEventListener("click", () => { closeSheet(); endRoom(true); });
   $("#rm-report")?.addEventListener("click", () => openReport({ roomId: currentRoom?.id }));
   $("#rm-leave").addEventListener("click", () => { closeSheet(); tryLeave(); });
@@ -1634,6 +1659,7 @@ $("#room-more").addEventListener("click", () => {
 async function leaveRoom() {
   clearInterval(practiceTimer); practiceTimer = null;
   clearInterval(heartbeatTimer); heartbeatTimer = null;
+  stopBattleState();
   closeVideoViewer();
   for (const [id] of videoEls) dropVideoEl(id);
   camFacing = "user";
@@ -2087,6 +2113,202 @@ $("#compose-form").addEventListener("submit", async (e) => {
     console.error(err); toast(t("error") + (err?.message || err));
   } finally { btn.disabled = false; }
 });
+
+/* =====================================================================
+   ⚔️ Live battle: two lives face each other for 3 minutes, viewers tap to give points
+   The host of the room keeps the score and shares it through their LiveKit attributes.
+   ===================================================================== */
+const BATTLE_MS = 3 * 60 * 1000;
+let hostBattle = null, battleLoop = null, battleLastPub = "", battleUiTimer = null, pendingBattleWith = null, battleChannel = null;
+const voteRate = new Map();
+
+function battleInfo() {
+  const raw = hostParticipant()?.attributes?.battle;
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+function nameOf(id) { const p = findParticipant(id); return p?.name || profileCache.get(id)?.name || t("guest"); }
+
+/* --- host side --- */
+async function startBattle(opponentId) {
+  if (!amHost() || !lk) return;
+  if (!isSpeaker(findParticipant(opponentId))) await setSpeaker(opponentId, true);
+  hostBattle = { a: me.id, b: opponentId, ends: Date.now() + BATTLE_MS, sa: 0, sb: 0 };
+  battleLastPub = "";
+  await publishBattle();
+  clearInterval(battleLoop);
+  battleLoop = setInterval(battleTick, 1000);
+  closeSheet();
+}
+async function publishBattle(extra) {
+  if (!lk || !hostBattle) return;
+  const s = JSON.stringify({ ...hostBattle, ...(extra || {}) });
+  if (s === battleLastPub) return;
+  battleLastPub = s;
+  try { await lk.localParticipant.setAttributes({ battle: s }); } catch (err) { console.warn(err); }
+  renderBattle();
+}
+async function battleTick() {
+  if (!hostBattle || !lk) { clearInterval(battleLoop); return; }
+  if (!findParticipant(hostBattle.b)) hostBattle.ends = Math.min(hostBattle.ends, Date.now()); // opponent left
+  if (Date.now() >= hostBattle.ends) {
+    clearInterval(battleLoop);
+    const winner = hostBattle.sa > hostBattle.sb ? "a" : hostBattle.sb > hostBattle.sa ? "b" : "tie";
+    await publishBattle({ done: true, winner });
+    setTimeout(async () => {
+      hostBattle = null; battleLastPub = "";
+      if (lk && amHost()) { try { await lk.localParticipant.setAttributes({ battle: "" }); } catch {} }
+      renderBattle(); renderPeople();
+    }, 8000);
+    return;
+  }
+  await publishBattle();
+}
+function onBattleVote(p, side) {
+  if (!hostBattle || (side !== "a" && side !== "b")) return;
+  if (p.identity === hostBattle.a || p.identity === hostBattle.b) return; // fighters can't vote
+  const now = Date.now();
+  const r = voteRate.get(p.identity) || { t: now, c: 0 };
+  if (now - r.t > 1000) { r.t = now; r.c = 0; }
+  if (++r.c > 8) return; // max 8 points a second per viewer
+  voteRate.set(p.identity, r);
+  if (side === "a") hostBattle.sa++; else hostBattle.sb++;
+}
+function stopBattleState() {
+  clearInterval(battleLoop); battleLoop = null; hostBattle = null; battleLastPub = "";
+  clearInterval(battleUiTimer); battleUiTimer = null; pendingBattleWith = null;
+  $("#battle-bar").hidden = true; $("#battle-result").hidden = true;
+}
+
+/* --- everyone: score bar, timer, tapping --- */
+function renderBattle() {
+  const b = battleInfo();
+  const bar = $("#battle-bar"), res = $("#battle-result");
+  if (!b || !currentRoom) {
+    bar.hidden = true; res.hidden = true;
+    clearInterval(battleUiTimer); battleUiTimer = null;
+    document.querySelectorAll(".vtile.fighter-a,.vtile.fighter-b").forEach((x) => x.classList.remove("fighter-a", "fighter-b"));
+    return;
+  }
+  const total = (b.sa || 0) + (b.sb || 0);
+  const pa = total ? Math.round(((b.sa || 0) * 100) / total) : 50;
+  const iFight = me && (me.id === b.a || me.id === b.b);
+  bar.hidden = false;
+  bar.innerHTML = `<div class="bb-row"><span dir="auto">❤️ ${esc(nameOf(b.a))} ${b.sa || 0}</span><span class="bb-t" id="bb-time">⚔️</span><span dir="auto">${b.sb || 0} ${esc(nameOf(b.b))} 💙</span></div>
+    <div class="bb-track"><div class="bb-fill" style="width:${pa}%"></div></div>
+    ${b.done || iFight ? "" : `<div class="bb-hint">${esc(t("tapToVote"))}</div>`}`;
+  document.querySelectorAll("#video-grid .vtile").forEach((x) => {
+    x.classList.toggle("fighter-a", !b.done && x.dataset.pid === b.a);
+    x.classList.toggle("fighter-b", !b.done && x.dataset.pid === b.b);
+  });
+  const tick = () => {
+    const el = $("#bb-time"); if (!el) return;
+    const left = Math.max(0, (b.ends || 0) - Date.now());
+    const s = Math.ceil(left / 1000);
+    el.textContent = b.done ? "🏁" : `⚔️ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  tick();
+  clearInterval(battleUiTimer);
+  if (!b.done) battleUiTimer = setInterval(tick, 500);
+  if (b.done) {
+    const txt = b.winner === "tie" ? t("tie") : t("wins", { name: nameOf(b.winner === "a" ? b.a : b.b) });
+    res.innerHTML = `<div><div class="big">${b.winner === "tie" ? "🤝" : "🏆"}</div><h2 dir="auto">${esc(txt)}</h2><div>❤️ ${b.sa || 0} : ${b.sb || 0} 💙</div></div>`;
+    res.hidden = false;
+  } else res.hidden = true;
+}
+let lastVoteAt = 0;
+function sendVote(side, tile, ev) {
+  if (!lk || !currentRoom) return;
+  const b = battleInfo();
+  if (!b || b.done || (me && (me.id === b.a || me.id === b.b))) return;
+  const now = Date.now();
+  if (now - lastVoteAt < 120) return;
+  lastVoteAt = now;
+  lk.localParticipant.publishData(enc({ type: "vote", side }), { reliable: true, topic: "battle", destinationIdentities: [currentRoom.host_id] }).catch(() => {});
+  const r = tile.getBoundingClientRect();
+  const pop = document.createElement("span");
+  pop.className = "vote-pop"; pop.textContent = side === "a" ? "❤️+1" : "💙+1";
+  pop.style.left = `${(ev?.clientX ?? r.left + r.width / 2) - r.left}px`;
+  pop.style.top = `${(ev?.clientY ?? r.top + r.height / 2) - r.top}px`;
+  tile.appendChild(pop);
+  setTimeout(() => pop.remove(), 900);
+}
+
+/* --- choosing an opponent: someone on my stage, or another live --- */
+async function openBattlePicker() {
+  if (!amHost() || !currentRoom?.video) return toast(t("battleOnlyLive"));
+  const onStage = allParticipants().filter((p) => isSpeaker(p) && p.identity !== me.id);
+  openSheet(`<h1>⚔️ ${esc(t("battleTitle"))}</h1>
+    <div class="group-title" style="margin-top:4px">${esc(t("onStage"))}</div>
+    ${onStage.length ? onStage.map((p) => `<div class="row-item" style="cursor:default">${avHtml(p.name, partMeta(p).avatar, "sm")}
+      <div class="info"><div class="name" dir="auto">${esc(p.name || t("guest"))} ${flag(partMeta(p).country)}</div></div>
+      <button type="button" class="btn sm" data-bstart="${esc(p.identity)}">⚔️ ${esc(t("startBattle"))}</button></div>`).join("") : `<div class="muted small">—</div>`}
+    <div class="group-title">${esc(t("otherLives"))}</div>
+    <div id="bp-lives"><div class="empty">…</div></div>`);
+  document.querySelectorAll("#sheet [data-bstart]").forEach((b) => b.addEventListener("click", () => startBattle(b.dataset.bstart)));
+  const { data } = await sb.from("rooms").select("*").eq("is_live", true).eq("video", true).neq("host_id", me.id).order("created_at", { ascending: false }).limit(30);
+  const now = Date.now();
+  const lives = (data || []).filter((r) => !blocked.has(r.host_id) && (!("last_seen" in r) || now - new Date(r.last_seen).getTime() < 90e3)
+    && (!r.starts_at || new Date(r.starts_at).getTime() <= now));
+  if (!$("#bp-lives")) return;
+  $("#bp-lives").innerHTML = lives.length ? lives.map((r) => `<div class="row-item" style="cursor:default">${avHtml(r.host_name, r.host_avatar, "sm")}
+      <div class="info"><div class="name" dir="auto">${esc(r.host_name)}</div><div class="meta" dir="auto">📹 ${esc(r.title)}</div></div>
+      <button type="button" class="btn sm" data-bchallenge="${esc(r.host_id)}">${esc(t("challenge"))}</button></div>`).join("")
+    : `<div class="muted small">${esc(t("noOtherLives"))}</div>`;
+  document.querySelectorAll("#sheet [data-bchallenge]").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    const { error } = await sb.from("battle_invites").insert({ to_user: b.dataset.bchallenge, room_id: currentRoom.id });
+    if (error) { b.disabled = false; return toast(t("error") + error.message); }
+    toast(t("inviteSent"));
+  }));
+}
+
+/* --- invitations between two lives (database + live updates) --- */
+function subscribeBattles() {
+  if (battleChannel) return;
+  battleChannel = sb.channel("bt-" + me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "battle_invites", filter: `to_user=eq.${me.id}` }, (payload) => onBattleChallenge(payload.new))
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "battle_invites", filter: `from_user=eq.${me.id}` }, async (payload) => {
+      const inv = payload.new; if (!inv) return;
+      const p = await getProfile(inv.to_user); const name = p?.name || t("guest");
+      if (inv.status === "accepted" && currentRoom && amHost() && inv.room_id === currentRoom.id) {
+        pendingBattleWith = inv.to_user;
+        toast(t("battleAccepted", { name }));
+        if (findParticipant(inv.to_user)) { pendingBattleWith = null; startBattle(inv.to_user); }
+      }
+      if (inv.status === "declined") toast(t("battleDeclined", { name }));
+    })
+    .subscribe();
+}
+async function onBattleChallenge(inv) {
+  if (!inv || blocked.has(inv.from_user)) return;
+  const p = await getProfile(inv.from_user); const name = p?.name || t("guest");
+  if (!(lk && currentRoom && amHost() && currentRoom.video)) {
+    toast(t("challengedYou", { name }) + " " + t("battleOnlyLive"));
+    return;
+  }
+  openSheet(`<div class="invite-card"><div class="big">⚔️</div><h1 dir="auto">${esc(t("challengedYou", { name }))}</h1></div>
+    <div class="actions"><button type="button" class="btn line" id="bc-no">${esc(t("decline"))}</button><button type="button" class="btn" id="bc-yes">${esc(t("accept"))}</button></div>`);
+  $("#bc-no").addEventListener("click", async () => { closeSheet(); await sb.from("battle_invites").update({ status: "declined" }).eq("id", inv.id); });
+  $("#bc-yes").addEventListener("click", async () => {
+    closeSheet();
+    const { data } = await sb.rpc("get_room", { p_id: inv.room_id, p_code: null });
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row || !row.is_live) return toast(t("e_room_closed"));
+    await sb.from("battle_invites").update({ status: "accepted" }).eq("id", inv.id);
+    // take my viewers with me, close my live, and join the challenger's live
+    await sendControl({ type: "move", roomId: row.id });
+    const mine = currentRoom.id;
+    await sb.from("rooms").update({ is_live: false }).eq("id", mine);
+    await leaveRoom();
+    joinRoom(row);
+  });
+}
+async function followHostToBattle(roomId) {
+  toast(t("movingToBattle"));
+  await leaveRoom();
+  setTimeout(() => openRoomLink(roomId), 1200);
+}
 
 /* ---------- PWA ---------- */
 if ("serviceWorker" in navigator && location.protocol === "https:") {

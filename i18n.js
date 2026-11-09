@@ -602,3 +602,40 @@ const I18N_V10 = {
     flipCam: "Cambiar cámara", cameraDenied: "Cámara bloqueada — permítela en los ajustes del navegador." },
 };
 for (const [l, o] of Object.entries(I18N_V10)) Object.assign(I18N[l], o);
+
+/* ---------- v11 strings: live battles ---------- */
+const I18N_V11 = {
+  en: { battle: "Battle", battleTitle: "Live battle", onStage: "On your stage", otherLives: "Other lives", startBattle: "Start", challenge: "Challenge",
+    noOtherLives: "No other camera lives right now.", challengedYou: "{name} challenges you to a live battle!", battleAccepted: "{name} accepted — the battle starts! ⚔️",
+    battleDeclined: "{name} declined the battle.", movingToBattle: "Your host joined a battle — taking you there… ⚔️", tapToVote: "Tap a side to give points ❤️ 💙",
+    wins: "{name} wins!", tie: "It's a tie!", battleOnlyLive: "Battles are for camera lives — open a 📹 live first." },
+  ar: { battle: "تحدٍّ", battleTitle: "تحدّي البث المباشر", onStage: "على منصتك", otherLives: "بثوث أخرى", startBattle: "ابدأ", challenge: "تحدَّ",
+    noOtherLives: "لا توجد بثوث كاميرا أخرى الآن.", challengedYou: "{name} يتحدّاك في بث مباشر!", battleAccepted: "{name} قَبِل — بدأ التحدي! ⚔️",
+    battleDeclined: "{name} رفض التحدي.", movingToBattle: "انضم مضيفك إلى تحدٍّ — ننقلك إليه… ⚔️", tapToVote: "اضغط على جهة لإعطاء نقاط ❤️ 💙",
+    wins: "{name} فاز!", tie: "تعادل!", battleOnlyLive: "التحديات لبثوث الكاميرا — افتح بثاً 📹 أولاً." },
+  ckb: { battle: "شەڕ", battleTitle: "شەڕی Live", onStage: "لەسەر شانۆکەت", otherLives: "Live ـەکانی تر", startBattle: "دەستپێکردن", challenge: "داوای شەڕ",
+    noOtherLives: "ئێستا هیچ Live ـێکی کامێرای تر نییە.", challengedYou: "{name} داوای شەڕی Live ـت لێ دەکات!", battleAccepted: "{name} قبوڵی کرد — شەڕ دەست پێدەکات! ⚔️",
+    battleDeclined: "{name} شەڕەکەی ڕەت کردەوە.", movingToBattle: "خاوەنی Live چووە ناو شەڕێک — دەتبەین بۆ ئەوێ… ⚔️", tapToVote: "کرتە لەسەر یەکێک بکە بۆ پێدانی خاڵ ❤️ 💙",
+    wins: "{name} بردییەوە!", tie: "یەکسان بوون!", battleOnlyLive: "شەڕ تەنها بۆ Live ی کامێرایە — سەرەتا Live ـێکی 📹 بکەرەوە." },
+  tr: { battle: "Düello", battleTitle: "Canlı düello", onStage: "Sahnende", otherLives: "Diğer canlılar", startBattle: "Başlat", challenge: "Meydan oku",
+    noOtherLives: "Şu an başka kameralı canlı yok.", challengedYou: "{name} sana canlı düello teklif ediyor!", battleAccepted: "{name} kabul etti — düello başlıyor! ⚔️",
+    battleDeclined: "{name} düelloyu reddetti.", movingToBattle: "Yayıncın bir düelloya katıldı — seni oraya götürüyoruz… ⚔️", tapToVote: "Puan vermek için bir tarafa dokun ❤️ 💙",
+    wins: "{name} kazandı!", tie: "Berabere!", battleOnlyLive: "Düellolar kameralı canlılar içindir — önce bir 📹 canlı aç." },
+  fa: { battle: "نبرد", battleTitle: "نبرد زنده", onStage: "روی صحنهٔ شما", otherLives: "لایوهای دیگر", startBattle: "شروع", challenge: "به چالش کشیدن",
+    noOtherLives: "اکنون لایو دوربین دیگری نیست.", challengedYou: "{name} شما را به نبرد زنده دعوت می‌کند!", battleAccepted: "{name} پذیرفت — نبرد شروع می‌شود! ⚔️",
+    battleDeclined: "{name} نبرد را رد کرد.", movingToBattle: "میزبان شما وارد نبرد شد — شما را آنجا می‌بریم… ⚔️", tapToVote: "برای امتیاز دادن روی یک طرف بزنید ❤️ 💙",
+    wins: "{name} برنده شد!", tie: "مساوی!", battleOnlyLive: "نبرد برای لایوهای دوربین است — ابتدا یک لایو 📹 باز کنید." },
+  de: { battle: "Battle", battleTitle: "Live-Battle", onStage: "Auf deiner Bühne", otherLives: "Andere Lives", startBattle: "Start", challenge: "Herausfordern",
+    noOtherLives: "Gerade keine anderen Kamera-Lives.", challengedYou: "{name} fordert dich zu einem Live-Battle heraus!", battleAccepted: "{name} hat angenommen — das Battle beginnt! ⚔️",
+    battleDeclined: "{name} hat das Battle abgelehnt.", movingToBattle: "Dein Host ist in einem Battle — wir bringen dich hin… ⚔️", tapToVote: "Tippe auf eine Seite, um Punkte zu geben ❤️ 💙",
+    wins: "{name} gewinnt!", tie: "Unentschieden!", battleOnlyLive: "Battles gibt es nur in Kamera-Lives — öffne zuerst ein 📹 Live." },
+  fr: { battle: "Duel", battleTitle: "Duel en direct", onStage: "Sur ta scène", otherLives: "Autres lives", startBattle: "Lancer", challenge: "Défier",
+    noOtherLives: "Aucun autre live caméra pour l'instant.", challengedYou: "{name} te défie en duel live !", battleAccepted: "{name} a accepté — le duel commence ! ⚔️",
+    battleDeclined: "{name} a refusé le duel.", movingToBattle: "Ton hôte a rejoint un duel — on t'y emmène… ⚔️", tapToVote: "Touche un côté pour donner des points ❤️ 💙",
+    wins: "{name} gagne !", tie: "Égalité !", battleOnlyLive: "Les duels sont pour les lives caméra — ouvre d'abord un live 📹." },
+  es: { battle: "Batalla", battleTitle: "Batalla en vivo", onStage: "En tu escenario", otherLives: "Otros directos", startBattle: "Empezar", challenge: "Desafiar",
+    noOtherLives: "No hay otros directos con cámara ahora.", challengedYou: "¡{name} te desafía a una batalla en vivo!", battleAccepted: "{name} aceptó — ¡empieza la batalla! ⚔️",
+    battleDeclined: "{name} rechazó la batalla.", movingToBattle: "Tu anfitrión entró en una batalla — te llevamos allí… ⚔️", tapToVote: "Toca un lado para dar puntos ❤️ 💙",
+    wins: "¡{name} gana!", tie: "¡Empate!", battleOnlyLive: "Las batallas son para directos con cámara — abre primero un directo 📹." },
+};
+for (const [l, o] of Object.entries(I18N_V11)) Object.assign(I18N[l], o);
