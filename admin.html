@@ -23,6 +23,26 @@ h1{margin:0 0 4px} .muted{color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .tag{background:var(--soft);color:var(--brand);border-radius:999px;padding:2px 10px;font-size:.8rem;font-weight:700}
 .empty{text-align:center;padding:30px;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:6px 0 14px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.tile .v{font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
+.tile .l{font-size:.82rem;color:var(--muted);font-weight:600}
+.tile .s{font-size:.75rem;color:var(--muted)}
+.tile.live .v::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444;margin-inline-end:6px;vertical-align:middle}
+.chart-card h3{margin:0 0 2px;font-size:1rem}
+.chart-card .sub{font-size:.8rem;color:var(--muted);margin-bottom:8px}
+.chart{position:relative;direction:ltr}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .grid line{stroke:var(--line);stroke-width:1}
+.chart .axis text{fill:var(--muted);font-size:11px;font-family:inherit}
+.chart .bar{fill:var(--brand)}
+.chart .hit{fill:transparent;cursor:default}
+.chart .hit:hover + .bar,.chart .bar.hl{opacity:.75}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:.8rem;border-radius:10px;padding:6px 10px;white-space:nowrap;
+  transform:translate(-50%,-110%);box-shadow:0 6px 18px rgba(0,0,0,.25);direction:rtl}
+details.tbl{margin-top:8px;font-size:.85rem}
+details.tbl table{border-collapse:collapse;width:100%;margin-top:6px}
+details.tbl td,details.tbl th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:start;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -30,7 +50,8 @@ h1{margin:0 0 4px} .muted{color:var(--muted)}
   <h1>🛡️ پانێڵی بەڕێوەبەر</h1>
   <div class="muted">Talk Together — ڕاپۆرت، بلۆکی هەمیشەیی، داخستنی ژوور</div>
   <div class="tabs">
-    <button class="on" data-t="open">🚩 ڕاپۆرتە کراوەکان</button>
+    <button class="on" data-t="stats">📊 ئامار</button>
+    <button data-t="open">🚩 ڕاپۆرتە کراوەکان</button>
     <button data-t="resolved">✅ چارەسەرکراو</button>
     <button data-t="banned">⛔ بلۆککراوەکان</button>
     <button data-t="rooms">🎙️ ژوورە کراوەکان</button>
@@ -45,7 +66,73 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const REASONS = { spam: "سپام", harassment: "هەراسان", inappropriate: "ناوەڕۆکی نەشیاو", underage: "کەمتر لە ١٣ ساڵ", other: "تر" };
-let tab = "open";
+let tab = "stats";
+const nf = (n) => new Intl.NumberFormat("en").format(n || 0);
+
+/* one series per chart: a single colour, the title names it, hover shows the exact value */
+function barChart(rows, key, label) {
+  const W = 640, H = 200, P = { l: 34, r: 8, t: 10, b: 26 };
+  const max = Math.max(1, ...rows.map((r) => r[key]));
+  const step = Math.max(1, Math.ceil(max / 4));
+  const top = step * 4;
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  const bw = iw / rows.length, gap = 2;
+  const y = (v) => P.t + ih - (v / top) * ih;
+  const grid = [0, 1, 2, 3, 4].map((i) => `<line x1="${P.l}" x2="${W - P.r}" y1="${y(i * step)}" y2="${y(i * step)}"/>`).join("");
+  const yl = [0, 2, 4].map((i) => `<text x="${P.l - 6}" y="${y(i * step) + 4}" text-anchor="end">${i * step}</text>`).join("");
+  const xl = rows.map((r, i) => (i % 3 === 0 || i === rows.length - 1)
+    ? `<text x="${P.l + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${r.d.slice(5)}</text>` : "").join("");
+  const bars = rows.map((r, i) => {
+    const x = P.l + i * bw + gap / 2, h = Math.max(r[key] ? 2 : 0, P.t + ih - y(r[key])), w = bw - gap;
+    const rad = Math.min(4, w / 2, h);
+    // rounded top only, flat on the baseline
+    const d = h <= 0 ? "" : `M${x},${P.t + ih} V${P.t + ih - h + rad} Q${x},${P.t + ih - h} ${x + rad},${P.t + ih - h} H${x + w - rad} Q${x + w},${P.t + ih - h} ${x + w},${P.t + ih - h + rad} V${P.t + ih} Z`;
+    return `<rect class="hit" x="${P.l + i * bw}" y="${P.t}" width="${bw}" height="${ih}" data-i="${i}"/><path class="bar" d="${d}" data-i="${i}"/>`;
+  }).join("");
+  const id = "c" + Math.random().toString(36).slice(2);
+  setTimeout(() => {
+    const host = document.getElementById(id); if (!host) return;
+    const tip = host.querySelector(".tip");
+    host.querySelectorAll(".hit").forEach((h) => {
+      h.addEventListener("mousemove", (e) => {
+        const r = rows[Number(h.dataset.i)], box = host.getBoundingClientRect();
+        tip.hidden = false; tip.textContent = `${r.d} · ${label}: ${nf(r[key])}`;
+        tip.style.left = `${e.clientX - box.left}px`; tip.style.top = `${e.clientY - box.top}px`;
+        host.querySelectorAll(".bar").forEach((b) => b.classList.toggle("hl", b.dataset.i === h.dataset.i));
+      });
+      h.addEventListener("mouseleave", () => { tip.hidden = true; host.querySelectorAll(".bar").forEach((b) => b.classList.remove("hl")); });
+    });
+  });
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
+      <g class="grid">${grid}</g><g class="axis">${yl}${xl}</g>${bars}</svg><div class="tip" hidden></div></div>
+    <details class="tbl"><summary>خشتە</summary><table><tr><th>ڕۆژ</th><th>${esc(label)}</th></tr>
+      ${rows.map((r) => `<tr><td>${r.d}</td><td>${nf(r[key])}</td></tr>`).join("")}</table></details>`;
+}
+async function loadStats(box) {
+  const { data: s, error } = await sb.rpc("admin_stats");
+  if (error) { box.innerHTML = `<div class="card">⚠️ ${esc(error.message)}<br><span class="muted">SQL ـی update-10 Run بکە.</span></div>`; return; }
+  const tile = (v, l, sub, cls = "") => `<div class="tile ${cls}"><div class="v">${nf(v)}</div><div class="l">${l}</div>${sub ? `<div class="s">${sub}</div>` : ""}</div>`;
+  box.innerHTML = `
+    <div class="tiles">
+      ${tile(s.users, "👥 بەکارهێنەر", `+${nf(s.users_today)} ئەمڕۆ · +${nf(s.users_7d)} لە ٧ ڕۆژدا`)}
+      ${tile(s.active_7d, "🔥 چالاک لە ٧ ڕۆژدا", "ڕاهێنانیان کردووە")}
+      ${tile(s.live_now, "🔴 Live ـی ئێستا", `📹 ${nf(s.camera_live_now)} کامێرا`, "live")}
+      ${tile(s.rooms, "🎙️ ژوور", `+${nf(s.rooms_7d)} لە ٧ ڕۆژدا`)}
+      ${tile(s.posts, "📝 پۆست", `+${nf(s.posts_7d)} لە ٧ ڕۆژدا`)}
+      ${tile(s.videos, "🎥 ڤیدیۆ", "")}
+      ${tile(s.views, "👁 بینین", "")}
+      ${tile(s.likes, "❤️ لایک", "")}
+      ${tile(s.comments, "💬 کۆمێنت", "")}
+      ${tile(s.follows, "🤝 فۆڵۆو", "")}
+      ${tile(s.messages, "✉️ نامەی تایبەت", "")}
+      ${tile(s.battles, "⚔️ شەڕ", "")}
+      ${tile(s.reports_open, "🚩 ڕاپۆرتی کراوە", "")}
+      ${tile(s.banned, "⛔ بلۆککراو", "")}
+    </div>
+    <div class="card chart-card"><h3>👥 بەکارهێنەری نوێ</h3><div class="sub">هەر ڕۆژێک، ١٤ ڕۆژی ڕابردوو</div>${barChart(s.daily || [], "users", "بەکارهێنەری نوێ")}</div>
+    <div class="card chart-card"><h3>📝 پۆستی نوێ</h3><div class="sub">هەر ڕۆژێک، ١٤ ڕۆژی ڕابردوو</div>${barChart(s.daily || [], "posts", "پۆستی نوێ")}</div>
+    <div class="card chart-card"><h3>🎙️ ژوور و Live ی نوێ</h3><div class="sub">هەر ڕۆژێک، ١٤ ڕۆژی ڕابردوو</div>${barChart(s.daily || [], "rooms", "ژووری نوێ")}</div>`;
+}
 
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-t]"); if (!b) return;
@@ -75,6 +162,7 @@ async function names(ids) {
 async function load() {
   const box = $("#box");
   box.innerHTML = `<div class="empty">…</div>`;
+  if (tab === "stats") return loadStats(box);
   if (tab === "open" || tab === "resolved") {
     const { data, error } = await sb.from("reports").select("*").eq("status", tab).order("created_at", { ascending: false }).limit(100);
     if (error) { box.innerHTML = `<div class="card">${esc(error.message)}</div>`; return; }

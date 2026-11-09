@@ -97,6 +97,7 @@ function errText(code, fallback) { return code && I18N.en["e_" + code] ? t("e_" 
 
 /* ---------- screens + bottom sheet ---------- */
 function show(id) {
+  if (id !== "screen-main") pauseReels();
   document.querySelectorAll("body > .screen").forEach((s) => (s.hidden = s.id !== id));
   window.scrollTo(0, 0);
 }
@@ -187,6 +188,7 @@ $("#photo-input").addEventListener("change", (e) => {
   if (!f) return;
   if (photoTarget === "gallery") return addGalleryPhoto(f);
   if (photoTarget === "post") {
+    clearComposeVideo();
     composePhoto = f;
     $("#compose-img").src = URL.createObjectURL(f);
     $("#compose-preview").hidden = false;
@@ -317,6 +319,7 @@ $("#tabbar").addEventListener("click", (e) => {
 function renderTab() {
   document.querySelectorAll("#tabbar [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === currentTab));
   ["rooms", "feed", "partners", "ranking", "me"].forEach((k) => ($("#tab-" + k).hidden = k !== currentTab));
+  if (currentTab !== "feed") pauseReels();
   $("#screen-main").classList.toggle("feed-mode", currentTab === "feed");
   $("#tab-feed").classList.toggle("reels", currentTab === "feed");
   $("#new-room-btn").hidden = currentTab !== "rooms";
@@ -637,9 +640,12 @@ function profileCardHtml(p, o) {
     <div class="pf-content"><div class="empty">…</div></div>`;
 }
 function tileHtml(post) {
+  const vid = safeVideo(post.video_url);
   return `<button type="button" class="ptile" data-ptile="${post.id}">
-    ${post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="" loading="lazy">` : `<div class="txt" dir="auto">${esc(post.body || "")}</div>`}
-    <span class="lk">❤️ ${post.like_count || 0}</span></button>`;
+    ${vid ? `<video src="${esc(vid)}#t=0.5" muted playsinline preload="metadata"></video><span class="play">▶</span><span class="vw">👁 ${fmtNum(post.view_count)}</span>`
+      : post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="" loading="lazy">`
+      : `<div class="txt" dir="auto">${esc(post.body || "")}</div>`}
+    <span class="lk">❤️ ${fmtNum(post.like_count)}</span></button>`;
 }
 /* the profile shows only posts (photos, badges and the rest live in ⚙️ Settings) */
 function renderPfContent(root) {
@@ -2174,27 +2180,35 @@ async function loadMoreFeed(first) {
     [...tmp.children].forEach((el) => $("#feed-list").appendChild(el));
   } finally { feedLoading = false; }
 }
+const VIDEO_PREFIX = CONFIG.SUPABASE_URL + "/storage/v1/object/public/videos/";
+const safeVideo = (u) => (typeof u === "string" && u.startsWith(VIDEO_PREFIX) && u.length < 500 ? u : "");
+let feedMuted = true;
+const viewedSet = new Set();
+const fmtNum = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(n || 0));
 function reelHtml(post) {
   const u = profileCache.get(post.user_id) || { name: t("guest") };
-  const img = post.image_url && safeAvatar(post.image_url) ? post.image_url : "";
+  const vid = safeVideo(post.video_url);
+  const img = !vid && post.image_url && safeAvatar(post.image_url) ? post.image_url : "";
   const canFollow = post.user_id !== me.id && !following.has(post.user_id);
-  return `<section class="reel ${img ? "" : "tg" + (post.id % 6)}" data-post="${post.id}">
-    ${img ? `<div class="reel-bg" style="background-image:url('${esc(img)}')"></div><img class="reel-img" src="${esc(img)}" alt="" loading="lazy">`
-          : `<div class="reel-text" dir="auto">${esc(post.body || "")}</div>`}
+  return `<section class="reel ${img || vid ? "" : "tg" + (post.id % 6)}" data-post="${post.id}">
+    ${vid ? `<video class="reel-video" src="${esc(vid)}" playsinline loop muted preload="metadata" data-rv="${post.id}"></video><div class="reel-paused" hidden>▶</div>`
+      : img ? `<div class="reel-bg" style="background-image:url('${esc(img)}')"></div><img class="reel-img" src="${esc(img)}" alt="" loading="lazy">`
+      : `<div class="reel-text" dir="auto">${esc(post.body || "")}</div>`}
     <div class="reel-shade"></div>
     <div class="reel-rail">
       <div class="rail-av" data-person="${esc(post.user_id)}">${avHtml(u.name, u.avatar_url, "sm")}
         ${canFollow ? `<button type="button" class="plus" data-rfollow="${esc(post.user_id)}" aria-label="follow">+</button>` : ""}</div>
       <button type="button" class="rail-btn ${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
       <button type="button" class="rail-btn" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
-      ${post.body ? `<button type="button" class="rail-btn" data-ptr="${post.id}"><span>🌐</span><span>${esc(t("translate"))}</span></button>` : ""}
+      ${vid ? `<button type="button" class="rail-btn" data-mute="1"><span>${feedMuted ? "🔇" : "🔊"}</span><span></span></button>` : ""}
+      ${post.body && !vid ? `<button type="button" class="rail-btn" data-ptr="${post.id}"><span>🌐</span><span>${esc(t("translate"))}</span></button>` : ""}
       <button type="button" class="rail-btn" data-pshare="${post.id}"><span>↪️</span><span>${esc(t("share"))}</span></button>
       <button type="button" class="rail-btn" data-pmore="${post.id}"><span>⋯</span><span></span></button>
     </div>
     <div class="reel-info">
       <div class="nm" data-person="${esc(post.user_id)}" dir="auto">@${esc(u.name)} ${flag(u.country)} ${lvHtml(u.xp)}</div>
-      <div class="tm">${esc(shortTime(post.created_at))}</div>
-      ${img && post.body ? `<div class="cap" dir="auto">${esc(post.body)}</div>` : ""}
+      <div class="tm">${esc(shortTime(post.created_at))}<span class="reel-stats">${vid ? `<span data-views="${post.id}">👁 ${fmtNum(post.view_count)}</span>` : ""}<span>❤️ <span data-likes="${post.id}">${fmtNum(post.like_count)}</span></span></span></div>
+      ${(img || vid) && post.body ? `<div class="cap" dir="auto">${esc(post.body)}</div>` : ""}
     </div>
   </section>`;
 }
@@ -2211,15 +2225,54 @@ function wireReels(root) {
     document.querySelectorAll(`[data-rfollow="${CSS.escape(id)}"]`).forEach((x) => x.remove());
   }));
   root.querySelectorAll(".reel [data-person]").forEach((el) => el.addEventListener("click", (e) => { if (!e.target.closest("[data-rfollow]")) openProfile(el.dataset.person); }));
-  // double-tap anywhere to like
+  root.querySelectorAll("[data-mute]").forEach((b) => b.addEventListener("click", () => {
+    feedMuted = !feedMuted;
+    document.querySelectorAll("#tab-feed video.reel-video").forEach((v) => (v.muted = feedMuted));
+    document.querySelectorAll("#tab-feed [data-mute] span:first-child").forEach((s) => (s.textContent = feedMuted ? "🔇" : "🔊"));
+  }));
+  // double-tap anywhere to like; a single tap on a video pauses / plays it
   root.querySelectorAll(".reel[data-post]").forEach((el) => {
-    let last = 0;
+    let last = 0, timer = null;
     el.addEventListener("click", (e) => {
       if (e.target.closest("button, .reel-rail, .reel-info")) return;
       const now = Date.now();
-      if (now - last < 330) { last = 0; likeWithHeart(Number(el.dataset.post), el); } else last = now;
+      if (now - last < 330) { last = 0; clearTimeout(timer); likeWithHeart(Number(el.dataset.post), el); return; }
+      last = now;
+      const v = el.querySelector("video.reel-video");
+      if (v) timer = setTimeout(() => {
+        if (v.paused) { v.play().catch(() => {}); el.querySelector(".reel-paused").hidden = true; }
+        else { v.pause(); el.querySelector(".reel-paused").hidden = false; }
+      }, 340);
     });
   });
+  root.querySelectorAll("video.reel-video").forEach((v) => reelObserver().observe(v));
+}
+/* play the video that is on screen, pause the others; count a view after 1.5 s of watching */
+let _reelObs = null;
+function reelObserver() {
+  if (_reelObs) return _reelObs;
+  _reelObs = new IntersectionObserver((entries) => entries.forEach((en) => {
+    const v = en.target;
+    if (en.isIntersecting && en.intersectionRatio >= 0.6) {
+      v.muted = feedMuted;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      clearTimeout(v._vt);
+      v._vt = setTimeout(() => { if (!v.paused) registerView(Number(v.dataset.rv)); }, 1500);
+    } else { v.pause(); clearTimeout(v._vt); }
+  }), { root: $("#tab-feed"), threshold: [0, 0.6] });
+  return _reelObs;
+}
+function pauseReels() { document.querySelectorAll("#tab-feed video").forEach((v) => v.pause()); }
+async function registerView(id) {
+  if (!id || viewedSet.has(id)) return;
+  viewedSet.add(id);
+  const { error } = await sb.from("post_views").insert({ post_id: id });
+  if (error) return; // already counted before (same person)
+  const p = feedCache.get(id);
+  if (p) {
+    p.view_count = (p.view_count || 0) + 1;
+    document.querySelectorAll(`[data-views="${id}"]`).forEach((s) => (s.textContent = `👁 ${fmtNum(p.view_count)}`));
+  }
 }
 async function sharePost(id) {
   const post = feedCache.get(id); if (!post) return;
@@ -2307,7 +2360,9 @@ function postHtml(post) {
     <div class="post-h" data-person="${esc(post.user_id)}">${avHtml(u.name, u.avatar_url, "sm")}
       <div class="info"><div class="nm" dir="auto">${esc(u.name)} ${flag(u.country)} ${lvHtml(u.xp)}</div><div class="tm">${esc(shortTime(post.created_at))}</div></div></div>
     ${post.body ? `<div class="post-body" dir="auto">${esc(post.body)}</div>` : ""}
-    ${post.image_url && safeAvatar(post.image_url) ? `<img class="post-img" src="${esc(post.image_url)}" alt="" loading="lazy">` : ""}
+    ${safeVideo(post.video_url) ? `<video class="post-video" src="${esc(post.video_url)}" controls playsinline preload="metadata" data-pv="${post.id}"></video>
+      <div class="muted small" style="padding:4px 14px 0" data-views="${post.id}">👁 ${fmtNum(post.view_count)}</div>`
+      : post.image_url && safeAvatar(post.image_url) ? `<img class="post-img" src="${esc(post.image_url)}" alt="" loading="lazy">` : ""}
     <div class="post-f">
       <button type="button" class="${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
       <button type="button" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
@@ -2398,7 +2453,7 @@ async function toggleLike(id) {
   const paint = () => document.querySelectorAll(`[data-like="${id}"]`).forEach((b) => {
     b.innerHTML = likeBtnInner(post); b.classList.toggle("on", likedSet.has(id));
     b.classList.remove("pop"); void b.offsetWidth; if (likedSet.has(id)) b.classList.add("pop");
-  });
+  }) || document.querySelectorAll(`[data-likes="${id}"]`).forEach((s) => (s.textContent = fmtNum(post.like_count)));
   if (was) { likedSet.delete(id); post.like_count = Math.max(0, (post.like_count || 0) - 1); }
   else { likedSet.add(id); post.like_count = (post.like_count || 0) + 1; }
   paint();
@@ -2429,6 +2484,9 @@ async function deletePost(id) {
   if (post.user_id === me.id && post.image_url && safeAvatar(post.image_url)) {
     sb.storage.from("avatars").remove([post.image_url.slice(AVATAR_PREFIX.length).split("?")[0]]);
   }
+  if (post.user_id === me.id && safeVideo(post.video_url)) {
+    sb.storage.from("videos").remove([post.video_url.slice(VIDEO_PREFIX.length).split("?")[0]]);
+  }
   feedCache.delete(id);
   closeSheet();
   if (!$("#screen-main").hidden) renderTab();
@@ -2438,6 +2496,8 @@ async function openPostSheet(post) {
   await hydratePosts([post]);
   openSheet(postHtml(post));
   wirePosts($("#sheet-body"));
+  const v = $("#sheet-body video[data-pv]");
+  if (v) v.addEventListener("play", () => setTimeout(() => { if (!v.paused) registerView(post.id); }, 1500), { once: true });
 }
 
 /* ---- new post ---- */
@@ -2445,7 +2505,7 @@ let composePhoto = null;
 function openCompose() {
   closeSheet();
   if (profile?.banned) return toast(t("e_banned"));
-  composePhoto = null;
+  composePhoto = null; clearComposeVideo();
   $("#compose-text").value = ""; $("#compose-count").textContent = "0 / 500";
   $("#compose-preview").hidden = true;
   show("screen-compose");
@@ -2455,14 +2515,54 @@ $("#new-post-btn").addEventListener("click", openCompose);
 $("#compose-text").addEventListener("input", () => { $("#compose-count").textContent = `${$("#compose-text").value.length} / 500`; });
 $("#compose-photo").addEventListener("click", () => pickPhoto("post"));
 $("#compose-remove").addEventListener("click", () => { composePhoto = null; $("#compose-preview").hidden = true; });
+
+/* ---- video in a post (one video, max 50 MB and 3 minutes) ---- */
+let composeVideo = null;
+const VIDEO_MAX_MB = 50, VIDEO_MAX_SEC = 180;
+function clearComposeVideo() {
+  composeVideo = null;
+  const v = $("#compose-video");
+  if (v.src) { URL.revokeObjectURL(v.src); v.removeAttribute("src"); v.load(); }
+  $("#compose-vpreview").hidden = true;
+}
+$("#compose-vbtn").addEventListener("click", () => { $("#video-input").value = ""; $("#video-input").click(); });
+$("#compose-vremove").addEventListener("click", clearComposeVideo);
+$("#video-input").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  if (f.size > VIDEO_MAX_MB * 1024 * 1024) return toast(t("videoTooBig"));
+  const url = URL.createObjectURL(f);
+  const probe = document.createElement("video");
+  probe.preload = "metadata"; probe.muted = true;
+  probe.onloadedmetadata = () => {
+    if (probe.duration && probe.duration > VIDEO_MAX_SEC + 1) { URL.revokeObjectURL(url); return toast(t("videoTooLong")); }
+    clearComposeVideo();
+    composeVideo = f;
+    composePhoto = null; $("#compose-preview").hidden = true;   // a post has a photo OR a video
+    $("#compose-video").src = url;
+    $("#compose-vpreview").hidden = false;
+  };
+  probe.onerror = () => { URL.revokeObjectURL(url); toast(t("error") + "video"); };
+  probe.src = url;
+});
 $("#compose-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const body = $("#compose-text").value.trim().slice(0, 500);
-  if (!body && !composePhoto) return toast(t("postEmpty"));
+  if (!body && !composePhoto && !composeVideo) return toast(t("postEmpty"));
   const btn = $("#compose-submit"); btn.disabled = true;
-  let path = null;
+  let path = null, vpath = null;
   try {
-    let image_url = null;
+    let image_url = null, video_url = null;
+    if (composeVideo) {
+      toast(t("uploading"));
+      const type = composeVideo.type || "video/mp4";
+      const ext = type.includes("webm") ? "webm" : type.includes("quicktime") ? "mov" : "mp4";
+      const id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
+      vpath = `${me.id}/v-${id}.${ext}`;
+      const up = await sb.storage.from("videos").upload(vpath, composeVideo, { contentType: type, cacheControl: "86400" });
+      if (up.error) throw up.error;
+      video_url = sb.storage.from("videos").getPublicUrl(vpath).data.publicUrl;
+    }
     if (composePhoto) {
       const blob = await shrinkPhoto(composePhoto, 1080, false);
       const id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
@@ -2471,13 +2571,17 @@ $("#compose-form").addEventListener("submit", async (e) => {
       if (up.error) throw up.error;
       image_url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
     }
-    const { error } = await sb.from("posts").insert({ body: body || null, image_url });
+    const row = { body: body || null, image_url };
+    if (video_url) row.video_url = video_url;
+    const { error } = await sb.from("posts").insert(row);
     if (error) throw error;
+    clearComposeVideo();
     toast(t("posted"));
     feedKind = "all";
     goMain("feed");
   } catch (err) {
     if (path) sb.storage.from("avatars").remove([path]);
+    if (vpath) sb.storage.from("videos").remove([vpath]);
     console.error(err); toast(t("error") + (err?.message || err));
   } finally { btn.disabled = false; }
 });

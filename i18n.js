@@ -681,3 +681,16 @@ const I18N_V13 = {
   es: { noLives: "Nadie está en directo ahora.", startLive: "Hacer directo", swipeHint: "Desliza hacia arriba para el siguiente directo", noMoreLives: "No hay más directos ahora", sharePostText: "Mira esta publicación en Talk Together" },
 };
 for (const [l, o] of Object.entries(I18N_V13)) Object.assign(I18N[l], o);
+
+/* ---------- v14 strings: video posts ---------- */
+const I18N_V14 = {
+  en: { addVideo: "Video", videoTooBig: "The video is too big (max 50 MB).", videoTooLong: "The video is too long (max 3 minutes).", uploading: "Uploading… ⏳" },
+  ar: { addVideo: "فيديو", videoTooBig: "الفيديو كبير جداً (الحد 50 ميغابايت).", videoTooLong: "الفيديو طويل جداً (الحد 3 دقائق).", uploading: "جارٍ الرفع… ⏳" },
+  ckb: { addVideo: "ڤیدیۆ", videoTooBig: "ڤیدیۆکە زۆر گەورەیە (زۆرترین ٥٠ MB).", videoTooLong: "ڤیدیۆکە زۆر درێژە (زۆرترین ٣ خولەک).", uploading: "باردەکرێت… ⏳" },
+  tr: { addVideo: "Video", videoTooBig: "Video çok büyük (en fazla 50 MB).", videoTooLong: "Video çok uzun (en fazla 3 dakika).", uploading: "Yükleniyor… ⏳" },
+  fa: { addVideo: "ویدیو", videoTooBig: "ویدیو خیلی بزرگ است (حداکثر ۵۰ مگابایت).", videoTooLong: "ویدیو خیلی طولانی است (حداکثر ۳ دقیقه).", uploading: "در حال بارگذاری… ⏳" },
+  de: { addVideo: "Video", videoTooBig: "Das Video ist zu groß (max. 50 MB).", videoTooLong: "Das Video ist zu lang (max. 3 Minuten).", uploading: "Wird hochgeladen… ⏳" },
+  fr: { addVideo: "Vidéo", videoTooBig: "La vidéo est trop lourde (50 Mo max).", videoTooLong: "La vidéo est trop longue (3 minutes max).", uploading: "Envoi en cours… ⏳" },
+  es: { addVideo: "Vídeo", videoTooBig: "El vídeo es demasiado grande (máx. 50 MB).", videoTooLong: "El vídeo es demasiado largo (máx. 3 minutos).", uploading: "Subiendo… ⏳" },
+};
+for (const [l, o] of Object.entries(I18N_V14)) Object.assign(I18N[l], o);
