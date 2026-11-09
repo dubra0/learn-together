@@ -79,6 +79,9 @@ async function load() {
     const { data, error } = await sb.from("reports").select("*").eq("status", tab).order("created_at", { ascending: false }).limit(100);
     if (error) { box.innerHTML = `<div class="card">${esc(error.message)}</div>`; return; }
     const ppl = await names((data || []).flatMap((r) => [r.reporter, r.reported_user]));
+    const postIds = (data || []).map((r) => r.post_id).filter(Boolean);
+    const posts = {};
+    if (postIds.length) { const pr = await sb.from("posts").select("id,body,image_url").in("id", postIds); (pr.data || []).forEach((p) => (posts[p.id] = p)); }
     box.innerHTML = (data || []).map((r) => {
       const who = ppl[r.reported_user];
       return `<div class="card">
@@ -87,6 +90,11 @@ async function load() {
         ${r.room_id ? `<div>🎙️ ژوور: <code>${esc(r.room_id.slice(0, 8))}</code></div>` : ""}
         <div class="muted">ڕاپۆرتدەر: ${esc(ppl[r.reporter]?.name || "—")}</div>
         ${r.details ? `<div style="margin-top:6px">💬 ${esc(r.details)}</div>` : ""}
+        ${r.post_id ? (posts[r.post_id]
+          ? `<div class="card" style="margin:8px 0;background:var(--soft)">📝 <span dir="auto">${esc(posts[r.post_id].body || "")}</span>
+              ${posts[r.post_id].image_url ? `<br><img src="${esc(posts[r.post_id].image_url)}" alt="" style="max-width:220px;border-radius:12px;margin-top:6px">` : ""}
+              <div class="row"><button class="btn danger" data-delpost="${r.post_id}">🗑️ سڕینەوەی پۆست</button></div></div>`
+          : `<div class="muted">📝 پۆستەکە سڕاوەتەوە</div>`) : ""}
         <div class="row">
           ${r.reported_user ? (who?.banned
             ? `<button class="btn" data-unban="${esc(r.reported_user)}">لابردنی بلۆک</button>`
@@ -111,9 +119,10 @@ async function load() {
 }
 
 document.addEventListener("click", async (e) => {
-  const b = e.target.closest("[data-ban],[data-unban],[data-close],[data-resolve]");
+  const b = e.target.closest("[data-ban],[data-unban],[data-close],[data-resolve],[data-delpost]");
   if (!b) return;
   let res;
+  if (b.dataset.delpost) { if (!confirm("ئەم پۆستە بسڕدرێتەوە؟")) return; res = await sb.from("posts").delete().eq("id", Number(b.dataset.delpost)); }
   if (b.dataset.ban) { if (!confirm("ئەم بەکارهێنەرە بە هەمیشەیی بلۆک بکرێت؟ ژوورەکانیشی دادەخرێن.")) return; res = await sb.rpc("admin_set_ban", { p_user: b.dataset.ban, p_banned: true }); }
   if (b.dataset.unban) res = await sb.rpc("admin_set_ban", { p_user: b.dataset.unban, p_banned: false });
   if (b.dataset.close) res = await sb.rpc("admin_close_room", { p_room: b.dataset.close });
