@@ -183,20 +183,28 @@ $("#edit-photo-btn").addEventListener("click", () => pickPhoto("edit"));
 $("#photo-input").addEventListener("change", (e) => {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
+  if (photoTarget === "gallery") return addGalleryPhoto(f);
   pendingPhoto = f;
   const box = photoTarget === "edit" ? "#edit-photo-preview" : "#name-photo-preview";
   $(box).innerHTML = `<img src="${URL.createObjectURL(f)}" alt="">`;
 });
-function shrinkPhoto(file) {
+// square = profile picture (256×256); otherwise keep the shape, longest side max px
+function shrinkPhoto(file, max = 256, square = true) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const size = 256, c = document.createElement("canvas");
-      c.width = c.height = size;
-      const s = Math.min(img.width, img.height);
-      c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      const c = document.createElement("canvas");
+      if (square) {
+        c.width = c.height = max;
+        const s = Math.min(img.width, img.height);
+        c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, max, max);
+      } else {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      }
       URL.revokeObjectURL(img.src);
-      c.toBlob((b) => (b ? resolve(b) : reject(new Error("image"))), "image/jpeg", 0.85);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("image"))), "image/jpeg", square ? 0.85 : 0.8);
     };
     img.onerror = () => reject(new Error("image"));
     img.src = URL.createObjectURL(file);
@@ -257,6 +265,8 @@ async function enterApp() {
   subscribeRooms();
   subscribeMessages();
   refreshUnread().catch(() => {});
+  subscribeFollows();
+  checkNewFollowers().catch(() => {});
   // opened from a shared link?
   const q = new URLSearchParams(location.search);
   const rid = q.get("room");
@@ -577,28 +587,75 @@ async function openFollowList(id, kind) {
   document.querySelectorAll("#sheet [data-person]").forEach((el) => el.addEventListener("click", () => openProfile(el.dataset.person)));
 }
 
-/* ---------------- Me tab ---------------- */
-function renderMeTab() {
-  const p = profile || {};
-  $("#tab-me").innerHTML = `
-    <div class="card">
-      <div class="profile-head">
-        <button type="button" id="me-photo" style="background:none;border:0;padding:0;cursor:pointer;position:relative">
-          <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>
-          <span style="position:absolute;bottom:2px;inset-inline-end:2px;background:var(--brand);color:#fff;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;font-size:.9rem;border:3px solid var(--card)">✏️</span>
-        </button>
-        <div class="nm" dir="auto">${esc(p.name || "")} ${flag(p.country)} ${lvHtml(p.xp)}</div>
+/* ---------------- Profile card (used by the Me tab and by other people's page) ---------------- */
+function galleryHtml(p, isMe) {
+  const photos = (Array.isArray(p.photos) ? p.photos : []).filter((u) => safeAvatar(u));
+  const tiles = photos.map((u, i) => `<button type="button" data-photo="${i}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join("");
+  const add = isMe && photos.length < 6 ? `<button type="button" class="add" data-addphoto="1" aria-label="add">＋</button>` : "";
+  if (!tiles && !add) return `<div class="muted small" style="text-align:center;padding:12px 0 4px">${esc(t("noPhotos"))}</div>`;
+  return `<div class="gallery">${tiles}${add}</div>`;
+}
+function profileCardHtml(p, o) {
+  let actions;
+  if (o.isMe) actions = `<button class="btn" type="button" data-act="edit">✏️ ${esc(t("editProfile"))}</button>`;
+  else {
+    const f = following.has(p.id);
+    actions = `<button class="btn ${f ? "ghost" : ""}" type="button" data-act="follow">${esc(f ? t("unfollow") : o.followsMe ? t("followBack") : t("follow"))}</button>` +
+      (o.canMsg ? `<button class="btn" type="button" data-act="msg">💬 ${esc(t("messageBtn"))}</button>`
+                : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`);
+  }
+  return `<div class="card pf">
+      <div class="pf-cover"></div>
+      <div class="pf-main">
+        <button type="button" ${o.isMe ? 'data-act="edit"' : ""} style="background:none;border:0;padding:0;position:relative;cursor:${o.isMe ? "pointer" : "default"}">
+          <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
+        <div class="pf-name" dir="auto">${esc(p.name || "")} ${flag(p.country)} ${lvHtml(p.xp)}</div>
+        ${o.followsMe ? `<span class="tag-follows">${esc(t("followsYou"))}</span>` : ""}
         ${p.bio ? `<div class="muted" dir="auto">${esc(p.bio)}</div>` : ""}
         <div class="muted small">${esc(langsLine(p))}</div>
+        <div class="pf-counts">${countsHtml(o.counts)}</div>
+        <div class="pf-actions">${actions}</div>
       </div>
-      <div id="me-counts">${countsHtml({ followers: "…", following: "…" })}</div>
-      <div class="stats3"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
-      <div class="group-title" style="margin:6px 0 10px">${esc(t("badges"))}</div>
-      ${badgesHtml(p)}
+    </div>
+    <div class="card"><div class="group-title" style="margin:0">📷 ${esc(t("photos"))}</div>${galleryHtml(p, o.isMe)}</div>
+    <div class="card">
+      <div class="stats3" style="margin-top:0"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
+      <div class="group-title" style="margin:6px 0 10px">${esc(t("badges"))}</div>${badgesHtml(p)}
+    </div>`;
+}
+function wireProfileCard(root, p, isMe, rerender) {
+  root.querySelectorAll("[data-fl]").forEach((b) => b.addEventListener("click", () => openFollowList(p.id, b.dataset.fl)));
+  root.querySelectorAll("[data-photo]").forEach((b) => b.addEventListener("click", () => viewPhoto(p, Number(b.dataset.photo), isMe)));
+  root.querySelectorAll("[data-addphoto]").forEach((b) => b.addEventListener("click", () => pickPhoto("gallery")));
+  root.querySelectorAll('[data-act="edit"]').forEach((b) => b.addEventListener("click", openEditProfile));
+  root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });
+  root.querySelector('[data-act="msg"]')?.addEventListener("click", () => openDm(p.id));
+  root.querySelector('[data-act="msg-locked"]')?.addEventListener("click", () => toast(t("mutualOnly")));
+}
+async function setCounts(root, id) {
+  const c = await followCounts(id);
+  const box = root.querySelector(".pf-counts");
+  if (!box) return;
+  box.innerHTML = countsHtml(c);
+  box.querySelectorAll("[data-fl]").forEach((b) => b.addEventListener("click", () => openFollowList(id, b.dataset.fl)));
+}
+
+/* ---------------- Me tab ---------------- */
+let meListKind = "followers";
+function renderMeTab() {
+  const box = $("#tab-me");
+  const p = profile || {};
+  box.innerHTML = profileCardHtml(p, { isMe: true, counts: { followers: "…", following: "…" } }) + `
+    <div class="card">
+      <div class="seg-tabs" id="me-seg">
+        <button type="button" data-k="followers">${esc(t("followers"))}</button>
+        <button type="button" data-k="following">${esc(t("followingTitle"))}</button>
+      </div>
+      <div id="me-people"><div class="empty">…</div></div>
     </div>
     <div class="menu">
-      <button type="button" id="me-edit">✏️ ${esc(t("editProfile"))}</button>
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
+      <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
     </div>
     <div class="menu">
       <label>🌐 ${esc(t("appLanguage"))}<select id="me-lang">${uiLangOptions()}</select></label>
@@ -607,17 +664,159 @@ function renderMeTab() {
       <button type="button" id="me-id">🪪 ${esc(t("yourId"))}<span class="end">${esc(me.id.slice(0, 8))}…</span></button>
       <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>
     </div>`;
-  $("#me-edit").addEventListener("click", openEditProfile);
-  $("#me-photo").addEventListener("click", openEditProfile);
+  wireProfileCard(box, p, true, renderMeTab);
+  setCounts(box, me.id);
+  $("#me-seg").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (b) { meListKind = b.dataset.k; renderMePeople(); } });
   $("#me-saved").addEventListener("click", openSaved);
-  followCounts(me.id).then((c) => {
-    if (!$("#me-counts")) return;
-    $("#me-counts").innerHTML = countsHtml(c);
-    $("#me-counts").querySelectorAll("[data-fl]").forEach((b) => b.addEventListener("click", () => openFollowList(me.id, b.dataset.fl)));
-  });
+  $("#me-inbox").addEventListener("click", openInbox);
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
   $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
   $("#me-delete").addEventListener("click", deleteAccount);
+  renderMePeople();
+}
+async function renderMePeople() {
+  if (!$("#me-seg")) return;
+  document.querySelectorAll("#me-seg [data-k]").forEach((b) => b.classList.toggle("on", b.dataset.k === meListKind));
+  const kind = meListKind;
+  const rows = await followPeople(me.id, kind);
+  if (kind !== meListKind || !$("#me-people")) return;
+  const seen = Number(store.get("followersSeen") || 0);
+  $("#me-people").innerHTML = rows.length ? rows.map(({ p, at }) => {
+    const isNew = kind === "followers" && new Date(at).getTime() > seen;
+    return personRow(p).replace("</div><div class=\"meta\">", `${isNew ? `<span class="new-tag">${esc(t("newTag"))}</span>` : ""}</div><div class="meta">`);
+  }).join("") : `<div class="empty">${esc(kind === "followers" ? "—" : t("noFollowing"))}</div>`;
+  $("#me-people").querySelectorAll("[data-person]").forEach((el) => el.addEventListener("click", () => openProfile(el.dataset.person)));
+  if (kind === "followers") { store.set("followersSeen", String(Date.now())); newFollowers = 0; renderMeBadge(); }
+}
+
+/* followers / following of anyone, newest first */
+async function followPeople(id, kind) {
+  const col = kind === "followers" ? "follower" : "followee";
+  const other = kind === "followers" ? "followee" : "follower";
+  const { data } = await sb.from("follows").select(`${col}, created_at`).eq(other, id).order("created_at", { ascending: false }).limit(200);
+  const links = (data || []).filter((r) => !blocked.has(r[col]));
+  if (!links.length) return [];
+  const r = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").in("id", links.map((l) => l[col]));
+  const byId = new Map((r.data || []).map((p) => [p.id, p]));
+  (r.data || []).forEach((p) => profileCache.set(p.id, p));
+  return links.filter((l) => byId.has(l[col])).map((l) => ({ p: byId.get(l[col]), at: l.created_at }));
+}
+
+/* ---------------- Someone else's profile page ---------------- */
+let pfPrev = "screen-main", pfId = null;
+async function openProfilePage(id) {
+  if (!id) return;
+  closeSheet();
+  if (id === me.id) return goMain("me");
+  const cur = [...document.querySelectorAll("body > .screen")].find((s) => !s.hidden)?.id;
+  if (cur && cur !== "screen-profile") pfPrev = cur;
+  pfId = id;
+  $("#pf-title").textContent = "";
+  $("#pf-body").innerHTML = `<div class="empty">…</div>`;
+  show("screen-profile");
+  await renderProfilePage();
+}
+async function renderProfilePage() {
+  const id = pfId;
+  const [prof, counts, canMsg, fm] = await Promise.all([
+    sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak,photos").eq("id", id).maybeSingle(),
+    followCounts(id),
+    sb.rpc("can_message", { p_other: id }).then((r) => r.data === true, () => false),
+    sb.from("follows").select("follower").eq("follower", id).eq("followee", me.id).maybeSingle(),
+  ]);
+  if (pfId !== id) return;
+  let p = prof.data;
+  if (prof.error) { // database without the photos column yet (update 5 not run)
+    const again = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").eq("id", id).maybeSingle();
+    p = again.data;
+  }
+  if (!p) { $("#pf-body").innerHTML = `<div class="empty">—</div>`; return; }
+  profileCache.set(id, p);
+  $("#pf-title").textContent = p.name;
+  $("#pf-body").innerHTML = profileCardHtml(p, { isMe: false, counts, canMsg, followsMe: !!fm.data });
+  wireProfileCard($("#pf-body"), p, false, renderProfilePage);
+}
+$("#pf-back").addEventListener("click", () => {
+  if (pfPrev === "screen-inbox") openInbox();
+  else if (pfPrev === "screen-dm" && dmWith) show("screen-dm");
+  else goMain();
+});
+$("#pf-more").addEventListener("click", () => {
+  const id = pfId; if (!id) return;
+  openSheet(`<div class="menu" style="box-shadow:none">
+    <button type="button" id="pm-report" class="danger">🚩 ${esc(t("report"))}</button>
+    <button type="button" id="pm-block" class="danger">${esc(blocked.has(id) ? t("unblock") : "⛔ " + t("block"))}</button>
+    <button type="button" id="pm-close">${esc(t("close"))}</button></div>`);
+  $("#pm-report").addEventListener("click", () => openReport({ userId: id }));
+  $("#pm-block").addEventListener("click", async () => { closeSheet(); await toggleBlock(id); renderProfilePage(); });
+  $("#pm-close").addEventListener("click", closeSheet);
+});
+
+/* ---------------- Profile photo gallery (up to 6) ---------------- */
+async function addGalleryPhoto(file) {
+  if ((profile?.photos || []).length >= 6) return toast(t("photosMax"));
+  toast("📷 …");
+  try {
+    const blob = await shrinkPhoto(file, 1080, false);
+    const id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
+    const path = `${me.id}/p-${id}.jpg`;
+    const up = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", cacheControl: "3600" });
+    if (up.error) throw up.error;
+    const url = sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    const photos = [...(profile.photos || []), url].slice(0, 6);
+    const { data, error } = await sb.from("profiles").update({ photos }).eq("id", me.id).select().single();
+    if (error) { sb.storage.from("avatars").remove([path]); throw error; }
+    profile = data; profileCache.set(me.id, data);
+    if (currentTab === "me") renderMeTab();
+  } catch (err) { console.error(err); toast(t("photoFail") + (err?.message || err)); }
+}
+function viewPhoto(p, i, isMe) {
+  const url = (p.photos || [])[i];
+  if (!url) return;
+  openSheet(`<div class="photo-view"><img src="${esc(url)}" alt=""></div>
+    <div class="actions">${isMe ? `<button type="button" class="btn danger-ghost" id="ph-del">🗑️ ${esc(t("deletePhoto"))}</button>` : ""}
+      <button type="button" class="btn line" id="ph-close">${esc(t("close"))}</button></div>`);
+  $("#ph-close").addEventListener("click", closeSheet);
+  $("#ph-del")?.addEventListener("click", async () => {
+    if (!confirm(t("deletePhotoConfirm"))) return;
+    const path = url.slice(AVATAR_PREFIX.length).split("?")[0];
+    const photos = (profile.photos || []).filter((u) => u !== url);
+    const { data, error } = await sb.from("profiles").update({ photos }).eq("id", me.id).select().single();
+    if (error) return toast(t("error") + error.message);
+    sb.storage.from("avatars").remove([path]);
+    profile = data; profileCache.set(me.id, data);
+    closeSheet(); renderMeTab();
+  });
+}
+
+/* ---------------- "X followed you" notifications ---------------- */
+let newFollowers = 0, followChannel = null;
+function renderMeBadge() {
+  const b = $("#me-badge");
+  b.hidden = !newFollowers; b.textContent = newFollowers > 9 ? "9+" : String(newFollowers);
+}
+async function checkNewFollowers() {
+  const seen = new Date(Number(store.get("followersSeen") || 0)).toISOString();
+  const { count } = await sb.from("follows").select("follower", { count: "exact", head: true }).eq("followee", me.id).gt("created_at", seen);
+  newFollowers = count || 0; renderMeBadge();
+}
+function subscribeFollows() {
+  if (followChannel) return;
+  followChannel = sb.channel("fl-" + me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "follows", filter: `followee=eq.${me.id}` }, async (payload) => {
+      const f = payload.new;
+      if (!f || blocked.has(f.follower)) return;
+      newFollowers++; renderMeBadge();
+      if (currentTab === "me" && !$("#screen-main").hidden) renderMeTab();
+      if (lk) return; // don't interrupt a voice room
+      const p = await getProfile(f.follower);
+      const name = p?.name || t("guest");
+      if (following.has(f.follower)) toast(t("nowFriends", { name }), t("messageBtn"), () => openDm(f.follower));
+      else toast(t("followedYou", { name }), t("followBack"), async () => {
+        await toggleFollow(f.follower);
+      });
+    })
+    .subscribe();
 }
 
 /* ---------------- Edit profile ---------------- */
@@ -722,6 +921,7 @@ async function getProfile(id) {
   return data;
 }
 async function openProfile(id, participant) {
+  if (!participant || !lk) return openProfilePage(id); // outside a voice room: open the full profile page
   const p = (await getProfile(id)) || { id, name: participant?.name || t("guest"), avatar_url: partMeta(participant || {}).avatar };
   const isMe = id === me.id;
   const inRoom = participant && lk && currentRoom;
@@ -774,7 +974,19 @@ async function openProfile(id, participant) {
 }
 async function toggleFollow(id) {
   if (following.has(id)) { await sb.from("follows").delete().eq("follower", me.id).eq("followee", id); following.delete(id); }
-  else { const { error } = await sb.from("follows").insert({ followee: id }); if (!error) following.add(id); else toast(t("error") + error.message); }
+  else {
+    const { error } = await sb.from("follows").insert({ followee: id });
+    if (error) toast(t("error") + error.message);
+    else {
+      following.add(id);
+      // they already follow me → we are friends now and can chat
+      const back = await sb.from("follows").select("follower").eq("follower", id).eq("followee", me.id).maybeSingle();
+      if (back.data) {
+        const p = await getProfile(id);
+        toast(t("nowFriends", { name: p?.name || t("guest") }), lk ? null : t("messageBtn"), () => openDm(id));
+      }
+    }
+  }
   if (currentTab === "partners" && !$("#screen-main").hidden) renderPartnersTab();
 }
 async function toggleBlock(id) {

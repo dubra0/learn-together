@@ -502,3 +502,24 @@ const I18N_V6 = {
     newMessageFrom: "Nuevo mensaje de {name}", open: "Abrir", recording: "Grabando… toca ■ para enviar", noChats: "Aún no hay chats. ¡Seguíos mutuamente para empezar!" },
 };
 for (const [l, o] of Object.entries(I18N_V6)) Object.assign(I18N[l], o);
+
+/* ---------- v7 strings: profile page, photos, follow alerts ---------- */
+const I18N_V7 = {
+  en: { photos: "Photos", noPhotos: "No photos yet.", followsYou: "Follows you", followedYou: "{name} started following you", followBack: "Follow back",
+    nowFriends: "You and {name} follow each other — you can chat now! 💬", newTag: "NEW", deletePhoto: "Delete photo", deletePhotoConfirm: "Delete this photo?", photosMax: "You can add up to 6 photos." },
+  ar: { photos: "الصور", noPhotos: "لا توجد صور بعد.", followsYou: "يتابعك", followedYou: "بدأ {name} بمتابعتك", followBack: "تابِعه أيضاً",
+    nowFriends: "أنت و{name} تتابعان بعضكما — يمكنكما الدردشة الآن! 💬", newTag: "جديد", deletePhoto: "حذف الصورة", deletePhotoConfirm: "حذف هذه الصورة؟", photosMax: "يمكنك إضافة 6 صور كحد أقصى." },
+  ckb: { photos: "وێنەکان", noPhotos: "هێشتا هیچ وێنەیەک نییە.", followsYou: "فۆڵۆوت دەکات", followedYou: "{name} فۆڵۆوی کردیت", followBack: "فۆڵۆوکردنەوە",
+    nowFriends: "تۆ و {name} یەکترتان فۆڵۆو کردووە، ئێستا دەتوانن چات بکەن! 💬", newTag: "نوێ", deletePhoto: "سڕینەوەی وێنە", deletePhotoConfirm: "ئەم وێنەیە بسڕدرێتەوە؟", photosMax: "دەتوانیت تا ٦ وێنە دابنێیت." },
+  tr: { photos: "Fotoğraflar", noPhotos: "Henüz fotoğraf yok.", followsYou: "Seni takip ediyor", followedYou: "{name} seni takip etmeye başladı", followBack: "Geri takip et",
+    nowFriends: "Sen ve {name} birbirinizi takip ediyorsunuz — artık sohbet edebilirsiniz! 💬", newTag: "YENİ", deletePhoto: "Fotoğrafı sil", deletePhotoConfirm: "Bu fotoğraf silinsin mi?", photosMax: "En fazla 6 fotoğraf ekleyebilirsin." },
+  fa: { photos: "عکس‌ها", noPhotos: "هنوز عکسی نیست.", followsYou: "شما را دنبال می‌کند", followedYou: "{name} شما را دنبال کرد", followBack: "دنبال کردن متقابل",
+    nowFriends: "شما و {name} همدیگر را دنبال می‌کنید — اکنون می‌توانید گفتگو کنید! 💬", newTag: "جدید", deletePhoto: "حذف عکس", deletePhotoConfirm: "این عکس حذف شود؟", photosMax: "حداکثر ۶ عکس می‌توانید اضافه کنید." },
+  de: { photos: "Fotos", noPhotos: "Noch keine Fotos.", followsYou: "Folgt dir", followedYou: "{name} folgt dir jetzt", followBack: "Zurückfolgen",
+    nowFriends: "Du und {name} folgt euch gegenseitig — ihr könnt jetzt chatten! 💬", newTag: "NEU", deletePhoto: "Foto löschen", deletePhotoConfirm: "Dieses Foto löschen?", photosMax: "Du kannst bis zu 6 Fotos hinzufügen." },
+  fr: { photos: "Photos", noPhotos: "Pas encore de photos.", followsYou: "Te suit", followedYou: "{name} a commencé à te suivre", followBack: "Suivre en retour",
+    nowFriends: "Toi et {name} vous suivez mutuellement — vous pouvez discuter ! 💬", newTag: "NOUVEAU", deletePhoto: "Supprimer la photo", deletePhotoConfirm: "Supprimer cette photo ?", photosMax: "Tu peux ajouter jusqu'à 6 photos." },
+  es: { photos: "Fotos", noPhotos: "Aún no hay fotos.", followsYou: "Te sigue", followedYou: "{name} empezó a seguirte", followBack: "Seguir también",
+    nowFriends: "Tú y {name} os seguís mutuamente — ¡ya podéis chatear! 💬", newTag: "NUEVO", deletePhoto: "Eliminar foto", deletePhotoConfirm: "¿Eliminar esta foto?", photosMax: "Puedes añadir hasta 6 fotos." },
+};
+for (const [l, o] of Object.entries(I18N_V7)) Object.assign(I18N[l], o);
