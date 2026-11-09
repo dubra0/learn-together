@@ -383,6 +383,7 @@ function roomCard(r) {
   const mine = r.host_id === me.id;
   const tags = `<span class="tag ${upcoming ? "blue" : "live"}">${esc(upcoming ? t("startsAt", { time: fmtTime(r.starts_at) }) : "LIVE")}</span>
     <span class="tag">${esc(LANGS[r.language] || r.language)}</span><span class="tag blue">${esc(levelLabel(r.level))}</span>
+    ${r.video ? `<span class="tag">📹 ${esc(t("videoTag"))}</span>` : ""}
     ${r.is_private ? `<span class="tag">${esc(t("privateTag"))}</span>` : ""}`;
   let actions;
   if (upcoming) {
@@ -426,12 +427,14 @@ let reloadTimer = null;
 function reloadRoomsSoon() { clearTimeout(reloadTimer); reloadTimer = setTimeout(loadRooms, 1500); }
 
 /* ---------------- Create room ---------------- */
-let createType = "public", createWhen = "now";
+let createType = "public", createWhen = "now", createMedia = "voice";
+$("#room-media").addEventListener("click", (e) => { const c = e.target.closest("[data-v]"); if (c) setSeg("#room-media", (createMedia = c.dataset.v)); });
 $("#new-room-btn").addEventListener("click", () => {
   if (profile?.banned) return toast(t("e_banned"));
   $("#room-title").value = "";
   if (roomFilter) $("#room-lang").value = roomFilter;
   setSeg("#room-type", (createType = "public"));
+  setSeg("#room-media", (createMedia = "voice"));
   setSeg("#room-when", (createWhen = "now"));
   $("#room-time-box").hidden = true;
   show("screen-create");
@@ -464,6 +467,7 @@ $("#create-form").addEventListener("submit", async (e) => {
     is_private: createType === "private",
     join_code: createType === "private" ? String(Math.floor(100000 + Math.random() * 900000)) : null,
     starts_at: startsAt, max_people: Number($("#room-max").value) || 20,
+    ...(createMedia === "video" ? { video: true } : {}),
   };
   const { data, error } = await sb.from("rooms").insert(row).select().single();
   btn.disabled = false;
@@ -1115,7 +1119,7 @@ function hostParticipant() { return currentRoom ? findParticipant(currentRoom.ho
 function setRoomHeader(row) {
   $("#room-title-view").textContent = row.title;
   $("#room-tags").innerHTML = `<span class="tg live">LIVE</span><span class="tg">${esc(LANGS[row.language] || row.language)}</span>
-    <span class="tg lv">${esc(LEVEL_CODES[row.level] || "")}</span>${row.is_private ? `<span class="tg">🔒</span>` : ""}`;
+    <span class="tg lv">${esc(LEVEL_CODES[row.level] || "")}</span>${row.video ? `<span class="tg">📹</span>` : ""}${row.is_private ? `<span class="tg">🔒</span>` : ""}`;
   const f = $("#room-follow");
   f.hidden = !me || row.host_id === me.id;
   if (!f.hidden) { const on = following.has(row.host_id); f.textContent = on ? t("unfollow") : t("follow"); f.classList.toggle("on", on); }
@@ -1164,9 +1168,15 @@ async function joinRoom(row, code) {
       throw e2;
     }
     const E = LivekitClient.RoomEvent;
+    const V = LivekitClient.VideoPresets;
     const room = new LivekitClient.Room({
-      adaptiveStream: true, dynacast: true,
+      adaptiveStream: true, dynacast: true,   // viewers only receive the size they actually show
       audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      ...(row.video ? {
+        videoCaptureDefaults: { resolution: V.h1080.resolution, facingMode: "user" },
+        // send 1080p plus two smaller copies (180p for seat bubbles, 540p in between)
+        publishDefaults: { simulcast: true, videoEncoding: V.h1080.encoding, videoSimulcastLayers: [V.h180, V.h540] },
+      } : {}),
     });
     lk = room;
     room
@@ -1175,7 +1185,11 @@ async function joinRoom(row, code) {
         if (blocked.has(p.identity)) p.setVolume?.(0);
         renderPeople();
       })
-      .on(E.TrackUnsubscribed, (track) => { track.detach().forEach((el) => el.remove()); renderPeople(); })
+      .on(E.TrackUnsubscribed, (track, _pub, p) => {
+        if (track.kind === "video") { dropVideoEl(p.identity); if (viewerTrack === track) closeVideoViewer(); }
+        else track.detach().forEach((el) => el.remove());
+        renderPeople();
+      })
       .on(E.ParticipantConnected, (p) => { if (!blocked.has(p.identity)) addSystem(t("joined", { name: p.name || t("guest") })); renderPeople(); })
       .on(E.ParticipantDisconnected, (p) => { pendingInvites.delete(p.identity); renderPeople(); })
       .on(E.ActiveSpeakersChanged, renderPeople)
@@ -1261,8 +1275,9 @@ function seatHtml(p, i) {
   const name = p.name || t("guest"), meta = partMeta(p);
   const isHost = p.identity === currentRoom.host_id, isMe = p === lk.localParticipant;
   const speaking = p.isSpeaking && p.isMicrophoneEnabled;
-  return `<button type="button" class="seat ${speaking ? "speaking" : ""}" data-pid="${esc(p.identity)}" ${blocked.has(p.identity) ? 'style="opacity:.4"' : ""}>
-    <span class="ring2">${avHtml(name, meta.avatar, "md")}${!p.isMicrophoneEnabled ? '<span class="muted-ic">🔇</span>' : ""}
+  const hasVideo = !blocked.has(p.identity) && !!videoTrackOf(p);
+  return `<button type="button" class="seat ${speaking ? "speaking" : ""} ${hasVideo ? "has-video" : ""}" data-pid="${esc(p.identity)}" ${blocked.has(p.identity) ? 'style="opacity:.4"' : ""}>
+    <span class="ring2">${hasVideo ? `<span class="vslot" data-vid="${esc(p.identity)}"></span>` : avHtml(name, meta.avatar, "md")}${!p.isMicrophoneEnabled ? '<span class="muted-ic">🔇</span>' : ""}
       ${meta.country ? `<span class="flag-b">${flag(meta.country)}</span>` : ""}${isHost ? '<span class="host-b">👑</span>' : ""}</span>
     <span class="nm" dir="auto">${esc(name)}${isMe ? " " + esc(t("you")) : ""}</span></button>`;
 }
@@ -1281,6 +1296,12 @@ function renderPeople() {
   const stage = [host, ...all.filter((p) => isSpeaker(p) && p !== host)].slice(0, MAX_STAGE);
   while (stage.length < MAX_STAGE) stage.push(null);
   $("#seats").innerHTML = stage.map(seatHtml).join("");
+  // put the (kept-alive) video elements into their seats
+  document.querySelectorAll("#seats [data-vid]").forEach((slot) => {
+    const el = videoElFor(findParticipant(slot.dataset.vid));
+    if (el) { slot.appendChild(el); el.play().catch(() => {}); }
+  });
+  for (const [id] of videoEls) if (!findParticipant(id) || !videoTrackOf(findParticipant(id))) dropVideoEl(id);
   const listeners = listenersSorted();
   $("#audience").innerHTML = listeners.slice(0, AUD_SHOW).map(audHtml).join("") +
     (listeners.length > AUD_SHOW ? `<button type="button" class="aud more" id="aud-more"><span class="av">+${listeners.length - AUD_SHOW}</span><span class="nm">${esc(t("othersCount"))}</span></button>` : "");
@@ -1290,6 +1311,13 @@ function renderPeople() {
   const local = lk.localParticipant, canSpeak = isSpeaker(local), micOn = local.isMicrophoneEnabled;
   $("#mic-btn").hidden = !canSpeak; $("#hand-btn").hidden = canSpeak; $("#topic-btn").hidden = !amHost();
   $("#stage-down-btn").hidden = !canSpeak || amHost();
+  const camOn = local.isCameraEnabled;
+  $("#cam-btn").hidden = !(currentRoom.video && canSpeak);
+  $("#cam-btn").classList.toggle("cam-on", camOn);
+  $("#cam-btn").textContent = camOn ? "📹" : "📷";
+  $("#cam-btn").title = camOn ? t("camOff") : t("camOn");
+  $("#flip-btn").hidden = !(currentRoom.video && canSpeak && camOn);
+  $("#flip-btn").title = t("flipCam");
   $("#stage-down-btn").title = t("leaveStage");
   $("#mic-btn").textContent = micOn ? "🎙️" : "🔇";
   $("#mic-btn").classList.toggle("on", micOn); $("#mic-btn").classList.toggle("off", !micOn);
@@ -1307,8 +1335,80 @@ document.addEventListener("click", (e) => {
   const inv = e.target.closest("[data-invite]");
   if (inv) { closeSheet(); inviteToStage(inv.dataset.invite); return; }
   const person = e.target.closest("[data-pid]");
-  if (person) { closeSheet(); openProfile(person.dataset.pid, findParticipant(person.dataset.pid)); }
+  if (person) {
+    closeSheet();
+    const p = findParticipant(person.dataset.pid);
+    // a seat showing a camera opens the big full-quality video; otherwise the profile
+    if (person.classList.contains("has-video") && p && videoTrackOf(p)) openVideoViewer(p);
+    else openProfile(person.dataset.pid, p);
+  }
 });
+
+/* ---------- camera (1080p, with smaller copies for the small seat bubbles) ---------- */
+const videoEls = new Map(); // identity -> <video> kept alive between re-renders
+let camFacing = "user";
+function videoTrackOf(p) {
+  if (!p) return null;
+  const pub = p.getTrackPublication?.(LivekitClient.Track.Source.Camera);
+  return pub && pub.track && !pub.isMuted ? pub.track : null;
+}
+function videoElFor(p) {
+  const tr = videoTrackOf(p);
+  if (!tr) return null;
+  let el = videoEls.get(p.identity);
+  if (!el) {
+    el = document.createElement("video");
+    el.autoplay = true; el.muted = true; el.playsInline = true; el.setAttribute("playsinline", "");
+    el.className = "seat-video";
+    videoEls.set(p.identity, el);
+  }
+  if (el._track !== tr) { el._track?.detach(el); tr.attach(el); el._track = tr; }
+  el.classList.toggle("mirror", p === lk?.localParticipant && camFacing === "user");
+  return el;
+}
+function dropVideoEl(id) {
+  const el = videoEls.get(id);
+  if (el) { try { el._track?.detach(el); } catch {} el.remove(); videoEls.delete(id); }
+}
+$("#cam-btn").addEventListener("click", async () => {
+  if (!lk || !currentRoom?.video) return;
+  const btn = $("#cam-btn"); btn.disabled = true;
+  const on = !lk.localParticipant.isCameraEnabled;
+  try {
+    const V = LivekitClient.VideoPresets;
+    await lk.localParticipant.setCameraEnabled(on, { resolution: V.h1080.resolution, facingMode: camFacing });
+  } catch (err) { console.warn(err); toast(t("cameraDenied")); }
+  btn.disabled = false; renderPeople();
+});
+$("#flip-btn").addEventListener("click", async () => {
+  const tr = lk && videoTrackOf(lk.localParticipant);
+  if (!tr) return;
+  camFacing = camFacing === "user" ? "environment" : "user";
+  try { await tr.restartTrack({ facingMode: camFacing, resolution: LivekitClient.VideoPresets.h1080.resolution }); }
+  catch (err) { console.warn(err); toast(t("error") + (err?.message || err)); }
+  renderPeople();
+});
+
+/* full screen: attach to a big element, so the best (1080p) copy is sent */
+let viewerTrack = null, viewerId = null;
+function openVideoViewer(p) {
+  const tr = videoTrackOf(p); if (!tr) return;
+  closeVideoViewer();
+  viewerTrack = tr; viewerId = p.identity;
+  const v = $("#vv-video");
+  tr.attach(v);
+  v.classList.toggle("mirror", p === lk.localParticipant && camFacing === "user");
+  $("#vv-name").textContent = `${p.name || t("guest")} ${flag(partMeta(p).country)}`;
+  $("#video-viewer").hidden = false;
+  v.play().catch(() => {});
+}
+function closeVideoViewer() {
+  if (viewerTrack) { try { viewerTrack.detach($("#vv-video")); } catch {} }
+  viewerTrack = null; viewerId = null;
+  $("#video-viewer").hidden = true;
+}
+$("#vv-close").addEventListener("click", closeVideoViewer);
+$("#vv-profile").addEventListener("click", () => { const id = viewerId; closeVideoViewer(); if (id) openProfile(id, findParticipant(id)); });
 function onEmptySeat() {
   const local = lk.localParticipant;
   if (amHost()) return openInvitePicker();
@@ -1504,6 +1604,9 @@ $("#room-more").addEventListener("click", () => {
 async function leaveRoom() {
   clearInterval(practiceTimer); practiceTimer = null;
   clearInterval(heartbeatTimer); heartbeatTimer = null;
+  closeVideoViewer();
+  for (const [id] of videoEls) dropVideoEl(id);
+  camFacing = "user";
   const room = lk; lk = null; currentRoom = null; currentCode = null; replyTo = null; pendingInvites.clear();
   if (room) { try { await room.disconnect(); } catch {} }
   $("#audio-sink").innerHTML = ""; $("#chat-list").innerHTML = ""; $("#audio-unlock").hidden = true; $("#reply-bar").hidden = true;

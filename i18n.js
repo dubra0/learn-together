@@ -581,3 +581,24 @@ const I18N_V9 = {
   es: { comments: "Comentarios", commentPh: "Añade un comentario…", noComments: "Aún no hay comentarios. ¡Sé el primero! 💬", deleteComment: "Eliminar" },
 };
 for (const [l, o] of Object.entries(I18N_V9)) Object.assign(I18N[l], o);
+
+/* ---------- v10 strings: camera rooms ---------- */
+const I18N_V10 = {
+  en: { roomMedia: "Room type", voiceOnly: "🎙️ Voice only", voiceVideo: "📹 Voice + camera", videoTag: "Camera", camOn: "Turn camera on", camOff: "Turn camera off",
+    flipCam: "Switch camera", cameraDenied: "Camera blocked — allow it in your browser settings." },
+  ar: { roomMedia: "نوع الغرفة", voiceOnly: "🎙️ صوت فقط", voiceVideo: "📹 صوت + كاميرا", videoTag: "كاميرا", camOn: "تشغيل الكاميرا", camOff: "إيقاف الكاميرا",
+    flipCam: "تبديل الكاميرا", cameraDenied: "الكاميرا محظورة — اسمح بها من إعدادات المتصفح." },
+  ckb: { roomMedia: "جۆری ژوور", voiceOnly: "🎙️ تەنها دەنگ", voiceVideo: "📹 دەنگ + کامێرا", videoTag: "کامێرا", camOn: "کردنەوەی کامێرا", camOff: "داخستنی کامێرا",
+    flipCam: "گۆڕینی کامێرا", cameraDenied: "ڕێگە بە کامێرا نەدراوە — لە ڕێکخستنی وێبگەڕ ڕێگە بدە." },
+  tr: { roomMedia: "Oda türü", voiceOnly: "🎙️ Sadece ses", voiceVideo: "📹 Ses + kamera", videoTag: "Kamera", camOn: "Kamerayı aç", camOff: "Kamerayı kapat",
+    flipCam: "Kamerayı değiştir", cameraDenied: "Kamera engellendi — tarayıcı ayarlarından izin ver." },
+  fa: { roomMedia: "نوع اتاق", voiceOnly: "🎙️ فقط صدا", voiceVideo: "📹 صدا + دوربین", videoTag: "دوربین", camOn: "روشن کردن دوربین", camOff: "خاموش کردن دوربین",
+    flipCam: "تعویض دوربین", cameraDenied: "دوربین مسدود است — در تنظیمات مرورگر اجازه دهید." },
+  de: { roomMedia: "Raumart", voiceOnly: "🎙️ Nur Stimme", voiceVideo: "📹 Stimme + Kamera", videoTag: "Kamera", camOn: "Kamera an", camOff: "Kamera aus",
+    flipCam: "Kamera wechseln", cameraDenied: "Kamera blockiert — in den Browser-Einstellungen erlauben." },
+  fr: { roomMedia: "Type de salon", voiceOnly: "🎙️ Voix seulement", voiceVideo: "📹 Voix + caméra", videoTag: "Caméra", camOn: "Activer la caméra", camOff: "Couper la caméra",
+    flipCam: "Changer de caméra", cameraDenied: "Caméra bloquée — autorise-la dans les réglages du navigateur." },
+  es: { roomMedia: "Tipo de sala", voiceOnly: "🎙️ Solo voz", voiceVideo: "📹 Voz + cámara", videoTag: "Cámara", camOn: "Encender cámara", camOff: "Apagar cámara",
+    flipCam: "Cambiar cámara", cameraDenied: "Cámara bloqueada — permítela en los ajustes del navegador." },
+};
+for (const [l, o] of Object.entries(I18N_V10)) Object.assign(I18N[l], o);
