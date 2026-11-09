@@ -473,3 +473,32 @@ const I18N_V5 = {
     inAppWarn: "Para las salas de voz, abre esta página en Chrome o Safari." },
 };
 for (const [l, o] of Object.entries(I18N_V5)) Object.assign(I18N[l], o);
+
+/* ---------- v6 strings: leave stage, followers, private messages ---------- */
+const I18N_V6 = {
+  en: { leaveStage: "Leave the stage", leftStage: "You're going back to listening 🎧", followers: "Followers", messageBtn: "Message", messagesTitle: "Messages",
+    mutualOnly: "You can chat when you follow each other.", recordTooShort: "Too short — hold on a bit longer.", voiceMsg: "Voice message",
+    newMessageFrom: "New message from {name}", open: "Open", recording: "Recording… tap ■ to send", noChats: "No chats yet. Follow each other to start chatting!" },
+  ar: { leaveStage: "النزول من المنصة", leftStage: "ستعود إلى الاستماع 🎧", followers: "المتابِعون", messageBtn: "رسالة", messagesTitle: "الرسائل",
+    mutualOnly: "يمكنكما الدردشة عندما يتابع كل منكما الآخر.", recordTooShort: "قصير جداً، سجّل لفترة أطول.", voiceMsg: "رسالة صوتية",
+    newMessageFrom: "رسالة جديدة من {name}", open: "فتح", recording: "جارٍ التسجيل… اضغط ■ للإرسال", noChats: "لا توجد محادثات بعد. تابعا بعضكما لبدء الدردشة!" },
+  ckb: { leaveStage: "دابەزین لە شانۆ", leftStage: "دەگەڕێیتەوە بۆ گوێگرتن 🎧", followers: "فۆڵۆوەران", messageBtn: "نامە", messagesTitle: "نامەکان",
+    mutualOnly: "کاتێک هەردووکتان یەکتر فۆڵۆو دەکەن، دەتوانن چات بکەن.", recordTooShort: "زۆر کورتە، کەمێک زیاتر تۆمار بکە.", voiceMsg: "نامەی دەنگی",
+    newMessageFrom: "نامەی نوێ لە {name}", open: "کردنەوە", recording: "تۆمار دەکرێت… بۆ ناردن ■ دابگرە", noChats: "هێشتا هیچ چاتێک نییە. یەکتر فۆڵۆو بکەن بۆ دەستپێکردنی چات!" },
+  tr: { leaveStage: "Sahneden in", leftStage: "Dinlemeye dönüyorsun 🎧", followers: "Takipçiler", messageBtn: "Mesaj", messagesTitle: "Mesajlar",
+    mutualOnly: "Birbirinizi takip ettiğinizde sohbet edebilirsiniz.", recordTooShort: "Çok kısa, biraz daha uzun kaydet.", voiceMsg: "Sesli mesaj",
+    newMessageFrom: "{name} kişisinden yeni mesaj", open: "Aç", recording: "Kaydediliyor… göndermek için ■", noChats: "Henüz sohbet yok. Sohbet için birbirinizi takip edin!" },
+  fa: { leaveStage: "پایین آمدن از صحنه", leftStage: "به حالت شنونده برمی‌گردید 🎧", followers: "دنبال‌کنندگان", messageBtn: "پیام", messagesTitle: "پیام‌ها",
+    mutualOnly: "وقتی همدیگر را دنبال کنید می‌توانید گفتگو کنید.", recordTooShort: "خیلی کوتاه است، کمی بیشتر ضبط کنید.", voiceMsg: "پیام صوتی",
+    newMessageFrom: "پیام جدید از {name}", open: "باز کردن", recording: "در حال ضبط… برای ارسال ■ را بزنید", noChats: "هنوز گفتگویی نیست. برای شروع همدیگر را دنبال کنید!" },
+  de: { leaveStage: "Bühne verlassen", leftStage: "Du hörst jetzt wieder zu 🎧", followers: "Follower", messageBtn: "Nachricht", messagesTitle: "Nachrichten",
+    mutualOnly: "Ihr könnt chatten, wenn ihr euch gegenseitig folgt.", recordTooShort: "Zu kurz – nimm etwas länger auf.", voiceMsg: "Sprachnachricht",
+    newMessageFrom: "Neue Nachricht von {name}", open: "Öffnen", recording: "Aufnahme… ■ tippen zum Senden", noChats: "Noch keine Chats. Folgt euch gegenseitig, um zu chatten!" },
+  fr: { leaveStage: "Quitter la scène", leftStage: "Tu repasses en écoute 🎧", followers: "Abonnés", messageBtn: "Message", messagesTitle: "Messages",
+    mutualOnly: "Vous pouvez discuter quand vous vous suivez mutuellement.", recordTooShort: "Trop court, enregistre un peu plus.", voiceMsg: "Message vocal",
+    newMessageFrom: "Nouveau message de {name}", open: "Ouvrir", recording: "Enregistrement… touche ■ pour envoyer", noChats: "Pas encore de discussions. Suivez-vous mutuellement pour discuter !" },
+  es: { leaveStage: "Bajar del escenario", leftStage: "Vuelves a escuchar 🎧", followers: "Seguidores", messageBtn: "Mensaje", messagesTitle: "Mensajes",
+    mutualOnly: "Podéis chatear cuando os sigáis mutuamente.", recordTooShort: "Muy corto, graba un poco más.", voiceMsg: "Mensaje de voz",
+    newMessageFrom: "Nuevo mensaje de {name}", open: "Abrir", recording: "Grabando… toca ■ para enviar", noChats: "Aún no hay chats. ¡Seguíos mutuamente para empezar!" },
+};
+for (const [l, o] of Object.entries(I18N_V6)) Object.assign(I18N[l], o);

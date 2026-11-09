@@ -255,6 +255,8 @@ async function enterApp() {
   await Promise.all([loadSocial(), checkAdmin()]);
   goMain("rooms");
   subscribeRooms();
+  subscribeMessages();
+  refreshUnread().catch(() => {});
   // opened from a shared link?
   const q = new URLSearchParams(location.search);
   const rid = q.get("room");
@@ -336,7 +338,7 @@ async function loadRooms() {
   const rows = (data || []).filter((r) => !blocked.has(r.host_id));
   const startOf = (r) => (r.starts_at ? new Date(r.starts_at).getTime() : new Date(r.created_at).getTime());
   // a live room must have heard from its host recently (rooms from before update 3 have no last_seen)
-  const alive = (r) => !("last_seen" in r) || now - new Date(r.last_seen).getTime() < 150e3;
+  const alive = (r) => !("last_seen" in r) || now - new Date(r.last_seen).getTime() < 90e3;
   const live = rows.filter((r) => startOf(r) <= now && now - startOf(r) < H12 && alive(r));
   const upcoming = rows.filter((r) => startOf(r) > now && startOf(r) - now < D7).sort((a, b) => startOf(a) - startOf(b));
   $("#live-list").innerHTML = live.length ? live.map(roomCard).join("")
@@ -397,7 +399,7 @@ function subscribeRooms() {
     })
     .subscribe();
   // drop rooms whose host disappeared, even when nothing else changes
-  setInterval(() => { if (!$("#screen-main").hidden && currentTab === "rooms") loadRooms(); }, 45000);
+  setInterval(() => { if (!$("#screen-main").hidden && currentTab === "rooms") loadRooms(); }, 30000);
 }
 let reloadTimer = null;
 function reloadRoomsSoon() { clearTimeout(reloadTimer); reloadTimer = setTimeout(loadRooms, 1500); }
@@ -512,7 +514,7 @@ function langsLine(p) {
 }
 function personRow(p) {
   return `<div class="row-item" data-person="${esc(p.id)}">${avHtml(p.name, p.avatar_url, "sm")}
-    <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)}</div><div class="meta">${esc(langsLine(p))}</div></div>
+    <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p.xp)}</div><div class="meta">${esc(langsLine(p))}</div></div>
     <span class="pill">⭐ ${p.xp || 0}</span></div>`;
 }
 
@@ -546,17 +548,50 @@ function badgesHtml(p) {
   return `<div class="badges">${list.map((b) => `<div class="badge-item ${b.got ? "got" : ""}"><div class="ic">${b.ic}</div>${esc(t(b.k))}</div>`).join("")}</div>`;
 }
 
+/* ---------------- level from XP + followers ---------------- */
+const levelOf = (xp) => Math.floor(Math.sqrt((xp || 0) / 10)) + 1;   // 0→Lv1, 10→Lv2, 40→Lv3, 90→Lv4, 160→Lv5 …
+const lvHtml = (xp) => `<span class="lv">Lv.${levelOf(xp)}</span>`;
+async function followCounts(id) {
+  const [a, b] = await Promise.all([
+    sb.from("follows").select("follower", { count: "exact", head: true }).eq("followee", id),
+    sb.from("follows").select("followee", { count: "exact", head: true }).eq("follower", id),
+  ]);
+  return { followers: a.count || 0, following: b.count || 0 };
+}
+function countsHtml(c) {
+  return `<div class="counts"><button type="button" data-fl="followers"><b>${c.followers}</b><span>${esc(t("followers"))}</span></button>
+    <button type="button" data-fl="following"><b>${c.following}</b><span>${esc(t("followingTitle"))}</span></button></div>`;
+}
+async function openFollowList(id, kind) {
+  const col = kind === "followers" ? "follower" : "followee";
+  const other = kind === "followers" ? "followee" : "follower";
+  const { data } = await sb.from("follows").select(col).eq(other, id).order("created_at", { ascending: false }).limit(200);
+  const ids = (data || []).map((r) => r[col]);
+  let rows = [];
+  if (ids.length) {
+    const r = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").in("id", ids);
+    rows = r.data || []; rows.forEach((p) => profileCache.set(p.id, p));
+  }
+  openSheet(`<h1>${esc(kind === "followers" ? t("followers") : t("followingTitle"))} (${ids.length})</h1>` +
+    (rows.length ? rows.map(personRow).join("") : `<div class="empty">—</div>`));
+  document.querySelectorAll("#sheet [data-person]").forEach((el) => el.addEventListener("click", () => openProfile(el.dataset.person)));
+}
+
 /* ---------------- Me tab ---------------- */
 function renderMeTab() {
   const p = profile || {};
   $("#tab-me").innerHTML = `
     <div class="card">
       <div class="profile-head">
-        <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>
-        <div class="nm" dir="auto">${esc(p.name || "")} ${flag(p.country)}</div>
+        <button type="button" id="me-photo" style="background:none;border:0;padding:0;cursor:pointer;position:relative">
+          <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>
+          <span style="position:absolute;bottom:2px;inset-inline-end:2px;background:var(--brand);color:#fff;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;font-size:.9rem;border:3px solid var(--card)">✏️</span>
+        </button>
+        <div class="nm" dir="auto">${esc(p.name || "")} ${flag(p.country)} ${lvHtml(p.xp)}</div>
         ${p.bio ? `<div class="muted" dir="auto">${esc(p.bio)}</div>` : ""}
         <div class="muted small">${esc(langsLine(p))}</div>
       </div>
+      <div id="me-counts">${countsHtml({ followers: "…", following: "…" })}</div>
       <div class="stats3"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
       <div class="group-title" style="margin:6px 0 10px">${esc(t("badges"))}</div>
       ${badgesHtml(p)}
@@ -573,7 +608,13 @@ function renderMeTab() {
       <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>
     </div>`;
   $("#me-edit").addEventListener("click", openEditProfile);
+  $("#me-photo").addEventListener("click", openEditProfile);
   $("#me-saved").addEventListener("click", openSaved);
+  followCounts(me.id).then((c) => {
+    if (!$("#me-counts")) return;
+    $("#me-counts").innerHTML = countsHtml(c);
+    $("#me-counts").querySelectorAll("[data-fl]").forEach((b) => b.addEventListener("click", () => openFollowList(me.id, b.dataset.fl)));
+  });
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
   $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
   $("#me-delete").addEventListener("click", deleteAccount);
@@ -686,9 +727,16 @@ async function openProfile(id, participant) {
   const inRoom = participant && lk && currentRoom;
   const hostHere = inRoom && amHost() && !isMe && id !== currentRoom.host_id;
   const speaker = inRoom && isSpeaker(participant);
+  const [counts, canMsg] = await Promise.all([
+    followCounts(id),
+    isMe ? Promise.resolve(false) : sb.rpc("can_message", { p_other: id }).then((r) => r.data === true).catch(() => false),
+  ]);
   let actions = "";
   if (!isMe) {
     actions += `<button class="btn ${following.has(id) ? "ghost" : ""}" id="sh-follow">${esc(following.has(id) ? t("unfollow") : t("follow"))}</button>`;
+    if (!inRoom) actions += canMsg
+      ? `<button class="btn" id="sh-msg">💬 ${esc(t("messageBtn"))}</button>`
+      : `<button class="btn line" id="sh-msg-locked" title="${esc(t("mutualOnly"))}">🔒 ${esc(t("messageBtn"))}</button>`;
     if (hostHere) {
       if (speaker) actions += `<button class="btn ghost" id="sh-speaker">${esc(t("toListener"))}</button>`;
       else {
@@ -703,13 +751,17 @@ async function openProfile(id, participant) {
   openSheet(`
     <div class="profile-head">
       <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>
-      <div class="nm" dir="auto">${esc(p.name)} ${flag(p.country)}</div>
+      <div class="nm" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p.xp)}</div>
       ${p.bio ? `<div class="muted" dir="auto">${esc(p.bio)}</div>` : ""}
       <div class="muted small">${esc(langsLine(p))}</div>
     </div>
+    ${countsHtml(counts)}
     <div class="stats3"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
     ${badgesHtml(p)}
     <div class="actions">${actions}</div>`);
+  document.querySelectorAll("#sheet [data-fl]").forEach((b) => b.addEventListener("click", () => openFollowList(id, b.dataset.fl)));
+  $("#sh-msg")?.addEventListener("click", () => { closeSheet(); openDm(id); });
+  $("#sh-msg-locked")?.addEventListener("click", () => toast(t("mutualOnly")));
   $("#sh-follow")?.addEventListener("click", () => toggleFollow(id).then(() => openProfile(id, participant)));
   $("#sh-block")?.addEventListener("click", () => toggleBlock(id).then(() => closeSheet()));
   $("#sh-report")?.addEventListener("click", () => openReport({ userId: id }));
@@ -871,6 +923,7 @@ async function joinRoom(row, code) {
           pendingInvites.delete(p.identity);
           if (stageCount() >= MAX_STAGE) toast(t("stageFull")); else setSpeaker(p.identity, true);
         }
+        if (msg.type === "leave_stage" && amHost() && p.identity !== currentRoom.host_id && isSpeaker(p)) setSpeaker(p.identity, false);
         if (msg.type === "invite_decline" && amHost()) { pendingInvites.delete(p.identity); toast(t("inviteDeclined", { name: p.name || t("guest") })); }
       })
       .on(E.Disconnected, (reason) => {
@@ -904,7 +957,7 @@ function startHeartbeat() {
   clearInterval(heartbeatTimer);
   const beat = () => { if (currentRoom && amHost()) sb.from("rooms").update({ last_seen: new Date().toISOString() }).eq("id", currentRoom.id).then(() => {}); };
   beat();
-  heartbeatTimer = setInterval(beat, 30000);
+  heartbeatTimer = setInterval(beat, 20000);
 }
 
 function applyBlockToRoom() {
@@ -949,6 +1002,8 @@ function renderPeople() {
 
   const local = lk.localParticipant, canSpeak = isSpeaker(local), micOn = local.isMicrophoneEnabled;
   $("#mic-btn").hidden = !canSpeak; $("#hand-btn").hidden = canSpeak; $("#topic-btn").hidden = !amHost();
+  $("#stage-down-btn").hidden = !canSpeak || amHost();
+  $("#stage-down-btn").title = t("leaveStage");
   $("#mic-btn").textContent = micOn ? "🎙️" : "🔇";
   $("#mic-btn").classList.toggle("on", micOn); $("#mic-btn").classList.toggle("off", !micOn);
   $("#mic-btn").title = micOn ? t("micOn") : t("micOff");
@@ -1029,6 +1084,14 @@ $("#mic-btn").addEventListener("click", async () => {
   try { await lk.localParticipant.setMicrophoneEnabled(!lk.localParticipant.isMicrophoneEnabled); }
   catch (err) { toast(t("micFail") + (err?.message || err)); }
   btn.disabled = false; renderPeople();
+});
+/* a speaker steps down from the stage by themself (the host's app makes the change) */
+$("#stage-down-btn").addEventListener("click", async () => {
+  if (!lk || amHost()) return;
+  try { await lk.localParticipant.setMicrophoneEnabled(false); } catch {}
+  await sendControl({ type: "leave_stage" }, [currentRoom.host_id]);
+  toast(t("leftStage"));
+  renderPeople();
 });
 $("#hand-btn").addEventListener("click", async () => {
   if (!lk) return;
@@ -1188,6 +1251,193 @@ window.addEventListener("pagehide", () => {
   }
   try { lk?.disconnect(); } catch {}
 });
+
+/* =====================================================================
+   Private messages (only between people who follow each other)
+   ===================================================================== */
+let dmWith = null, dmChannel = null, unread = 0, dmCanSend = false;
+
+function renderBadge() {
+  const b = $("#top-chat-badge");
+  b.hidden = !unread; b.textContent = unread > 9 ? "9+" : String(unread);
+}
+async function refreshUnread() {
+  const { count } = await sb.from("messages").select("id", { count: "exact", head: true }).eq("receiver", me.id).is("read_at", null);
+  unread = count || 0; renderBadge();
+}
+function subscribeMessages() {
+  if (dmChannel) return;
+  dmChannel = sb.channel("dm-" + me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver=eq.${me.id}` }, async (payload) => {
+      const m = payload.new;
+      if (!m || blocked.has(m.sender)) return;
+      if (dmWith && dmWith.id === m.sender && !$("#screen-dm").hidden) { appendDm(m); markRead(m.sender); return; }
+      unread++; renderBadge();
+      if (!$("#screen-inbox").hidden) openInbox();
+      if (lk) return; // don't interrupt a voice room
+      const p = await getProfile(m.sender);
+      toast(t("newMessageFrom", { name: p?.name || t("guest") }), t("open"), () => openDm(m.sender));
+    })
+    .subscribe();
+}
+$("#top-chat").addEventListener("click", openInbox);
+$("#dm-back").addEventListener("click", () => { stopRecording(true); openInbox(); });
+$("#dm-who").addEventListener("click", () => { if (dmWith) openProfile(dmWith.id); });
+
+const shortTime = (iso) => {
+  const d = new Date(iso), now = new Date();
+  try {
+    return d.toDateString() === now.toDateString()
+      ? new Intl.DateTimeFormat(uiLang, { hour: "2-digit", minute: "2-digit" }).format(d)
+      : new Intl.DateTimeFormat(uiLang, { day: "numeric", month: "short" }).format(d);
+  } catch { return d.toLocaleString(); }
+};
+
+async function openInbox() {
+  show("screen-inbox");
+  const box = $("#inbox-list");
+  box.innerHTML = `<div class="empty">…</div>`;
+  const { data, error } = await sb.from("messages").select("id,sender,receiver,body,audio_path,created_at,read_at")
+    .or(`sender.eq.${me.id},receiver.eq.${me.id}`).order("created_at", { ascending: false }).limit(300);
+  if (error) { box.innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
+  const convs = new Map();
+  for (const m of data || []) {
+    const other = m.sender === me.id ? m.receiver : m.sender;
+    if (blocked.has(other)) continue;
+    if (!convs.has(other)) convs.set(other, { last: m, unread: 0 });
+    if (m.receiver === me.id && !m.read_at) convs.get(other).unread++;
+  }
+  const ids = [...convs.keys()];
+  if (ids.length) {
+    const r = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").in("id", ids);
+    (r.data || []).forEach((p) => profileCache.set(p.id, p));
+  }
+  box.innerHTML = ids.length ? ids.map((id) => {
+    const c = convs.get(id), p = profileCache.get(id) || { name: t("guest") };
+    const snip = c.last.body ? c.last.body : `🎤 ${t("voiceMsg")}`;
+    return `<div class="row-item" data-dm="${esc(id)}">${avHtml(p.name, p.avatar_url, "sm")}
+      <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)}</div>
+        <div class="meta" dir="auto">${c.last.sender === me.id ? "↪ " : ""}${esc(snip)}</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="small muted">${esc(shortTime(c.last.created_at))}</span>
+        ${c.unread ? `<span class="unread">${c.unread}</span>` : ""}</div></div>`;
+  }).join("") : `<div class="empty"><span class="big">💬</span>${esc(t("noChats"))}</div>`;
+  box.querySelectorAll("[data-dm]").forEach((el) => el.addEventListener("click", () => openDm(el.dataset.dm)));
+}
+
+async function openDm(otherId) {
+  if (lk) return toast(t("leave"));
+  dmWith = (await getProfile(otherId)) || { id: otherId, name: t("guest") };
+  $("#dm-who").innerHTML = `${avHtml(dmWith.name, dmWith.avatar_url, "sm")}<span dir="auto">${esc(dmWith.name)} ${flag(dmWith.country)}</span>`;
+  $("#dm-list").innerHTML = `<div class="empty">…</div>`;
+  $("#dm-input").value = "";
+  show("screen-dm");
+  const [can, msgs] = await Promise.all([
+    sb.rpc("can_message", { p_other: otherId }),
+    sb.from("messages").select("*")
+      .or(`and(sender.eq.${me.id},receiver.eq.${otherId}),and(sender.eq.${otherId},receiver.eq.${me.id})`)
+      .order("created_at", { ascending: true }).limit(300),
+  ]);
+  dmCanSend = can.data === true;
+  $("#dm-locked").hidden = dmCanSend; $("#dm-locked").textContent = t("mutualOnly");
+  $("#dm-form").hidden = !dmCanSend;
+  $("#dm-list").innerHTML = "";
+  lastDay = "";
+  (msgs.data || []).forEach(appendDm);
+  if (!(msgs.data || []).length) $("#dm-list").innerHTML = `<div class="empty"><span class="big">👋</span>${esc(t("noMessages"))}</div>`;
+  scrollDm();
+  markRead(otherId);
+}
+async function markRead(otherId) {
+  await sb.from("messages").update({ read_at: new Date().toISOString() }).eq("receiver", me.id).eq("sender", otherId).is("read_at", null);
+  refreshUnread();
+}
+function scrollDm() { const b = $("#dm-body"); b.scrollTop = b.scrollHeight; }
+let lastDay = "";
+function appendDm(m) {
+  const list = $("#dm-list");
+  list.querySelector(".empty")?.remove();
+  const day = new Date(m.created_at).toDateString();
+  if (day !== lastDay) {
+    lastDay = day;
+    const sep = document.createElement("div"); sep.className = "day-sep";
+    try { sep.textContent = new Intl.DateTimeFormat(uiLang, { weekday: "short", day: "numeric", month: "short" }).format(new Date(m.created_at)); } catch { sep.textContent = day; }
+    list.appendChild(sep);
+  }
+  const mine = m.sender === me.id;
+  const div = document.createElement("div");
+  div.className = "dmsg" + (mine ? " mine" : "");
+  const tm = `<div class="tm">${esc(shortTime(m.created_at))}${mine && m.read_at ? " ✓✓" : ""}</div>`;
+  if (m.audio_path) {
+    div.innerHTML = `<div class="b">🎤 ${esc(t("voiceMsg"))}${m.audio_secs ? ` · ${m.audio_secs}s` : ""}<audio controls preload="none"></audio>${tm}</div>`;
+    sb.storage.from("voice-notes").createSignedUrl(m.audio_path, 3600).then(({ data }) => { if (data?.signedUrl) div.querySelector("audio").src = data.signedUrl; });
+  } else {
+    div.innerHTML = `<div class="b"><div dir="auto">${esc(m.body)}</div>${tm}</div>`;
+    div.querySelector(".b").addEventListener("click", () => dmActions(m.body));
+  }
+  list.appendChild(div);
+  scrollDm();
+}
+function dmActions(text) {
+  openSheet(`<div class="muted small" dir="auto" style="margin-bottom:8px">${esc(text)}</div>
+    <div class="menu" style="box-shadow:none">
+      <button type="button" id="da-tr">🌐 ${esc(t("translate"))}</button>
+      <button type="button" id="da-save">⭐ ${esc(t("saveWord"))}</button>
+      <button type="button" id="da-close">${esc(t("close"))}</button></div>`);
+  $("#da-tr").addEventListener("click", () => { closeSheet(); translateText(text); });
+  $("#da-save").addEventListener("click", () => { closeSheet(); saveWord(text); });
+  $("#da-close").addEventListener("click", closeSheet);
+}
+$("#dm-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!dmWith || !dmCanSend) return toast(t("mutualOnly"));
+  const text = $("#dm-input").value.trim().slice(0, 1000);
+  if (!text) return;
+  $("#dm-input").value = "";
+  const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, body: text }).select().single();
+  if (error) { $("#dm-input").value = text; return toast(/row-level|policy/i.test(error.message) ? t("mutualOnly") : t("error") + error.message); }
+  appendDm(data);
+});
+
+/* ---- voice messages: tap 🎤 to record, tap again to send (max 60 s) ---- */
+let rec = null, recChunks = [], recStart = 0, recTimer = null, recStream = null, recCancel = false;
+function recUi() {
+  const b = $("#dm-rec");
+  if (rec) { const s = Math.floor((Date.now() - recStart) / 1000); b.classList.add("rec"); b.textContent = `■ 0:${String(s).padStart(2, "0")}`; $("#dm-input").placeholder = t("recording"); }
+  else { b.classList.remove("rec"); b.textContent = "🎤"; $("#dm-input").placeholder = t("chatPh"); }
+}
+function stopRecording(cancel) { if (rec) { recCancel = !!cancel; rec.stop(); } }
+$("#dm-rec").addEventListener("click", async () => {
+  if (rec) return stopRecording(false);
+  if (!dmWith || !dmCanSend) return toast(t("mutualOnly"));
+  if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) return toast(t("browserUnsupported"));
+  try { recStream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { return toast(t("micDenied")); }
+  const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"].find((x) => MediaRecorder.isTypeSupported(x)) || "";
+  rec = new MediaRecorder(recStream, type ? { mimeType: type } : undefined);
+  recChunks = []; recCancel = false;
+  rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) recChunks.push(ev.data); };
+  rec.onstop = async () => {
+    clearInterval(recTimer);
+    recStream.getTracks().forEach((tr) => tr.stop());
+    const secs = Math.round((Date.now() - recStart) / 1000);
+    const mime = (rec.mimeType || type || "audio/webm").split(";")[0];
+    rec = null; recUi();
+    if (recCancel) return;
+    if (secs < 1) return toast(t("recordTooShort"));
+    await sendVoice(new Blob(recChunks, { type: mime }), mime, Math.min(secs, 120));
+  };
+  rec.start(); recStart = Date.now(); recUi();
+  recTimer = setInterval(() => { recUi(); if (Date.now() - recStart > 60000) stopRecording(false); }, 500);
+});
+async function sendVoice(blob, mime, secs) {
+  const ext = mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : mime.includes("mpeg") ? "mp3" : "webm";
+  const id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random().toString(16).slice(2);
+  const path = `${me.id}/${id}.${ext}`;
+  const up = await sb.storage.from("voice-notes").upload(path, blob, { contentType: mime });
+  if (up.error) return toast(t("error") + up.error.message);
+  const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, audio_path: path, audio_secs: secs }).select().single();
+  if (error) { sb.storage.from("voice-notes").remove([path]); return toast(t("error") + error.message); }
+  appendDm(data);
+}
 
 /* ---------- PWA ---------- */
 if ("serviceWorker" in navigator && location.protocol === "https:") {
