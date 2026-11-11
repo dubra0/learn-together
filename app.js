@@ -277,13 +277,18 @@ async function enterApp() {
   refreshUnread().catch(() => {});
   subscribeFollows();
   subscribeBattles();
+  subscribeGifts();
   checkNewFollowers().catch(() => {});
   // opened from a shared link?
   const q = new URLSearchParams(location.search);
   const rid = q.get("room");
+  const pid = Number(q.get("post"));
   if (rid) {
     history.replaceState(null, "", location.pathname);
     openRoomLink(rid, q.get("code"));
+  } else if (pid) {
+    history.replaceState(null, "", location.pathname);
+    openPostById(pid);
   }
 }
 async function loadSocial() {
@@ -318,7 +323,7 @@ $("#tabbar").addEventListener("click", (e) => {
 });
 function renderTab() {
   document.querySelectorAll("#tabbar [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === currentTab));
-  ["rooms", "feed", "partners", "ranking", "me"].forEach((k) => ($("#tab-" + k).hidden = k !== currentTab));
+  ["rooms", "feed", "chats", "partners", "ranking", "me"].forEach((k) => ($("#tab-" + k).hidden = k !== currentTab));
   if (currentTab !== "feed") pauseReels();
   $("#screen-main").classList.toggle("feed-mode", currentTab === "feed");
   $("#tab-feed").classList.toggle("reels", currentTab === "feed");
@@ -326,6 +331,7 @@ function renderTab() {
   $("#new-post-btn").hidden = currentTab !== "feed";
   if (currentTab === "rooms") renderRoomsTab();
   if (currentTab === "feed") renderFeedTab();
+  if (currentTab === "chats") renderChatsTab();
   if (currentTab === "partners") renderPartnersTab();
   if (currentTab === "ranking") renderRankingTab();
   if (currentTab === "me") renderMeTab();
@@ -582,7 +588,17 @@ function badgesHtml(p) {
 
 /* ---------------- level from XP + followers ---------------- */
 const levelOf = (xp) => Math.floor(Math.sqrt((xp || 0) / 10)) + 1;   // 0→Lv1, 10→Lv2, 40→Lv3, 90→Lv4, 160→Lv5 …
-const lvHtml = (xp) => `<span class="lv">Lv.${levelOf(xp)}</span>`;
+// level tiers: the higher the level, the more the badge stands out
+// 1–4 beginner · 5–9 bronze · 10–19 silver · 20–29 gold · 30+ diamond
+const TIERS = [
+  { min: 30, cls: "t4", icon: "💎", key: "tierDiamond" },
+  { min: 20, cls: "t3", icon: "👑", key: "tierGold" },
+  { min: 10, cls: "t2", icon: "⭐", key: "tierSilver" },
+  { min: 5,  cls: "t1", icon: "🔥", key: "tierBronze" },
+  { min: 1,  cls: "t0", icon: "",   key: "tierRookie" },
+];
+const tierOf = (xp) => { const lv = levelOf(xp); return TIERS.find((x) => lv >= x.min); };
+const lvHtml = (xp) => { const tr = tierOf(xp); return `<span class="lv ${tr.cls}">${tr.icon}Lv.${levelOf(xp)}</span>`; };
 async function followCounts(id) {
   const [a, b] = await Promise.all([
     sb.from("follows").select("follower", { count: "exact", head: true }).eq("followee", id),
@@ -623,14 +639,16 @@ function profileCardHtml(p, o) {
     const f = following.has(p.id), fm = myFollowers.has(p.id);
     actions = `<button class="btn ${f ? "ghost" : ""}" type="button" data-act="follow">${esc(f ? t("unfollow") : fm ? t("followBack") : t("follow"))}</button>` +
       (o.canMsg ? `<button class="btn" type="button" data-act="msg">💬 ${esc(t("messageBtn"))}</button>`
-                : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`);
+                : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`) +
+      `<button class="btn gift-btn" type="button" data-act="gift">🎁 ${esc(t("givePoints"))}</button>`;
   }
   return `<div class="card pf">
       <div class="pf-cover">${o.isMe ? `<button type="button" class="pf-gear" data-act="settings" aria-label="settings">⚙️</button>` : ""}</div>
       <div class="pf-main">
         <button type="button" ${o.isMe ? 'data-act="edit"' : ""} style="background:none;border:0;padding:0;position:relative;cursor:${o.isMe ? "pointer" : "default"}">
-          <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
+          <span class="ring ${tierOf(p.xp).cls}">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
         <div class="pf-name" dir="auto">${esc(p.name || "")} ${flag(p.country)} ${lvHtml(p.xp)}</div>
+        ${levelOf(p.xp) >= 5 ? `<div class="tier-name ${tierOf(p.xp).cls}">${tierOf(p.xp).icon} ${esc(t(tierOf(p.xp).key))}</div>` : ""}
         ${relTag(p.id)}
         <div class="pf-stats">${statsHtml({ following: "…", followers: "…", likes: "…" })}</div>
         <div class="pf-actions">${actions}</div>
@@ -686,7 +704,68 @@ function wireProfileCard(root, p, isMe, rerender) {
   root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });
   root.querySelector('[data-act="msg"]')?.addEventListener("click", () => openDm(p.id));
   root.querySelector('[data-act="msg-locked"]')?.addEventListener("click", () => toast(t("mutualOnly")));
+  root.querySelector('[data-act="gift"]')?.addEventListener("click", () => openGivePoints(p, rerender));
   loadPfExtras(root);
+}
+
+/* ---------------- gift points: 100 free points a day to give to others ----------------
+   received points are added to XP, so the receiver's level goes up */
+const GIFT_AMOUNTS = [5, 10, 25, 50, 100];
+async function openGivePoints(p, after) {
+  if (profile?.banned) return toast(t("e_banned"));
+  openSheet(`<h1>🎁 ${esc(t("givePoints"))}</h1>
+    <div class="gp-who">${avHtml(p.name, p.avatar_url, "sm")}<div><div style="font-weight:800" dir="auto">${esc(p.name)} ${lvHtml(p.xp)}</div>
+      <div class="muted small">${esc(t("pointsHelp"))}</div></div></div>
+    <div class="gp-left"><span>${esc(t("pointsLeftToday"))}</span><b id="gp-left">…</b></div>
+    <div class="gp-grid">${GIFT_AMOUNTS.map((a) => `<button type="button" class="gp-amt" data-amt="${a}" disabled>⭐ ${a}</button>`).join("")}</div>
+    <div class="muted small" style="text-align:center;margin-top:10px">${esc(t("pointsReset"))}</div>`);
+  const paint = (left) => {
+    $("#gp-left").textContent = `${left} / 100`;
+    document.querySelectorAll("#sheet-body .gp-amt").forEach((b) => (b.disabled = Number(b.dataset.amt) > left));
+  };
+  const { data, error } = await sb.rpc("points_left");
+  if (error) { $("#gp-left").textContent = "—"; return toast(t("error") + error.message); }
+  paint(data ?? 0);
+  document.querySelectorAll("#sheet-body .gp-amt").forEach((b) => b.addEventListener("click", async () => {
+    const amt = Number(b.dataset.amt);
+    document.querySelectorAll("#sheet-body .gp-amt").forEach((x) => (x.disabled = true));
+    const r = await sb.rpc("give_points", { p_to: p.id, p_amount: amt });
+    if (r.error) {
+      const m = r.error.message || "";
+      toast(/no_points_left/.test(m) ? t("noPointsLeft") : /blocked/.test(m) ? t("mutualOnly") : t("error") + m);
+      const again = await sb.rpc("points_left"); return paint(again.data ?? 0);
+    }
+    const before = levelOf(p.xp);
+    p.xp = (p.xp || 0) + amt;
+    const cached = profileCache.get(p.id); if (cached && cached !== p) cached.xp = p.xp;
+    paint(r.data ?? 0);
+    giftBurst(`⭐ +${amt}`);
+    toast(levelOf(p.xp) > before ? t("pointsSentLevelUp", { name: p.name, n: amt, lv: levelOf(p.xp) }) : t("pointsSent", { name: p.name, n: amt }));
+    after?.();
+  }));
+}
+function giftBurst(text) {
+  const el = document.createElement("div");
+  el.className = "gp-burst"; el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+// someone gave me points → live notice, and my level updates
+let giftsChannel = null;
+function subscribeGifts() {
+  if (giftsChannel) return;
+  giftsChannel = sb.channel("gifts-" + me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "point_gifts", filter: `to_id=eq.${me.id}` }, async (payload) => {
+      const g = payload.new; if (!g || blocked.has(g.from_id)) return;
+      const before = levelOf(profile?.xp);
+      if (profile) profile.xp = (profile.xp || 0) + g.amount;
+      const from = await getProfile(g.from_id);
+      giftBurst(`🎁 +${g.amount}`);
+      toast(levelOf(profile?.xp) > before ? t("pointsGotLevelUp", { name: from?.name || t("guest"), n: g.amount, lv: levelOf(profile?.xp) })
+        : t("pointsGot", { name: from?.name || t("guest"), n: g.amount }), t("open"), () => openProfile(g.from_id));
+      if (!$("#screen-main").hidden && currentTab === "me") renderMeTab();
+    })
+    .subscribe();
 }
 
 /* ---------------- Me tab ---------------- */
@@ -1940,8 +2019,10 @@ window.addEventListener("pagehide", () => {
 let dmWith = null, dmChannel = null, unread = 0, dmCanSend = false;
 
 function renderBadge() {
-  const b = $("#top-chat-badge");
-  b.hidden = !unread; b.textContent = unread > 9 ? "9+" : String(unread);
+  ["#top-chat-badge", "#chats-badge"].forEach((s) => {
+    const b = $(s); if (!b) return;
+    b.hidden = !unread; b.textContent = unread > 9 ? "9+" : String(unread);
+  });
 }
 async function refreshUnread() {
   const { count } = await sb.from("messages").select("id", { count: "exact", head: true }).eq("receiver", me.id).is("read_at", null);
@@ -1955,7 +2036,7 @@ function subscribeMessages() {
       if (!m || blocked.has(m.sender)) return;
       if (dmWith && dmWith.id === m.sender && !$("#screen-dm").hidden) { appendDm(m); markRead(m.sender); return; }
       unread++; renderBadge();
-      if (!$("#screen-inbox").hidden) openInbox();
+      if (!$("#screen-main").hidden && currentTab === "chats") renderChatsTab();
       if (lk) return; // don't interrupt a voice room
       const p = await getProfile(m.sender);
       toast(t("newMessageFrom", { name: p?.name || t("guest") }), t("open"), () => openDm(m.sender));
@@ -1975,9 +2056,44 @@ const shortTime = (iso) => {
   } catch { return d.toLocaleString(); }
 };
 
-async function openInbox() {
-  show("screen-inbox");
-  const box = $("#inbox-list");
+// all chats live in their own tab now
+function openInbox() { goMain("chats"); }
+// friends = people who follow each other (only they can chat)
+function mutualFriends() { return [...following].filter((id) => myFollowers.has(id) && !blocked.has(id)); }
+async function loadProfiles(ids) {
+  const need = ids.filter((id) => !profileCache.has(id));
+  if (need.length) {
+    const r = await sb.from("profiles").select(PROFILE_COLS).in("id", need.slice(0, 200));
+    (r.data || []).forEach((p) => profileCache.set(p.id, p));
+  }
+}
+let chatsSeq = 0;
+async function renderChatsTab() {
+  const box = $("#tab-chats");
+  const seq = ++chatsSeq;
+  const friends = mutualFriends();
+  box.innerHTML = `<div class="chat-head"><h2>💬 ${esc(t("tabChats"))}</h2></div>
+    <div class="friends-strip" id="friends-strip"></div>
+    <input class="chat-search" id="chat-search" type="search" placeholder="🔍 ${esc(t("searchChats"))}" autocomplete="off">
+    <div id="inbox-list"><div class="empty">…</div></div>`;
+  await loadProfiles(friends);
+  if (seq !== chatsSeq) return;
+  const strip = $("#friends-strip");
+  strip.innerHTML = friends.length ? friends.map((id) => {
+    const p = profileCache.get(id) || { name: t("guest") };
+    return `<button type="button" data-dm="${esc(id)}">${avHtml(p.name, p.avatar_url, "md")}<span class="fn" dir="auto">${esc(p.name)}</span></button>`;
+  }).join("") : `<div class="muted small" style="padding:6px 2px">${esc(t("noFriendsYet"))}</div>`;
+  strip.querySelectorAll("[data-dm]").forEach((el) => el.addEventListener("click", () => openDm(el.dataset.dm)));
+  $("#chat-search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    box.querySelectorAll("#inbox-list [data-dm], #friends-strip [data-dm]").forEach((el) => {
+      const p = profileCache.get(el.dataset.dm);
+      el.hidden = !!q && !(p?.name || "").toLowerCase().includes(q);
+    });
+  });
+  await fillInbox($("#inbox-list"));
+}
+async function fillInbox(box) {
   box.innerHTML = `<div class="empty">…</div>`;
   const { data, error } = await sb.from("messages").select("id,sender,receiver,body,audio_path,created_at,read_at")
     .or(`sender.eq.${me.id},receiver.eq.${me.id}`).order("created_at", { ascending: false }).limit(300);
@@ -1996,13 +2112,13 @@ async function openInbox() {
   }
   box.innerHTML = ids.length ? ids.map((id) => {
     const c = convs.get(id), p = profileCache.get(id) || { name: t("guest") };
-    const snip = c.last.body ? c.last.body : `🎤 ${t("voiceMsg")}`;
+    const snip = c.last.body ? (sharedPostId(c.last.body) ? `📌 ${t("sharedPost")}` : c.last.body) : `🎤 ${t("voiceMsg")}`;
     return `<div class="row-item" data-dm="${esc(id)}">${avHtml(p.name, p.avatar_url, "sm")}
       <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)}</div>
         <div class="meta" dir="auto">${c.last.sender === me.id ? "↪ " : ""}${esc(snip)}</div></div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="small muted">${esc(shortTime(c.last.created_at))}</span>
         ${c.unread ? `<span class="unread">${c.unread}</span>` : ""}</div></div>`;
-  }).join("") : `<div class="empty"><span class="big">💬</span>${esc(t("noChats"))}</div>`;
+  }).join("") : `<div class="empty"><span class="big">💬</span>${esc(t("noChats"))}<br><small>${esc(t("chatsHelp"))}</small></div>`;
   box.querySelectorAll("[data-dm]").forEach((el) => el.addEventListener("click", () => openDm(el.dataset.dm)));
 }
 
@@ -2052,6 +2168,11 @@ function appendDm(m) {
   if (m.audio_path) {
     div.innerHTML = `<div class="b">🎤 ${esc(t("voiceMsg"))}${m.audio_secs ? ` · ${m.audio_secs}s` : ""}<audio controls preload="none"></audio>${tm}</div>`;
     sb.storage.from("voice-notes").createSignedUrl(m.audio_path, 3600).then(({ data }) => { if (data?.signedUrl) div.querySelector("audio").src = data.signedUrl; });
+  } else if (sharedPostId(m.body)) {
+    const pid = sharedPostId(m.body);
+    div.innerHTML = `<div class="b"><div class="dm-post"><div class="th">📌</div><div class="tx muted">…</div></div>${tm}</div>`;
+    div.querySelector(".dm-post").addEventListener("click", () => openPostById(pid));
+    fillSharedCard(div.querySelector(".dm-post"), pid);
   } else {
     div.innerHTML = `<div class="b"><div dir="auto">${esc(m.body)}</div>${tm}</div>`;
     div.querySelector(".b").addEventListener("click", () => dmActions(m.body));
@@ -2274,12 +2395,66 @@ async function registerView(id) {
     document.querySelectorAll(`[data-views="${id}"]`).forEach((s) => (s.textContent = `👁 ${fmtNum(p.view_count)}`));
   }
 }
+/* ---- share a post: to friends inside the app (as a chat message) or to other apps ---- */
+const SHARED_RE = /^\[post:(\d{1,12})\]$/;
+function sharedPostId(body) { const m = SHARED_RE.exec(body || ""); return m ? Number(m[1]) : 0; }
+function postLink(id) { return `${location.href.split("?")[0].split("#")[0]}?post=${id}`; }
 async function sharePost(id) {
   const post = feedCache.get(id); if (!post) return;
-  const url = location.href.split("?")[0].split("#")[0];
+  const friends = mutualFriends();
+  openSheet(`<h1>↪️ ${esc(t("share"))}</h1>
+    <div class="muted small">${esc(t("shareToFriends"))}</div>
+    <div class="share-friends" id="share-friends">${friends.length ? "<div class='empty'>…</div>" : `<div class="muted small" style="grid-column:1/-1;padding:8px 0">${esc(t("noFriendsYet"))}</div>`}</div>
+    <div class="menu" style="box-shadow:none">
+      <button type="button" id="sh-other">📤 ${esc(t("shareOtherApps"))}</button>
+      <button type="button" id="sh-copy">🔗 ${esc(t("copyLink"))}</button>
+    </div>`);
+  $("#sh-other").addEventListener("click", () => shareOutside(post));
+  $("#sh-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(postLink(post.id)); toast(t("linkCopied")); } catch { prompt(t("copyLink"), postLink(post.id)); }
+  });
+  if (!friends.length) return;
+  await loadProfiles(friends);
+  const box = $("#share-friends"); if (!box) return;
+  box.innerHTML = friends.map((fid) => {
+    const p = profileCache.get(fid) || { name: t("guest") };
+    return `<button type="button" data-to="${esc(fid)}">${avHtml(p.name, p.avatar_url, "md")}<span class="fn" dir="auto">${esc(p.name)}</span></button>`;
+  }).join("");
+  box.querySelectorAll("[data-to]").forEach((b) => b.addEventListener("click", async () => {
+    if (b.classList.contains("sent")) return;
+    b.classList.add("sent");
+    const { error } = await sb.from("messages").insert({ receiver: b.dataset.to, body: `[post:${post.id}]` });
+    if (error) { b.classList.remove("sent"); return toast(/row-level|policy/i.test(error.message) ? t("mutualOnly") : t("error") + error.message); }
+    toast(t("sentTo", { name: profileCache.get(b.dataset.to)?.name || "" }));
+  }));
+}
+async function shareOutside(post) {
+  const url = postLink(post.id);
   const text = `${t("sharePostText")}${post.body ? `: “${post.body.slice(0, 120)}”` : ""}`;
   if (navigator.share) { try { await navigator.share({ title: "Talk Together", text, url }); return; } catch (e) { if (e?.name === "AbortError") return; } }
   try { await navigator.clipboard.writeText(`${text}\n${url}`); toast(t("linkCopied")); } catch { prompt(t("share"), url); }
+}
+async function fetchPost(id) {
+  if (feedCache.has(id)) return feedCache.get(id);
+  const { data } = await sb.from("posts").select("*").eq("id", id).maybeSingle();
+  if (data) feedCache.set(id, data);
+  return data;
+}
+async function openPostById(id) {
+  const post = await fetchPost(id);
+  if (!post || blocked.has(post.user_id)) return toast(t("postGone"));
+  openPostSheet(post);
+}
+async function fillSharedCard(el, id) {
+  const post = await fetchPost(id);
+  if (!post) { el.querySelector(".tx").textContent = t("postGone"); return; }
+  await loadProfiles([post.user_id]);
+  const u = profileCache.get(post.user_id) || { name: t("guest") };
+  const vid = safeVideo(post.video_url);
+  el.querySelector(".th").innerHTML = vid ? `<video src="${esc(vid)}#t=0.5" muted playsinline preload="metadata"></video>`
+    : post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="">` : "📝";
+  el.querySelector(".tx").classList.remove("muted");
+  el.querySelector(".tx").innerHTML = `<b dir="auto">@${esc(u.name)}</b><br><span dir="auto">${esc(post.body || (vid ? "🎥" : "📷"))}</span>`;
 }
 
 /* ---- LIVE: open camera lives one after another, swipe up/down to switch ---- */
@@ -2367,6 +2542,7 @@ function postHtml(post) {
       <button type="button" class="${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
       <button type="button" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
       ${post.body ? `<button type="button" data-ptr="${post.id}" title="${esc(t("translate"))}">🌐</button>` : ""}
+      <button type="button" data-psh="${post.id}" title="${esc(t("share"))}">↪️</button>
       <span class="grow"></span>
       <button type="button" data-pmore="${post.id}" aria-label="more">⋯</button>
     </div></article>`;
@@ -2375,6 +2551,7 @@ function wirePosts(root) {
   root.querySelectorAll("[data-like]").forEach((b) => b.addEventListener("click", () => toggleLike(Number(b.dataset.like))));
   root.querySelectorAll("[data-ptr]").forEach((b) => b.addEventListener("click", () => translateText(feedCache.get(Number(b.dataset.ptr))?.body || "")));
   root.querySelectorAll("[data-pmore]").forEach((b) => b.addEventListener("click", () => postMenu(Number(b.dataset.pmore))));
+  root.querySelectorAll("[data-psh]").forEach((b) => b.addEventListener("click", () => sharePost(Number(b.dataset.psh))));
   root.querySelectorAll(".post-h[data-person]").forEach((h) => h.addEventListener("click", () => openProfile(h.dataset.person)));
   root.querySelectorAll("[data-cm]").forEach((b) => b.addEventListener("click", () => openComments(Number(b.dataset.cm))));
   // double-tap anywhere on a post to like it (with a big heart)

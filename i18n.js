@@ -694,3 +694,61 @@ const I18N_V14 = {
   es: { addVideo: "Vídeo", videoTooBig: "El vídeo es demasiado grande (máx. 50 MB).", videoTooLong: "El vídeo es demasiado largo (máx. 3 minutos).", uploading: "Subiendo… ⏳" },
 };
 for (const [l, o] of Object.entries(I18N_V14)) Object.assign(I18N[l], o);
+
+/* ---------- v15 strings: level tiers ---------- */
+const I18N_V15 = {
+  en: { tierRookie: "Beginner", tierBronze: "Bronze", tierSilver: "Silver", tierGold: "Gold", tierDiamond: "Diamond" },
+  ar: { tierRookie: "مبتدئ", tierBronze: "برونزي", tierSilver: "فضي", tierGold: "ذهبي", tierDiamond: "ماسي" },
+  ckb: { tierRookie: "سەرەتا", tierBronze: "برۆنز", tierSilver: "زیو", tierGold: "ئاڵتون", tierDiamond: "ئەڵماس" },
+  tr: { tierRookie: "Başlangıç", tierBronze: "Bronz", tierSilver: "Gümüş", tierGold: "Altın", tierDiamond: "Elmas" },
+  fa: { tierRookie: "تازه‌کار", tierBronze: "برنزی", tierSilver: "نقره‌ای", tierGold: "طلایی", tierDiamond: "الماسی" },
+  de: { tierRookie: "Anfänger", tierBronze: "Bronze", tierSilver: "Silber", tierGold: "Gold", tierDiamond: "Diamant" },
+  fr: { tierRookie: "Débutant", tierBronze: "Bronze", tierSilver: "Argent", tierGold: "Or", tierDiamond: "Diamant" },
+  es: { tierRookie: "Principiante", tierBronze: "Bronce", tierSilver: "Plata", tierGold: "Oro", tierDiamond: "Diamante" },
+};
+for (const [l, o] of Object.entries(I18N_V15)) Object.assign(I18N[l], o);
+
+/* ---------- v16 strings: gift points, chats tab, share to friends ---------- */
+const I18N_V16 = {
+  en: { tabChats: "Chats", givePoints: "Give points", pointsHelp: "Points you give raise their level.", pointsLeftToday: "Left to give today", pointsReset: "You get 100 new points every day.",
+    noPointsLeft: "No points left today. Come back tomorrow!", pointsSent: "You gave {name} {n} points ⭐", pointsSentLevelUp: "You gave {name} {n} points, now level {lv}! 🎉",
+    pointsGot: "{name} gave you {n} points ⭐", pointsGotLevelUp: "{name} gave you {n} points, you're level {lv}! 🎉",
+    searchChats: "Search", noFriendsYet: "No friends yet. Follow each other to chat.", chatsHelp: "Tap a friend above to start.", sharedPost: "Shared a post",
+    shareToFriends: "Send to a friend", shareOtherApps: "Share to other apps", sentTo: "Sent to {name} ✓", postGone: "This post was deleted." },
+  ar: { tabChats: "الدردشات", givePoints: "أهدِ نقاطاً", pointsHelp: "النقاط التي تهديها ترفع مستواه.", pointsLeftToday: "المتبقي للإهداء اليوم", pointsReset: "تحصل على 100 نقطة جديدة كل يوم.",
+    noPointsLeft: "لم يتبقَّ لديك نقاط اليوم. عد غداً!", pointsSent: "أهديت {name} {n} نقطة ⭐", pointsSentLevelUp: "أهديت {name} {n} نقطة، أصبح في المستوى {lv}! 🎉",
+    pointsGot: "أهداك {name} {n} نقطة ⭐", pointsGotLevelUp: "أهداك {name} {n} نقطة، أصبحت في المستوى {lv}! 🎉",
+    searchChats: "بحث", noFriendsYet: "لا أصدقاء بعد. تابعا بعضكما للدردشة.", chatsHelp: "اضغط على صديق في الأعلى للبدء.", sharedPost: "شارك منشوراً",
+    shareToFriends: "أرسل إلى صديق", shareOtherApps: "مشاركة في تطبيقات أخرى", sentTo: "أُرسل إلى {name} ✓", postGone: "تم حذف هذا المنشور." },
+  ckb: { tabChats: "چات", givePoints: "خاڵ ببەخشە", pointsHelp: "ئەو خاڵانەی دەیبەخشیت لێڤڵەکەی بەرز دەکەنەوە.", pointsLeftToday: "ئەمڕۆ ماوە بۆ بەخشین", pointsReset: "هەموو ڕۆژێک ١٠٠ خاڵی نوێت پێدەدرێت.",
+    noPointsLeft: "ئەمڕۆ خاڵت نەماوە. سبەی وەرەوە!", pointsSent: "{n} خاڵت بەخشی بە {name} ⭐", pointsSentLevelUp: "{n} خاڵت بەخشی بە {name}، ئێستا لێڤڵ {lv} ـە! 🎉",
+    pointsGot: "{name} {n} خاڵی پێبەخشیت ⭐", pointsGotLevelUp: "{name} {n} خاڵی پێبەخشیت، ئێستا لێڤڵ {lv} ـیت! 🎉",
+    searchChats: "گەڕان", noFriendsYet: "هێشتا هاوڕێت نییە. یەکتری فۆڵۆو بکەن بۆ ئەوەی چات بکەن.", chatsHelp: "لە سەرەوە هاوڕێیەک هەڵبژێرە بۆ دەستپێکردن.", sharedPost: "پۆستێکی نارد",
+    shareToFriends: "بینێرە بۆ هاوڕێیەک", shareOtherApps: "بڵاوکردنەوە لە ئەپەکانی تر", sentTo: "نێردرا بۆ {name} ✓", postGone: "ئەم پۆستە سڕاوەتەوە." },
+  tr: { tabChats: "Sohbetler", givePoints: "Puan ver", pointsHelp: "Verdiğin puanlar seviyesini yükseltir.", pointsLeftToday: "Bugün verebileceğin", pointsReset: "Her gün 100 yeni puan alırsın.",
+    noPointsLeft: "Bugün puanın kalmadı. Yarın gel!", pointsSent: "{name} kişisine {n} puan verdin ⭐", pointsSentLevelUp: "{name} kişisine {n} puan verdin, artık seviye {lv}! 🎉",
+    pointsGot: "{name} sana {n} puan verdi ⭐", pointsGotLevelUp: "{name} sana {n} puan verdi, artık seviye {lv}'sin! 🎉",
+    searchChats: "Ara", noFriendsYet: "Henüz arkadaşın yok. Sohbet için birbirinizi takip edin.", chatsHelp: "Başlamak için yukarıdan bir arkadaşa dokun.", sharedPost: "Bir gönderi paylaştı",
+    shareToFriends: "Bir arkadaşa gönder", shareOtherApps: "Diğer uygulamalarda paylaş", sentTo: "{name} kişisine gönderildi ✓", postGone: "Bu gönderi silindi." },
+  fa: { tabChats: "گفتگوها", givePoints: "امتیاز بده", pointsHelp: "امتیازهایی که می‌دهی سطحش را بالا می‌برد.", pointsLeftToday: "باقی‌مانده برای امروز", pointsReset: "هر روز ۱۰۰ امتیاز تازه می‌گیری.",
+    noPointsLeft: "امروز امتیازی نمانده. فردا برگرد!", pointsSent: "{n} امتیاز به {name} دادی ⭐", pointsSentLevelUp: "{n} امتیاز به {name} دادی، حالا سطح {lv} است! 🎉",
+    pointsGot: "{name} به تو {n} امتیاز داد ⭐", pointsGotLevelUp: "{name} به تو {n} امتیاز داد، حالا سطح {lv} هستی! 🎉",
+    searchChats: "جستجو", noFriendsYet: "هنوز دوستی نداری. برای گفتگو همدیگر را دنبال کنید.", chatsHelp: "برای شروع روی یک دوست در بالا بزن.", sharedPost: "یک پست فرستاد",
+    shareToFriends: "برای یک دوست بفرست", shareOtherApps: "اشتراک در برنامه‌های دیگر", sentTo: "برای {name} فرستاده شد ✓", postGone: "این پست حذف شده است." },
+  de: { tabChats: "Chats", givePoints: "Punkte schenken", pointsHelp: "Geschenkte Punkte erhöhen das Level.", pointsLeftToday: "Heute noch zu vergeben", pointsReset: "Du bekommst jeden Tag 100 neue Punkte.",
+    noPointsLeft: "Heute keine Punkte mehr. Komm morgen wieder!", pointsSent: "Du hast {name} {n} Punkte geschenkt ⭐", pointsSentLevelUp: "Du hast {name} {n} Punkte geschenkt, jetzt Level {lv}! 🎉",
+    pointsGot: "{name} hat dir {n} Punkte geschenkt ⭐", pointsGotLevelUp: "{name} hat dir {n} Punkte geschenkt, du bist jetzt Level {lv}! 🎉",
+    searchChats: "Suchen", noFriendsYet: "Noch keine Freunde. Folgt euch gegenseitig, um zu chatten.", chatsHelp: "Tippe oben auf einen Freund, um zu starten.", sharedPost: "Hat einen Beitrag geteilt",
+    shareToFriends: "An einen Freund senden", shareOtherApps: "In anderen Apps teilen", sentTo: "An {name} gesendet ✓", postGone: "Dieser Beitrag wurde gelöscht." },
+  fr: { tabChats: "Discussions", givePoints: "Offrir des points", pointsHelp: "Les points offerts augmentent son niveau.", pointsLeftToday: "Reste à offrir aujourd'hui", pointsReset: "Tu reçois 100 nouveaux points chaque jour.",
+    noPointsLeft: "Plus de points aujourd'hui. Reviens demain !", pointsSent: "Tu as offert {n} points à {name} ⭐", pointsSentLevelUp: "Tu as offert {n} points à {name}, niveau {lv} maintenant ! 🎉",
+    pointsGot: "{name} t'a offert {n} points ⭐", pointsGotLevelUp: "{name} t'a offert {n} points, tu es niveau {lv} ! 🎉",
+    searchChats: "Rechercher", noFriendsYet: "Pas encore d'amis. Suivez-vous mutuellement pour discuter.", chatsHelp: "Touche un ami ci-dessus pour commencer.", sharedPost: "A partagé une publication",
+    shareToFriends: "Envoyer à un ami", shareOtherApps: "Partager dans d'autres apps", sentTo: "Envoyé à {name} ✓", postGone: "Cette publication a été supprimée." },
+  es: { tabChats: "Chats", givePoints: "Regalar puntos", pointsHelp: "Los puntos que regalas suben su nivel.", pointsLeftToday: "Te quedan hoy", pointsReset: "Recibes 100 puntos nuevos cada día.",
+    noPointsLeft: "No te quedan puntos hoy. ¡Vuelve mañana!", pointsSent: "Regalaste {n} puntos a {name} ⭐", pointsSentLevelUp: "Regalaste {n} puntos a {name}, ¡ahora es nivel {lv}! 🎉",
+    pointsGot: "{name} te regaló {n} puntos ⭐", pointsGotLevelUp: "{name} te regaló {n} puntos, ¡ya eres nivel {lv}! 🎉",
+    searchChats: "Buscar", noFriendsYet: "Aún no tienes amigos. Seguíos mutuamente para chatear.", chatsHelp: "Toca a un amigo arriba para empezar.", sharedPost: "Compartió una publicación",
+    shareToFriends: "Enviar a un amigo", shareOtherApps: "Compartir en otras apps", sentTo: "Enviado a {name} ✓", postGone: "Esta publicación fue eliminada." },
+};
+for (const [l, o] of Object.entries(I18N_V16)) Object.assign(I18N[l], o);
