@@ -163,8 +163,9 @@ const statusMsg = (st) => ({ no_coins: t("w_noCoins"), blocked: t("w_e_blocked")
 /* =====================================================================
    🎁 Premium gifts inside a room
    ===================================================================== */
-async function openPaidGifts() {
-  const targets = (typeof giftTargets === "function") ? giftTargets() : [];
+// targets: given (from a profile) or everyone who can receive in the current room
+async function openPaidGifts(given) {
+  const targets = Array.isArray(given) && given.length ? given : (typeof giftTargets === "function") ? giftTargets() : [];
   if (!targets.length) return toast(t("giftNoTarget"));
   if (!W.target || !targets.some((x) => x.id === W.target)) W.target = targets[0].id;
   await Promise.all([loadWallet(), loadCatalog()]);
@@ -176,14 +177,12 @@ function renderPaid(targets) {
   const list = W.catalog.filter((g) => TIER_OF(g.id) === W.tab);
   const tabs = [["small", "💝"], ["animals", "🦁"], ["special", "✨"]];
   openSheet(`<div class="pg-head"><h1 style="margin:0">🪙 ${esc(t("w_paidGifts"))}</h1><span class="pg-coins">🪙 ${fmtN(coins)}</span></div>
-    <div class="w-row" style="margin-top:6px"><button type="button" class="btn ghost sm" id="pg-free">🎁 ${esc(t("w_freeGifts"))}</button></div>
     <div class="muted small" style="margin-top:8px">${esc(t("sendTo"))}</div>
     <div class="gift-targets">${targets.map((x) => `<button type="button" class="btn sm ${x.id === W.target ? "" : "ghost"}" data-pt="${esc(x.id)}">${x.side === "a" ? "❤️ " : x.side === "b" ? "💙 " : ""}${esc(x.name)}</button>`).join("")}</div>
     <div class="pg-tabs">${tabs.map(([k, ic]) => `<button type="button" data-tab="${k}" class="${W.tab === k ? "on" : ""}">${ic}</button>`).join("")}</div>
     <div class="pg-grid">${list.map((g) => `<button type="button" class="pg-item ${g.id === W.chosen ? "on" : ""} ${g.price > coins ? "poor" : ""}" data-pg="${esc(g.id)}">
       <span class="e">${g.emoji}</span><span class="p">🪙 ${fmtN(g.price)}</span></button>`).join("") || `<div class="muted">${esc(t("w_empty"))}</div>`}</div>
     <button type="button" class="btn block" id="pg-send" style="margin-top:12px" ${W.sending ? "disabled" : ""}>${esc(t("w_send"))} ${W.catalog.find((g) => g.id === W.chosen)?.emoji || "🎁"}</button>`);
-  $("#pg-free").addEventListener("click", () => { closeSheet(); if (typeof openGifts === "function") openGifts(); });
   document.querySelectorAll("#sheet [data-pt]").forEach((b) => b.addEventListener("click", () => { W.target = b.dataset.pt; renderPaid(targets); }));
   document.querySelectorAll("#sheet [data-tab]").forEach((b) => b.addEventListener("click", () => {
     W.tab = b.dataset.tab; W.chosen = W.catalog.find((g) => TIER_OF(g.id) === W.tab)?.id || null; renderPaid(targets);
@@ -196,19 +195,20 @@ function renderPaid(targets) {
 }
 async function sendPaidGift(targets) {
   const g = W.catalog.find((x) => x.id === W.chosen);
-  if (!g || !W.target || W.sending || !currentRoom) return;
+  if (!g || !W.target || W.sending) return;
   if ((W.wallet?.coins || 0) < g.price) return toast(t("w_noCoins"));
   W.sending = true;
   try {
-    const { data, error } = await sb.rpc("send_gift", { p_to: W.target, p_gift: g.id, p_room: currentRoom.id });
+    const { data, error } = await sb.rpc("send_gift", { p_to: W.target, p_gift: g.id, p_room: currentRoom?.id || null });
     if (error) throw error;
     const r = Array.isArray(data) ? data[0] : null;
     if (r?.o_status !== "ok") { toast(statusMsg(r?.o_status)); if (r) W.wallet = { ...W.wallet, coins: r.o_coins }; return; }
     W.wallet = { ...W.wallet, coins: r.o_coins };
     const toName = targets.find((x) => x.id === W.target)?.name || "";
-    if (TIER_OF(g.id) !== "small") closeSheet();
+    if (TIER_OF(g.id) !== "small" || !currentRoom) closeSheet();
     window.GiftFX?.play(g.id, profile?.name || "", toName); // I see mine right away; others get it from the server
-    if (typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji} → ${toName}`);
+    if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji} → ${toName}`);
+    if (!currentRoom) toast(t("w_sent"));
   } catch (err) { console.error(err); toast(t("error") + (err?.message || err)); }
   finally { W.sending = false; if (!$("#sheet").hidden && $("#pg-send")) renderPaid(targets); }
 }
@@ -233,6 +233,9 @@ function subscribePaidGifts() {
         } catch {}
       }
       if (row.to_id === me.id) {
+        // a gift for me from outside my current room (e.g. from my profile): I still see the animation
+        const shownInRoom = row.room_id && currentRoom && row.room_id === currentRoom.id;
+        if (!shownInRoom && row.from_id !== me.id) window.GiftFX?.play(row.gift_id, row.from_name, row.to_name);
         toast(t("w_got", { name: row.from_name || "", gift: emoji, d: fmtN(row.diamonds) }));
         loadWallet();
       }

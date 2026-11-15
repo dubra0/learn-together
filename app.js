@@ -640,7 +640,7 @@ function profileCardHtml(p, o) {
     actions = `<button class="btn ${f ? "ghost" : ""}" type="button" data-act="follow">${esc(f ? t("unfollow") : fm ? t("followBack") : t("follow"))}</button>` +
       (o.canMsg ? `<button class="btn" type="button" data-act="msg">💬 ${esc(t("messageBtn"))}</button>`
                 : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`) +
-      `<button class="btn gift-btn" type="button" data-act="gift">🎁 ${esc(t("givePoints"))}</button>`;
+      `<button class="btn gift-btn" type="button" data-act="gift">🎁 ${esc(t("gifts"))}</button>`;
   }
   return `<div class="card pf">
       <div class="pf-cover">${o.isMe ? `<button type="button" class="pf-gear" data-act="settings" aria-label="settings">⚙️</button>` : ""}</div>
@@ -704,7 +704,8 @@ function wireProfileCard(root, p, isMe, rerender) {
   root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });
   root.querySelector('[data-act="msg"]')?.addEventListener("click", () => openDm(p.id));
   root.querySelector('[data-act="msg-locked"]')?.addEventListener("click", () => toast(t("mutualOnly")));
-  root.querySelector('[data-act="gift"]')?.addEventListener("click", () => openGivePoints(p, rerender));
+  // all gifts cost coins now (no free gifts)
+  root.querySelector('[data-act="gift"]')?.addEventListener("click", () => openPaidGifts([{ id: p.id, name: p.name || t("guest") }]));
   loadPfExtras(root);
 }
 
@@ -2992,6 +2993,7 @@ function giftTargets() {
   return allParticipants().filter((p) => isSpeaker(p) && p.identity !== me.id).map((p) => ({ id: p.identity, name: p.name || t("guest") }));
 }
 function openGifts() {
+  if (typeof openPaidGifts === "function") return openPaidGifts(); // only paid gifts now; the free list below is no longer shown
   const targets = giftTargets();
   if (!targets.length) return toast(t("giftNoTarget"));
   if (!giftTarget || !targets.some((x) => x.id === giftTarget)) giftTarget = targets[0].id;
