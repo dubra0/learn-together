@@ -1617,7 +1617,7 @@ function stopCamHardware() {
   cam.stream?.getTracks().forEach((tr) => tr.stop());
   cam.stream = null; cam.raw = null; cam.pub = null; cam.out = null;
 }
-cam.filterId = Math.min(Math.max(Number(store.get("camFilter")) || 0, 0), 100);
+cam.filterId = Math.min(Math.max(Number(store.get("camFilter")) || 0, 0), 400); // unknown ids fall back to Original when drawing
 function startFilterPipeline() {
   if (cam.out && cam.video) return cam.out;
   cam.video = document.createElement("video");
@@ -1662,6 +1662,7 @@ function drawFiltered() {
     g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${f.vignette})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }
+  if (f.ar && window.FaceLens) window.FaceLens.render(ctx, v, w, h, f); // 🎭 face lenses (face-lenses.js)
   if (f.frame) drawFrameDeco(ctx, w, h, f.frame);
   if (f.stickers) {
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
