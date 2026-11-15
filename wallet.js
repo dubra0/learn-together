@@ -225,6 +225,7 @@ function subscribePaidGifts() {
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "gift_sends" }, (payload) => {
       const row = payload.new; if (!row) return;
       const emoji = window.GiftFX?.emoji(row.gift_id) || "🎁";
+      if (row.room_id && currentRoom && row.room_id === currentRoom.id) window.TopGifters?.soon(); // 👑 top gifters strip
       if (row.room_id && currentRoom && row.room_id === currentRoom.id && row.from_id !== me.id) {
         window.GiftFX?.play(row.gift_id, row.from_name, row.to_name);
         if (typeof addSystem === "function") addSystem(`🪙 ${row.from_name} ${emoji} → ${row.to_name}`);

@@ -593,9 +593,19 @@ function personRow(p) {
 }
 
 /* ---------------- Ranking tab ---------------- */
+let rankMode = "xp"; // "xp" or "gifts" (👑 top gifters this week, top-gifters.js)
 async function renderRankingTab() {
   const box = $("#tab-ranking");
-  box.innerHTML = `<h1>${esc(t("rankingTitle"))}</h1><div id="my-rank"></div><div id="rank-list"><div class="empty">…</div></div>`;
+  const seg = window.TopGifters ? `<div class="rank-seg"><button type="button" data-rm="xp" class="${rankMode === "xp" ? "on" : ""}">⭐ ${esc(t("tg_xp"))}</button>
+    <button type="button" data-rm="gifts" class="${rankMode === "gifts" ? "on" : ""}">👑 ${esc(t("tg_gifts"))}</button></div>` : "";
+  if (rankMode === "gifts" && window.TopGifters) {
+    box.innerHTML = `<h1>${esc(t("rankingTitle"))}</h1>${seg}<h2 class="section">👑 ${esc(t("tg_week"))}</h2><div id="rank-gifts"></div>`;
+    box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { rankMode = b.dataset.rm; renderRankingTab(); }));
+    await window.TopGifters.weekly($("#rank-gifts"));
+    return;
+  }
+  box.innerHTML = `<h1>${esc(t("rankingTitle"))}</h1>${seg}<div id="my-rank"></div><div id="rank-list"><div class="empty">…</div></div>`;
+  box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { rankMode = b.dataset.rm; renderRankingTab(); }));
   const [top, above] = await Promise.all([
     sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").eq("banned", false).order("xp", { ascending: false }).limit(50),
     sb.from("profiles").select("id", { count: "exact", head: true }).eq("banned", false).gt("xp", profile?.xp || 0),
