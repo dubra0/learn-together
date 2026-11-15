@@ -49,10 +49,10 @@ async function fetchTop(roomId, since, limit) {
   if (error) { console.warn("top_gifters", error.message); return null; }
   return data || [];
 }
-function rowsHtml(rows) {
+function rowsHtml(rows, off = 0) {
   if (!rows?.length) return `<div class="empty">${esc(t("tg_none"))}</div>`;
   return rows.map((r, i) => `<div class="tg-row ${r.user_id === me?.id ? "me" : ""}" data-tgp="${esc(r.user_id)}">
-      <span class="n">${medal(i)}</span>${avHtml(r.name, r.avatar_url, "sm")}
+      <span class="n">${medal(i + off)}</span>${avHtml(r.name, r.avatar_url, "sm")}
       <span class="nm" dir="auto">${esc(r.name || t("guest"))}</span><span class="c">🪙 ${fmt(Number(r.coins))}</span></div>`).join("");
 }
 function wireRows(root) {
@@ -97,7 +97,12 @@ async function weeklyHtml(box) {
   const since = new Date(Date.now() - 7 * 24 * 3600e3).toISOString();
   const rows = await fetchTop(null, since, 50);
   if (!box.isConnected) return;
-  box.innerHTML = `<div class="card" style="padding:6px 10px">${rowsHtml(rows)}</div>`;
+  if (typeof podiumHtml === "function" && rows?.length) {
+    // top 3 on the podium, the rest below
+    box.innerHTML = podiumHtml(rows.slice(0, 3), (r) => `🪙 ${fmt(Number(r.coins))}`) +
+      (rows.length > 3 ? `<div class="rank-card">${rowsHtml(rows.slice(3), 3)}</div>` : "");
+    box.querySelectorAll("[data-person]").forEach((el) => el.addEventListener("click", () => openProfile(el.dataset.person)));
+  } else box.innerHTML = `<div class="card" style="padding:6px 10px">${rowsHtml(rows)}</div>`;
   wireRows(box);
 }
 

@@ -214,6 +214,7 @@ $("#photo-input").addEventListener("change", (e) => {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
   if (photoTarget === "gallery") return addGalleryPhoto(f);
+  if (photoTarget === "avatar" || photoTarget === "cover") return saveProfileImage(f, photoTarget);
   if (photoTarget === "post") {
     clearComposeVideo();
     composePhoto = f;
@@ -378,12 +379,18 @@ let roomsSeq = 0;
 async function renderRoomsTab() {
   const box = $("#tab-rooms");
   const name = profile?.name || t("guest");
-  box.innerHTML = `
+  const hasGoal = typeof goalCardHtml === "function";
+  box.innerHTML = (hasGoal ? `
+    <div class="home-hello">
+      <div class="hh-me">${avHtml(profile?.name, profile?.avatar_url, "sm")}<div><div class="hh-lbl">${esc(helloWord())}</div><div class="hh-name" dir="auto">${esc(name)}</div></div></div>
+      <span class="hh-streak">🔥 ${profile?.streak || 0}</span>
+    </div>
+    ${goalCardHtml()}` : `
     <div class="hero">
       <div class="hello">${esc(t("hello", { name }))}</div>
       <div class="sub">${esc(t("appTagline"))}</div>
       <div class="stats"><span class="stat">🔥 ${profile?.streak || 0} ${esc(t("dayStreak"))}</span><span class="stat">⭐ ${profile?.xp || 0} ${esc(t("xp"))}</span></div>
-    </div>
+    </div>`) + `
     <div class="chips" id="lang-chips">
       <button class="chip ${roomFilter ? "" : "on"}" data-f="">${esc(t("allLangs"))}</button>
       ${Object.entries(LANGS).map(([k, v]) => `<button class="chip ${roomFilter === k ? "on" : ""}" data-f="${k}">${esc(v)}</button>`).join("")}
@@ -394,6 +401,7 @@ async function renderRoomsTab() {
     const c = e.target.closest("[data-f]"); if (!c) return;
     roomFilter = c.dataset.f; renderRoomsTab();
   });
+  if (hasGoal) startGoalWaves(box);
   await loadRooms();
 }
 async function loadRooms() {
@@ -564,18 +572,19 @@ async function renderPartnersTab() {
 
   if (profile?.native_lang && learning.length) {
     const { data } = await sb.from("profiles")
-      .select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak")
+      .select(PROFILE_COLS)
       .neq("id", me.id).eq("banned", false).in("native_lang", learning)
       .contains("learning", JSON.stringify([{ lang: profile.native_lang }]))
       .order("xp", { ascending: false }).limit(30);
     const list = (data || []).filter((p) => !blocked.has(p.id));
     list.forEach((p) => profileCache.set(p.id, p));
-    if ($("#partner-list")) $("#partner-list").innerHTML = list.length ? list.map(personRow).join("") : `<div class="empty"><span class="big">🌱</span>${esc(t("noPartners"))}</div>`;
+    list.sort((a, b) => (typeof fitScore === "function" ? fitScore(b) - fitScore(a) : 0));
+    if ($("#partner-list")) $("#partner-list").innerHTML = list.length ? list.map(typeof partnerCard === "function" ? partnerCard : personRow).join("") : `<div class="empty"><span class="big">🌱</span>${esc(t("noPartners"))}</div>`;
   }
   const ids = [...following];
   let fl = [];
   if (ids.length) {
-    const { data } = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").in("id", ids.slice(0, 100));
+    const { data } = await sb.from("profiles").select(PROFILE_COLS).in("id", ids.slice(0, 100));
     fl = data || []; fl.forEach((p) => profileCache.set(p.id, p));
   }
   if ($("#following-list")) $("#following-list").innerHTML = fl.length ? fl.map(personRow).join("") : `<div class="empty">${esc(t("noFollowing"))}</div>`;
@@ -588,7 +597,7 @@ function langsLine(p) {
 }
 function personRow(p) {
   return `<div class="row-item" data-person="${esc(p.id)}">${avHtml(p.name, p.avatar_url, "sm")}
-    <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p.xp)}</div><div class="meta">${esc(langsLine(p))}</div></div>
+    <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p)}</div><div class="meta">${esc(langsLine(p))}</div></div>
     <span class="pill">⭐ ${p.xp || 0}</span></div>`;
 }
 
@@ -607,19 +616,23 @@ async function renderRankingTab() {
   box.innerHTML = `<h1>${esc(t("rankingTitle"))}</h1>${seg}<div id="my-rank"></div><div id="rank-list"><div class="empty">…</div></div>`;
   box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { rankMode = b.dataset.rm; renderRankingTab(); }));
   const [top, above] = await Promise.all([
-    sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").eq("banned", false).order("xp", { ascending: false }).limit(50),
+    sb.from("profiles").select(PROFILE_COLS).eq("banned", false).order("xp", { ascending: false }).limit(50),
     sb.from("profiles").select("id", { count: "exact", head: true }).eq("banned", false).gt("xp", profile?.xp || 0),
   ]);
   const rows = top.data || [];
   rows.forEach((p) => profileCache.set(p.id, p));
   if (!$("#rank-list")) return;
-  $("#my-rank").innerHTML = `<div class="hero" style="margin:8px 0 14px"><div class="hello">${esc(t("yourRank", { n: (above.count || 0) + 1 }))}</div>
-    <div class="stats"><span class="stat">⭐ ${profile?.xp || 0} ${esc(t("xp"))}</span><span class="stat">🔥 ${profile?.streak || 0}</span></div></div>`;
-  const medal = (i) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1);
-  $("#rank-list").innerHTML = rows.map((p, i) => `<div class="row-item ${p.id === me.id ? "me" : ""}" data-person="${esc(p.id)}">
-      <span class="rank">${medal(i)}</span>${avHtml(p.name, p.avatar_url, "sm")}
-      <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)}</div><div class="meta">🔥 ${p.streak || 0} · ${p.minutes || 0} ${esc(t("minutesLbl"))}</div></div>
-      <span class="pill">⭐ ${p.xp || 0}</span></div>`).join("") || `<div class="empty">—</div>`;
+  const myN = (above.count || 0) + 1;
+  // top 3 on a podium, the rest in a list, and my own place pinned at the bottom
+  $("#my-rank").innerHTML = typeof podiumHtml === "function" ? podiumHtml(rows.slice(0, 3), (p) => `⭐ ${p.xp || 0}`) : "";
+  const rest = typeof podiumHtml === "function" ? rows.slice(3) : rows;
+  const startN = typeof podiumHtml === "function" ? 4 : 1;
+  $("#rank-list").innerHTML = (rest.length ? `<div class="rank-card">${rest.map((p, i) => `<div class="rk ${p.id === me.id ? "me" : ""}" data-person="${esc(p.id)}">
+      <span class="n">${i + startN}</span>${avHtml(p.name, p.avatar_url, "sm")}
+      <div class="t"><span dir="auto">${esc(p.name)} ${flag(p.country)}</span><small>🔥 ${p.streak || 0} · ${p.minutes || 0} ${esc(t("minutesLbl"))}</small></div>
+      <span class="x">⭐ ${p.xp || 0}</span></div>`).join("")}</div>` : (rows.length ? "" : `<div class="empty">—</div>`)) +
+    `<div class="rank-mine" data-person="${esc(me.id)}"><span class="n">${myN}</span>${avHtml(profile?.name, profile?.avatar_url, "sm")}
+      <div class="t"><span dir="auto">${esc(t("you"))} · ${esc(profile?.name || "")}</span><small>🔥 ${profile?.streak || 0}</small></div><span class="x">⭐ ${profile?.xp || 0}</span></div>`;
   box.querySelectorAll("[data-person]").forEach((el) => el.addEventListener("click", () => openProfile(el.dataset.person)));
 }
 function badgesHtml(p) {
@@ -644,7 +657,23 @@ const TIERS = [
   { min: 1,  cls: "t0", icon: "",   key: "tierRookie" },
 ];
 const tierOf = (xp) => { const lv = levelOf(xp); return TIERS.find((x) => lv >= x.min); };
-const lvHtml = (xp) => { const tr = tierOf(xp); return `<span class="lv ${tr.cls}">${tr.icon}Lv.${levelOf(xp)}</span>`; };
+
+/* ---------------- 🪙 levels 1–100: only coins sent as gifts count (profiles.gift_coins) ----------------
+   Quick at first: level 80 = 50,000 coins in total (≈ $50). Then very hard: level 100 ≈ $30,000 more. */
+const LV_NEED = (() => {
+  const n = [0, 0];                                         // n[L] = total coins needed for level L
+  const a = 961.5, r = 1.052, raw80 = a * (Math.pow(r, 79) - 1);
+  for (let L = 2; L <= 80; L++) n[L] = Math.round(50000 * (a * (Math.pow(r, L - 1) - 1)) / raw80 / 10) * 10;
+  const s = 1.206, b = 30303030 / (Math.pow(s, 20) - 1);
+  for (let L = 81; L <= 100; L++) n[L] = Math.round((50000 + b * (Math.pow(s, L - 80) - 1)) / 100) * 100;
+  return n;
+})();
+const coinsOf = (x) => Number(typeof x === "object" && x ? x.gift_coins : x) || 0;
+const coinLevel = (x) => { const c = coinsOf(x); let L = 1; while (L < 100 && c >= LV_NEED[L + 1]) L++; return L; };
+// look of the badge: 1 plain · 10 bronze · 20 silver · 25 jade · 40 gold · 60 ruby · 80 diamond · 100 legend
+const lvKind = (L) => (L >= 100 ? 8 : L >= 80 ? 7 : L >= 60 ? 6 : L >= 40 ? 5 : L >= 25 ? 4 : L >= 20 ? 3 : L >= 10 ? 2 : 1);
+const lvHtml = (x) => { const L = coinLevel(x); return `<span class="lvb k${lvKind(L)}">${L >= 90 ? "👑" : L >= 80 ? "💎" : ""}Lv ${L}</span>`; };
+const ringCls = (x) => "lr" + lvKind(coinLevel(x));
 async function followCounts(id) {
   const [a, b] = await Promise.all([
     sb.from("follows").select("follower", { count: "exact", head: true }).eq("followee", id),
@@ -657,7 +686,7 @@ function countsHtml(c) {
     <button type="button" data-fl="following"><b>${c.following}</b><span>${esc(t("followingTitle"))}</span></button></div>`;
 }
 /* ---------------- Profile, TikTok style (Me tab + other people's page) ---------------- */
-const PROFILE_COLS = "id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak";
+const PROFILE_COLS = "id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak,gift_coins,cover_url";
 function galleryHtml(p, isMe) {
   const photos = (Array.isArray(p.photos) ? p.photos : []).filter((u) => safeAvatar(u));
   const tiles = photos.map((u, i) => `<button type="button" data-photo="${i}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join("");
@@ -688,13 +717,16 @@ function profileCardHtml(p, o) {
                 : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`) +
       `<button class="btn gift-btn" type="button" data-act="gift">🎁 ${esc(t("gifts"))}</button>`;
   }
+  const cover = safeAvatar(p.cover_url) ? ` style="background-image:url('${esc(p.cover_url)}')"` : "";
   return `<div class="card pf">
-      <div class="pf-cover">${o.isMe ? `<button type="button" class="pf-gear" data-act="settings" aria-label="settings">⚙️</button>` : ""}</div>
+      <div class="pf-cover${cover ? " has-img" : ""}"${cover}>${o.isMe ? `<button type="button" class="pf-gear" data-act="settings" aria-label="settings">⚙️</button>
+        ${typeof openWallet === "function" ? `<button type="button" class="pf-gear pf-wallet" data-act="wallet" aria-label="wallet">💰</button>` : ""}
+        <button type="button" class="pf-cover-btn" data-act="cover">📷 ${esc(t("coverPhoto"))}</button>` : ""}</div>
       <div class="pf-main">
-        <button type="button" ${o.isMe ? 'data-act="edit"' : ""} style="background:none;border:0;padding:0;position:relative;cursor:${o.isMe ? "pointer" : "default"}">
-          <span class="ring ${tierOf(p.xp).cls}">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
-        <div class="pf-name" dir="auto">${esc(p.name || "")} ${flag(p.country)} ${lvHtml(p.xp)}</div>
-        ${levelOf(p.xp) >= 5 ? `<div class="tier-name ${tierOf(p.xp).cls}">${tierOf(p.xp).icon} ${esc(t(tierOf(p.xp).key))}</div>` : ""}
+        <button type="button" ${o.isMe ? 'data-act="avatar"' : ""} style="background:none;border:0;padding:0;position:relative;cursor:${o.isMe ? "pointer" : "default"}">
+          <span class="ring ${ringCls(p)}">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
+        <div class="pf-name" dir="auto">${esc(p.name || "")} ${flag(p.country)}</div>
+        <button type="button" class="pf-lv" data-act="level" aria-label="level">${lvHtml(p)}</button>
         ${relTag(p.id)}
         <div class="pf-stats">${statsHtml({ following: "…", followers: "…", likes: "…" })}</div>
         <div class="pf-actions">${actions}</div>
@@ -720,8 +752,9 @@ function renderPfContent(root) {
   if (!posts) return;
   box.innerHTML = posts.length ? `<div class="pgrid">${posts.map(tileHtml).join("")}</div>`
     : `<div class="empty"><span class="big">📝</span>${esc(t("noPosts"))}${isMe ? `<br><br><button type="button" class="btn sm" data-act="newpost">＋ ${esc(t("newPost"))}</button>` : ""}</div>`;
+  // tap a post: it opens full screen, the same as the feed, and you can swipe through all of them
   box.querySelectorAll("[data-ptile]").forEach((b) => b.addEventListener("click", () => {
-    const post = (root._posts || []).find((x) => x.id === Number(b.dataset.ptile)); if (post) openPostSheet(post);
+    const i = (root._posts || []).findIndex((x) => x.id === Number(b.dataset.ptile)); if (i >= 0) openPostViewer(root._posts, i);
   }));
   box.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
 }
@@ -745,6 +778,10 @@ async function loadPfExtras(root) {
 function wireProfileCard(root, p, isMe, rerender) {
   root._p = p; root._isMe = isMe; root._posts = null;
   root.querySelectorAll('[data-act="edit"]').forEach((b) => b.addEventListener("click", openEditProfile));
+  root.querySelector('[data-act="avatar"]')?.addEventListener("click", () => pickPhoto("avatar"));
+  root.querySelector('[data-act="cover"]')?.addEventListener("click", () => pickPhoto("cover"));
+  root.querySelector('[data-act="wallet"]')?.addEventListener("click", () => openWallet());
+  root.querySelector('[data-act="level"]')?.addEventListener("click", () => openLevelSheet(p, isMe));
   root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
   root.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
   root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });
@@ -761,7 +798,7 @@ const GIFT_AMOUNTS = [5, 10, 25, 50, 100];
 async function openGivePoints(p, after) {
   if (profile?.banned) return toast(t("e_banned"));
   openSheet(`<h1>🎁 ${esc(t("givePoints"))}</h1>
-    <div class="gp-who">${avHtml(p.name, p.avatar_url, "sm")}<div><div style="font-weight:800" dir="auto">${esc(p.name)} ${lvHtml(p.xp)}</div>
+    <div class="gp-who">${avHtml(p.name, p.avatar_url, "sm")}<div><div style="font-weight:800" dir="auto">${esc(p.name)} ${lvHtml(p)}</div>
       <div class="muted small">${esc(t("pointsHelp"))}</div></div></div>
     <div class="gp-left"><span>${esc(t("pointsLeftToday"))}</span><b id="gp-left">…</b></div>
     <div class="gp-grid">${GIFT_AMOUNTS.map((a) => `<button type="button" class="gp-amt" data-amt="${a}" disabled>⭐ ${a}</button>`).join("")}</div>
@@ -908,7 +945,7 @@ function fwRow({ p }, isNew) {
   const isMe = p.id === me.id, iFollow = following.has(p.id), followsMe = myFollowers.has(p.id);
   const btn = isMe ? "" : `<button type="button" class="btn sm ${iFollow ? "ghost" : ""}" data-fwf="${esc(p.id)}">${esc(iFollow ? t("unfollow") : followsMe ? t("followBack") : t("follow"))}</button>`;
   return `<div class="row-item" data-person="${esc(p.id)}">${avHtml(p.name, p.avatar_url, "sm")}
-    <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p.xp)}${isNew ? `<span class="new-tag">${esc(t("newTag"))}</span>` : ""}</div>
+    <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p)}${isNew ? `<span class="new-tag">${esc(t("newTag"))}</span>` : ""}</div>
       <div class="meta">${relTag(p.id)} ${esc(langsLine(p))}</div></div>${btn}</div>`;
 }
 $("#fw-seg").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (b) { fwKind = b.dataset.k; renderFollowsPage(); } });
@@ -1134,7 +1171,7 @@ async function deleteAccount() {
    ===================================================================== */
 async function getProfile(id) {
   if (profileCache.has(id)) return profileCache.get(id);
-  const { data } = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").eq("id", id).maybeSingle();
+  const { data } = await sb.from("profiles").select(PROFILE_COLS).eq("id", id).maybeSingle();
   if (data) profileCache.set(id, data);
   return data;
 }
@@ -1170,7 +1207,7 @@ async function openProfile(id, participant) {
   openSheet(`
     <div class="profile-head">
       <span class="ring">${avHtml(p.name, p.avatar_url, "lg")}</span>
-      <div class="nm" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p.xp)}</div>
+      <div class="nm" dir="auto">${esc(p.name)} ${flag(p.country)} ${lvHtml(p)}</div>
       ${p.bio ? `<div class="muted" dir="auto">${esc(p.bio)}</div>` : ""}
       <div class="muted small">${esc(langsLine(p))}</div>
     </div>
@@ -1331,7 +1368,7 @@ async function joinRoom(row, code) {
         renderPeople();
       })
       .on(E.ParticipantConnected, (p) => {
-        if (!blocked.has(p.identity)) addSystem(t("joined", { name: p.name || t("guest") }));
+        if (!blocked.has(p.identity)) { addSystem(t("joined", { name: p.name || t("guest") })); window.showEntranceFor?.(p.identity); }
         renderPeople();
         // the live we challenged has arrived: bring them on stage and start the battle
         if (amHost() && pendingBattleWith === p.identity) {
@@ -1408,6 +1445,7 @@ async function joinRoom(row, code) {
     }
     $("#mic-btn").disabled = false;
     addSystem(t("connected"));
+    window.showEntranceFor?.(me.id); // 🎉 Lv 25+: my own name shows for 2 s too
     if (amHost()) startHeartbeat();
     applyBlockToRoom(); updateAudioUnlock(); renderPeople(); renderTopic();
     startPractice();
@@ -2027,6 +2065,7 @@ function startPractice() {
     const { data } = await sb.rpc("add_practice_minute", { p_speaking: speaking });
     const r = Array.isArray(data) ? data[0] : null;
     if (r && profile) {
+      if (typeof addTodayMinute === "function") addTodayMinute(); // 🎯 daily goal
       profile.xp = r.o_xp; profile.streak = r.o_streak; profile.minutes = r.o_minutes;
       profile.best_streak = Math.max(profile.best_streak || 0, r.o_streak);
       if (r.o_streak > before) toast(t("streakUp", { n: r.o_streak }));
@@ -2195,7 +2234,7 @@ async function fillInbox(box) {
   }
   const ids = [...convs.keys()];
   if (ids.length) {
-    const r = await sb.from("profiles").select("id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak").in("id", ids);
+    const r = await sb.from("profiles").select(PROFILE_COLS).in("id", ids);
     (r.data || []).forEach((p) => profileCache.set(p.id, p));
   }
   box.innerHTML = ids.length ? ids.map((id) => {
@@ -2415,7 +2454,7 @@ function reelHtml(post) {
       <button type="button" class="rail-btn" data-pmore="${post.id}"><span>⋯</span><span></span></button>
     </div>
     <div class="reel-info">
-      <div class="nm" data-person="${esc(post.user_id)}" dir="auto">@${esc(u.name)} ${flag(u.country)} ${lvHtml(u.xp)}</div>
+      <div class="nm" data-person="${esc(post.user_id)}" dir="auto">@${esc(u.name)} ${flag(u.country)} ${lvHtml(u)}</div>
       <div class="tm">${esc(shortTime(post.created_at))}<span class="reel-stats">${vid ? `<span data-views="${post.id}">👁 ${fmtNum(post.view_count)}</span>` : ""}<span>❤️ <span data-likes="${post.id}">${fmtNum(post.like_count)}</span></span></span></div>
       ${(img || vid) && post.body ? `<div class="cap" dir="auto">${esc(post.body)}</div>` : ""}
     </div>
@@ -2621,7 +2660,7 @@ function postHtml(post) {
   const u = profileCache.get(post.user_id) || { name: t("guest") };
   return `<article class="post" data-post="${post.id}">
     <div class="post-h" data-person="${esc(post.user_id)}">${avHtml(u.name, u.avatar_url, "sm")}
-      <div class="info"><div class="nm" dir="auto">${esc(u.name)} ${flag(u.country)} ${lvHtml(u.xp)}</div><div class="tm">${esc(shortTime(post.created_at))}</div></div></div>
+      <div class="info"><div class="nm" dir="auto">${esc(u.name)} ${flag(u.country)} ${lvHtml(u)}</div><div class="tm">${esc(shortTime(post.created_at))}</div></div></div>
     ${post.body ? `<div class="post-body" dir="auto">${esc(post.body)}</div>` : ""}
     ${safeVideo(post.video_url) ? `<video class="post-video" src="${esc(post.video_url)}" controls playsinline preload="metadata" data-pv="${post.id}"></video>
       <div class="muted small" style="padding:4px 14px 0" data-views="${post.id}">👁 ${fmtNum(post.view_count)}</div>`
