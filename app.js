@@ -1646,7 +1646,7 @@ function drawFiltered() {
   const v = cam.video, c = cam.canvas, ctx = cam.ctx, f = FILTERS[cam.filterId] || FILTERS[0];
   if (!v || v.readyState < 2) return;
   const face = f.ar && window.FaceLens;
-  const maxW = face ? 1280 : 1920; // face filters do much more work per pixel: 720p keeps them smooth on phones
+  const maxW = 1920; // keep Full HD with every filter (720p looked blurry)
   if (v.videoWidth && (c.width !== Math.min(v.videoWidth, maxW))) { c.width = Math.min(v.videoWidth, maxW); c.height = Math.round(c.width * v.videoHeight / v.videoWidth); }
   const w = c.width, h = c.height;
   if (!face) { // face filters draw the whole picture themselves

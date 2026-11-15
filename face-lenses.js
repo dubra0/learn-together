@@ -104,7 +104,12 @@ void main(){
   // where is the face? (soft-edged oval)
   vec2 q = p - maskC; q = vec2(dot(q, ax), dot(q, ay)) / maskR;
   float mask = has * (1. - smoothstep(.82, 1.08, length(q)));
-  vec3 col = c0;
+  // crisp picture: light sharpening everywhere except smoothed skin (hair, eyes, clothes look sharper)
+  vec2 px = 1. / res;
+  vec3 nb = (texture2D(tex, uv + vec2(px.x, 0.)).rgb + texture2D(tex, uv - vec2(px.x, 0.)).rgb
+           + texture2D(tex, uv + vec2(0., px.y)).rgb + texture2D(tex, uv - vec2(0., px.y)).rgb) * .25;
+  vec3 detail = c0 - nb;
+  vec3 col = clamp(c0 + detail * .55 * (1. - mask * .7), 0., 1.);
   if (mask > .01 && smoothK > .01) {
     // edge-keeping blur: neighbours that look different (eyes, brows, lips) count less
     float rad = res.y * .0045;
@@ -112,10 +117,12 @@ void main(){
     for (int i = 0; i < 8; i++) {
       float a = float(i) * .7854 + .39;
       vec2 o = vec2(cos(a), sin(a)) * rad / res;
-      vec3 c = texture2D(tex, uv + o).rgb;  float w = exp(-dot(c-c0, c-c0) * 28.);  sum += c*w; ws += w;
-      vec3 c2 = texture2D(tex, uv + o*2.2).rgb; float w2 = exp(-dot(c2-c0, c2-c0) * 28.) * .7; sum += c2*w2; ws += w2;
+      vec3 c = texture2D(tex, uv + o).rgb;  float w = exp(-dot(c-c0, c-c0) * 40.);  sum += c*w; ws += w;
+      vec3 c2 = texture2D(tex, uv + o*2.2).rgb; float w2 = exp(-dot(c2-c0, c2-c0) * 40.) * .7; sum += c2*w2; ws += w2;
     }
-    col = mix(c0, sum/ws, smoothK * mask);
+    // smooth spots and blemishes, but keep a little of the fine skin texture so it stays real, not plastic
+    vec3 sm = sum/ws + detail * .3;
+    col = mix(col, sm, smoothK * mask * .8);
   }
   // fairer, brighter skin (gentle curve, a touch less red)
   float wk = whiteK * mask;
