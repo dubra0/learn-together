@@ -109,8 +109,8 @@ void main(){
     // edge-keeping blur: neighbours that look different (eyes, brows, lips) count less
     float rad = res.y * .0045;
     vec3 sum = c0; float ws = 1.;
-    for (int i = 0; i < 12; i++) {
-      float a = float(i) * .5236;
+    for (int i = 0; i < 8; i++) {
+      float a = float(i) * .7854 + .39;
       vec2 o = vec2(cos(a), sin(a)) * rad / res;
       vec3 c = texture2D(tex, uv + o).rgb;  float w = exp(-dot(c-c0, c-c0) * 28.);  sum += c*w; ws += w;
       vec3 c2 = texture2D(tex, uv + o*2.2).rgb; float w2 = exp(-dot(c2-c0, c2-c0) * 28.) * .7; sum += c2*w2; ws += w2;

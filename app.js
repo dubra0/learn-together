@@ -1630,8 +1630,10 @@ function startFilterPipeline() {
   cam.ctx = cam.canvas.getContext("2d");
   cam.small = document.createElement("canvas");
   cam.out = cam.canvas.captureStream(30).getVideoTracks()[0];
-  const loop = () => { drawFiltered(); cam.raf = requestAnimationFrame(loop); };
-  loop();
+  // draw at most ~30 times a second (the camera's speed), not 60–120 like the screen — half the work for the phone
+  let last = 0;
+  const loop = (now) => { cam.raf = requestAnimationFrame(loop); if (now - last < 30) return; last = now; drawFiltered(); };
+  loop(performance.now());
   return cam.out;
 }
 function stopFilterPipeline() {
@@ -1643,11 +1645,15 @@ function stopFilterPipeline() {
 function drawFiltered() {
   const v = cam.video, c = cam.canvas, ctx = cam.ctx, f = FILTERS[cam.filterId] || FILTERS[0];
   if (!v || v.readyState < 2) return;
-  if (v.videoWidth && (c.width !== Math.min(v.videoWidth, 1920))) { c.width = Math.min(v.videoWidth, 1920); c.height = Math.round(c.width * v.videoHeight / v.videoWidth); }
+  const face = f.ar && window.FaceLens;
+  const maxW = face ? 1280 : 1920; // face filters do much more work per pixel: 720p keeps them smooth on phones
+  if (v.videoWidth && (c.width !== Math.min(v.videoWidth, maxW))) { c.width = Math.min(v.videoWidth, maxW); c.height = Math.round(c.width * v.videoHeight / v.videoWidth); }
   const w = c.width, h = c.height;
-  ctx.filter = f.css || "none";
-  ctx.drawImage(v, 0, 0, w, h);
-  ctx.filter = "none";
+  if (!face) { // face filters draw the whole picture themselves
+    ctx.filter = f.css || "none";
+    ctx.drawImage(v, 0, 0, w, h);
+    ctx.filter = "none";
+  }
   if (f.beauty) { // soft skin: blend a blurred (small, cheap) copy over the picture
     const sm = cam.small; sm.width = Math.round(w / 6); sm.height = Math.round(h / 6);
     sm.getContext("2d").drawImage(v, 0, 0, sm.width, sm.height);
@@ -1662,7 +1668,7 @@ function drawFiltered() {
     g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${f.vignette})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }
-  if (f.ar && window.FaceLens) window.FaceLens.render(ctx, v, w, h, f); // 🎭 face lenses (face-lenses.js)
+  if (face) window.FaceLens.render(ctx, v, w, h, f); // 💖 face beauty (face-lenses.js)
   if (f.frame) drawFrameDeco(ctx, w, h, f.frame);
   if (f.stickers) {
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -1700,7 +1706,21 @@ async function setFilter(id) {
   cam.filterId = id;
   store.set("camFilter", String(id));
   if (!lk || !cam.raw) return;
-  if (!!was !== !!id) await publishCam(); // switching between "Original" and a filter changes what is sent
+  if (!!was !== !!id) await swapCamSource(); // switching between "Original" and a filter changes what is sent
+}
+// Swap what the already-sent camera shows (camera ↔ filtered canvas) without switching the camera off:
+// others keep seeing you, nothing restarts, and the camera keeps its full quality.
+async function swapCamSource() {
+  const lt = lk.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera)?.track;
+  const next = cam.filterId ? startFilterPipeline() : cam.raw;
+  if (!lt?.sender) return publishCam();
+  if (lt.mediaStreamTrack !== next) {
+    try { next.contentHint = "detail"; } catch {}
+    try { await lt.replaceTrack(next, true); cam.pub = next; } // true = we stop old tracks ourselves
+    catch (err) { console.warn("swap camera", err); return publishCam(); }
+  }
+  if (!cam.filterId) stopFilterPipeline();
+  renderPeople();
 }
 
 /* 101 filters, built from a few ingredients */
@@ -1757,6 +1777,7 @@ function filterSwatch(f) {
 }
 function openFilters() {
   if (!lk || !cam.raw) return toast(t("cameraFirst"));
+  window.FaceLens?.load(); // start fetching the face finder now, so the first face filter starts quickly
   const render = () => {
     const list = FILTERS.filter((f) => f.cat === filterCat || (f.id === 0));
     openSheet(`<div class="fl-cats">${FILTER_CATS.map(([k, ic]) => `<button type="button" class="chip ${k === filterCat ? "on" : ""}" data-fc="${k}">${ic} ${esc(t("fc_" + k))}</button>`).join("")}</div>
