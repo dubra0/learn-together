@@ -779,7 +779,9 @@ function wireProfileCard(root, p, isMe, rerender) {
   root._p = p; root._isMe = isMe; root._posts = null;
   root.querySelectorAll('[data-act="edit"]').forEach((b) => b.addEventListener("click", openEditProfile));
   root.querySelector('[data-act="avatar"]')?.addEventListener("click", () => pickPhoto("avatar"));
-  root.querySelector('[data-act="cover"]')?.addEventListener("click", () => pickPhoto("cover"));
+  root.querySelector('[data-act="cover"]')?.addEventListener("click", (e) => { e.stopPropagation(); pickPhoto("cover"); });
+  // my own profile: tapping anywhere on the background area also changes it
+  if (isMe) root.querySelector(".pf-cover")?.addEventListener("click", (e) => { if (!e.target.closest("button")) pickPhoto("cover"); });
   root.querySelector('[data-act="wallet"]')?.addEventListener("click", () => openWallet());
   root.querySelector('[data-act="level"]')?.addEventListener("click", () => openLevelSheet(p, isMe));
   root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
