@@ -168,8 +168,12 @@ async function openPaidGifts(given) {
   const targets = Array.isArray(given) && given.length ? given : (typeof giftTargets === "function") ? giftTargets() : [];
   if (!targets.length) return toast(t("giftNoTarget"));
   if (!W.target || !targets.some((x) => x.id === W.target)) W.target = targets[0].id;
+  // seen before: open instantly with what we know, then refresh the coin count quietly
+  const early = !!W.catalog?.length;
+  if (early) { if (!W.chosen) W.chosen = W.catalog[0].id; renderPaid(targets); }
   await Promise.all([loadWallet(), loadCatalog()]);
   if (!W.chosen) W.chosen = W.catalog[0]?.id || null;
+  if (early && !$("#pg-send")) return; // closed, or another sheet was opened meanwhile
   renderPaid(targets);
 }
 function renderPaid(targets) {
@@ -249,12 +253,13 @@ const wWait = setInterval(() => { if (typeof sb !== "undefined" && sb && typeof 
    💰 Wallet screen
    ===================================================================== */
 async function openWallet() {
-  await loadWallet();
-  const w = W.wallet || { coins: 0, diamonds: 0, held: 0, withdrawable: 0, usd_per_1000: 0.99, withdraw_fee: 0.03, min_withdraw: 5000, hold_days: 7, payout_methods: ["fib", "zaincash", "fastpay"] };
-  const [tx, wd] = await Promise.all([
+  if (!W.wallet) openSheet(`<h1>💰 ${esc(t("w_wallet"))}</h1><div class="empty">…</div>`); // show something right away
+  const [, tx, wd] = await Promise.all([ // everything at once, not one after another
+    loadWallet(),
     sb.from("wallet_tx").select("kind,coins,diamonds,ref,created_at").order("created_at", { ascending: false }).limit(30),
     sb.from("withdrawals").select("diamonds,usd_net,method,status,note,created_at").order("created_at", { ascending: false }).limit(10),
   ]);
+  const w = W.wallet || { coins: 0, diamonds: 0, held: 0, withdrawable: 0, usd_per_1000: 0.99, withdraw_fee: 0.03, min_withdraw: 5000, hold_days: 7, payout_methods: ["fib", "zaincash", "fastpay"] };
   const fee = Number(w.withdraw_fee) * 100;
   const day = (s) => new Date(s).toLocaleDateString(uiLang, { day: "numeric", month: "short" });
   openSheet(`<h1>💰 ${esc(t("w_wallet"))}</h1>

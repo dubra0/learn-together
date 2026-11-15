@@ -79,7 +79,7 @@ function applyI18n() {
   $("#room-lang").innerHTML = langOptions(keepLang || "en");
   $("#room-level").innerHTML = levelOptions(keepLevel || "beginner");
   if (!$("#screen-onboarding").hidden) renderOnboarding();
-  if (!$("#screen-main").hidden) renderTab();
+  if (!$("#screen-main").hidden) renderTab(true);
   if (currentRoom) { setRoomHeader(currentRoom); renderPeople(); renderTopic(); }
 }
 
@@ -93,6 +93,28 @@ function toast(msg, actionLabel, action) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), actionLabel ? 7000 : 3500);
 }
+/* thin moving line at the top while something is loading (only shows if it takes longer than 0.3 s) */
+(() => {
+  const bar = document.createElement("div");
+  bar.id = "net-bar";
+  bar.style.cssText = "position:fixed;top:0;left:0;right:0;height:3px;z-index:100000;pointer-events:none;opacity:0;transition:opacity .2s;" +
+    "background:linear-gradient(90deg,transparent,#8b5cf6,#3b82f6,transparent);background-size:50% 100%;background-repeat:no-repeat;animation:netbar 1s linear infinite";
+  const st = document.createElement("style");
+  st.textContent = "@keyframes netbar{from{background-position:-50% 0}to{background-position:150% 0}}";
+  document.head.appendChild(st); document.body.appendChild(bar);
+  let busy = 0, timer = 0;
+  const upd = () => { clearTimeout(timer); if (busy > 0) timer = setTimeout(() => (bar.style.opacity = 1), 300); else bar.style.opacity = 0; };
+  const f0 = window.fetch.bind(window);
+  window.fetch = (...a) => {
+    const url = String(a[0]?.url || a[0] || "");
+    if (!/supabase\.co\/(rest|functions|storage)/.test(url)) return f0(...a); // only data requests, not the live itself
+    busy++; upd();
+    return f0(...a).finally(() => { busy--; upd(); });
+  };
+})();
+// weak internet (2G/3G or "data saver" on): load videos in the feed only when they are about to play
+const slowNet = (() => { const c = navigator.connection; return !!c && (c.saveData || /(^|-)(2g|3g)$/.test(c.effectiveType || "")); })();
+
 function errText(code, fallback) { return code && I18N.en["e_" + code] ? t("e_" + code) : (code || fallback || ""); }
 
 /* ---------- screens + bottom sheet ---------- */
@@ -311,11 +333,11 @@ async function checkAdmin() {
   const { data } = await sb.from("admins").select("user_id").eq("user_id", me.id).maybeSingle();
   isAdmin = !!data;
 }
-function goMain(tab) {
+function goMain(tab, force) {
   if (tab) currentTab = tab;
   show("screen-main");
   renderTopbar();
-  renderTab();
+  renderTab(force);
 }
 function renderTopbar() {
   $("#top-streak").textContent = `🔥 ${profile?.streak || 0}`;
@@ -326,7 +348,10 @@ $("#tabbar").addEventListener("click", (e) => {
   const b = e.target.closest("[data-tab]");
   if (b) goMain(b.dataset.tab);
 });
-function renderTab() {
+// A section opened in the last minute is shown again instantly as it was (same place, no "…" wait);
+// only its live parts refresh quietly in the background.
+const tabShownAt = {};
+function renderTab(force) {
   document.querySelectorAll("#tabbar [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === currentTab));
   ["rooms", "feed", "chats", "partners", "ranking", "me"].forEach((k) => ($("#tab-" + k).hidden = k !== currentTab));
   if (currentTab !== "feed") pauseReels();
@@ -334,6 +359,12 @@ function renderTab() {
   $("#tab-feed").classList.toggle("reels", currentTab === "feed");
   $("#new-room-btn").hidden = currentTab !== "rooms";
   $("#new-post-btn").hidden = currentTab !== "feed";
+  const at = tabShownAt[currentTab];
+  if (!force && at && Date.now() - at < 60e3 && $("#tab-" + currentTab).childElementCount && currentTab !== "me") {
+    if (currentTab === "rooms") loadRooms(); // the live list changes often: refresh it in place
+    return;
+  }
+  tabShownAt[currentTab] = Date.now();
   if (currentTab === "rooms") renderRoomsTab();
   if (currentTab === "feed") renderFeedTab();
   if (currentTab === "chats") renderChatsTab();
@@ -490,7 +521,7 @@ $("#create-form").addEventListener("submit", async (e) => {
   const { data, error } = await sb.from("rooms").insert(row).select().single();
   btn.disabled = false;
   if (error) { console.error(error); return toast(t("createFail") + error.message); }
-  if (startsAt) { goMain("rooms"); toast(t("scheduled"), t("share"), () => shareRoom(data)); }
+  if (startsAt) { goMain("rooms", true); toast(t("scheduled"), t("share"), () => shareRoom(data)); }
   else joinRoom(data, data.join_code);
 });
 
@@ -1099,15 +1130,16 @@ async function getProfile(id) {
 }
 async function openProfile(id, participant) {
   if (!participant || !lk) return openProfilePage(id); // outside a voice room: open the full profile page
-  const p = (await getProfile(id)) || { id, name: participant?.name || t("guest"), avatar_url: partMeta(participant || {}).avatar };
   const isMe = id === me.id;
   const inRoom = participant && lk && currentRoom;
   const hostHere = inRoom && amHost() && !isMe && id !== currentRoom.host_id;
   const speaker = inRoom && isSpeaker(participant);
-  const [counts, canMsg] = await Promise.all([
+  const [prof0, counts, canMsg] = await Promise.all([ // all at once, not one after another
+    getProfile(id),
     followCounts(id),
     isMe ? Promise.resolve(false) : sb.rpc("can_message", { p_other: id }).then((r) => r.data === true).catch(() => false),
   ]);
+  const p = prof0 || { id, name: participant?.name || t("guest"), avatar_url: partMeta(participant || {}).avatar };
   let actions = "";
   if (!isMe) {
     actions += `<button class="btn ${following.has(id) ? "ghost" : ""}" id="sh-follow">${esc(following.has(id) ? t("unfollow") : t("follow"))}</button>`;
@@ -1274,7 +1306,7 @@ async function joinRoom(row, code) {
       ...(row.video ? {
         videoCaptureDefaults: { resolution: V.h1080.resolution, facingMode: "user" },
         publishDefaults: CAM_PUBLISH(),
-      } : {}),
+      } : { publishDefaults: VOICE_PUBLISH() }),
     });
     lk = room;
     room
@@ -1561,17 +1593,23 @@ const cam = { stream: null, raw: null, video: null, canvas: null, ctx: null, sma
 const camConstraints = () => ({ width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 }, frameRate: { ideal: 30, max: 30 }, facingMode: camFacing });
 // How the camera is sent:
 //  - H.264: done by the phone's video chip on almost every phone (sharp, fast, cool); VP8 is software on most Androids
-//  - up to 3.5 Mbps for Full HD, plus 720p and 360p copies for weaker connections and small bubbles
-//  - when the phone or network struggles, keep the picture sharp and lower the frame rate instead
+//  - up to 3.5 Mbps for Full HD, plus 540p and a tiny 180p copy (~0.15 Mbps): viewers with weak
+//    internet automatically get a smaller copy instead of a frozen picture
+//  - when my own upload is weak, lower size and frame rate a little together (keeps the live moving)
+//  - voice: speech quality, silence costs nothing, and lost voice packets are re-sent (RED) — voice comes first
 function CAM_PUBLISH() {
   const V = LivekitClient.VideoPresets;
   return {
     simulcast: true,
     videoCodec: "h264",
     videoEncoding: { maxBitrate: 3_500_000, maxFramerate: 30, priority: "high" },
-    videoSimulcastLayers: [V.h360, V.h720],
-    degradationPreference: "maintain-resolution",
+    videoSimulcastLayers: [V.h180, V.h540],
+    degradationPreference: "balanced",
+    ...VOICE_PUBLISH(),
   };
+}
+function VOICE_PUBLISH() {
+  return { audioPreset: LivekitClient.AudioPresets.speech, dtx: true, red: true };
 }
 async function cameraOn() {
   if (!lk || cam.starting || cam.stream) return; // already on, or starting right now
@@ -2352,7 +2390,7 @@ function reelHtml(post) {
   const img = !vid && post.image_url && safeAvatar(post.image_url) ? post.image_url : "";
   const canFollow = post.user_id !== me.id && !following.has(post.user_id);
   return `<section class="reel ${img || vid ? "" : "tg" + (post.id % 6)}" data-post="${post.id}">
-    ${vid ? `<video class="reel-video" src="${esc(vid)}" playsinline loop muted preload="metadata" data-rv="${post.id}"></video><div class="reel-paused" hidden>▶</div>`
+    ${vid ? `<video class="reel-video" src="${esc(vid)}" playsinline loop muted preload="${slowNet ? "none" : "metadata"}" data-rv="${post.id}"></video><div class="reel-paused" hidden>▶</div>`
       : img ? `<div class="reel-bg" style="background-image:url('${esc(img)}')"></div><img class="reel-img" src="${esc(img)}" alt="" loading="lazy">`
       : `<div class="reel-text" dir="auto">${esc(post.body || "")}</div>`}
     <div class="reel-shade"></div>
@@ -2706,7 +2744,7 @@ async function deletePost(id) {
   }
   feedCache.delete(id);
   closeSheet();
-  if (!$("#screen-main").hidden) renderTab();
+  if (!$("#screen-main").hidden) renderTab(true);
   if (!$("#screen-profile").hidden) renderProfilePage();
 }
 async function openPostSheet(post) {
@@ -2795,7 +2833,7 @@ $("#compose-form").addEventListener("submit", async (e) => {
     clearComposeVideo();
     toast(t("posted"));
     feedKind = "all";
-    goMain("feed");
+    goMain("feed", true);
   } catch (err) {
     if (path) sb.storage.from("avatars").remove([path]);
     if (vpath) sb.storage.from("videos").remove([vpath]);
