@@ -81,12 +81,11 @@ function openLevelSheet(p, isMe) {
       <div class="lv-tier">${esc(tierWord(k))}</div>
       <div class="lv-bar"><i style="width:${pct.toFixed(1)}%"></i></div>
       <div class="lv-next">${L >= 100 ? esc(t("lv_max")) : esc(t("lv_next", { n: fmtC(LV_NEED[L + 1] - coins), lv: L + 1 }))}</div>
-      ${isMe ? `<div class="lv-next" style="opacity:.65">${esc(t("lv_coins", { n: fmtC(coins) }))}</div>` : ""}
     </div>
     <p class="muted small" style="margin:12px 2px">${esc(t("lv_only"))}</p>
     <h2 class="section" style="margin-top:6px">${esc(t("lv_perks"))}</h2>
     <div class="perks">${PERK_LV.map((lv) => `<div class="perk ${L >= lv ? "got" : ""}"><span class="ic">${PERK_IC[lv]}</span>
-      <div class="pt"><b>${esc(t("perk" + lv))}</b><span>${lvHtml(LV_NEED[lv])} · 🪙 ${fmtC(LV_NEED[lv])}</span></div>${L >= lv ? '<span class="ok">✓</span>' : "🔒"}</div>`).join("")}</div>`);
+      <div class="pt"><b>${esc(t("perk" + lv))}</b><span>${lvHtml(LV_NEED[lv])}</span></div>${L >= lv ? '<span class="ok">✓</span>' : "🔒"}</div>`).join("")}</div>`);
 }
 
 /* ---------- 🎉 "came in" banner in a live: 2 seconds, small, level 25 and up ---------- */

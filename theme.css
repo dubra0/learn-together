@@ -75,7 +75,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .tag{background:var(--soft);color:var(--brand);font-weight:700}
 .tag.blue{background:var(--soft-2);color:var(--brand-2)}
 .tag.live{background:color-mix(in srgb,var(--live) 12%,transparent);color:var(--live)}
-.empty{border-radius:22px;border-style:solid;background:var(--card)}
+.empty:not(.seat){border-radius:22px;border-style:solid;background:var(--card)}
+/* empty seats in a live: see-through circles, never white boxes */
+.seat.empty{background:none;border:0;padding:0;border-radius:0}
+.seat.empty .ring2{background:rgba(255,255,255,.08);border:2px dashed rgba(255,255,255,.22)}
 
 /* ---------- lists (partners, ranking, chats, settings) ---------- */
 .row-item{border-radius:20px;box-shadow:none}

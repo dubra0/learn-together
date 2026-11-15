@@ -659,12 +659,13 @@ const TIERS = [
 const tierOf = (xp) => { const lv = levelOf(xp); return TIERS.find((x) => lv >= x.min); };
 
 /* ---------------- 🪙 levels 1–100: only coins sent as gifts count (profiles.gift_coins) ----------------
-   Quick at first: level 80 = 50,000 coins in total (≈ $50). Then very hard: level 100 ≈ $30,000 more. */
+   Quick at first: level 80 = 50,000 coins in total (≈ $50). Then very hard: level 100 ≈ 80.8 million coins in total (≈ $80,000).
+   The app never shows these totals: people only see how many coins are left to their next level. */
 const LV_NEED = (() => {
   const n = [0, 0];                                         // n[L] = total coins needed for level L
   const a = 961.5, r = 1.052, raw80 = a * (Math.pow(r, 79) - 1);
   for (let L = 2; L <= 80; L++) n[L] = Math.round(50000 * (a * (Math.pow(r, L - 1) - 1)) / raw80 / 10) * 10;
-  const s = 1.206, b = 30303030 / (Math.pow(s, 20) - 1);
+  const s = 1.4, b = (80808000 - 50000) / (Math.pow(s, 20) - 1);
   for (let L = 81; L <= 100; L++) n[L] = Math.round((50000 + b * (Math.pow(s, L - 80) - 1)) / 100) * 100;
   return n;
 })();
