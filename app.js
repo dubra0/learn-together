@@ -127,7 +127,12 @@ if (!configured) show("screen-setup"); else init();
 async function init() {
   sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
   const { data: { session } } = await sb.auth.getSession();
-  if (session) { me = session.user; await loadMyProfile(); }
+  if (session) {
+    // the phone may remember a sign-in for an account that was deleted: forget it and start fresh
+    const { data: u, error: ue } = await sb.auth.getUser();
+    if (ue || !u?.user) { await sb.auth.signOut().catch(() => {}); }
+    else { me = u.user; await loadMyProfile(); }
+  }
   if (me && profile) return enterApp();
   if (!store.get("onboarded")) { obIndex = 0; renderOnboarding(); show("screen-onboarding"); }
   else show("screen-name");
@@ -1263,12 +1268,12 @@ async function joinRoom(row, code) {
     const E = LivekitClient.RoomEvent;
     const V = LivekitClient.VideoPresets;
     const room = new LivekitClient.Room({
-      adaptiveStream: true, dynacast: true,   // viewers only receive the size they actually show
+      // viewers receive the size they show, measured in real screen pixels (sharp on phone screens)
+      adaptiveStream: { pixelDensity: "screen" }, dynacast: true,
       audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       ...(row.video ? {
         videoCaptureDefaults: { resolution: V.h1080.resolution, facingMode: "user" },
-        // send 1080p plus two smaller copies (180p for seat bubbles, 540p in between)
-        publishDefaults: { simulcast: true, videoEncoding: V.h1080.encoding, videoSimulcastLayers: [V.h180, V.h540] },
+        publishDefaults: CAM_PUBLISH(),
       } : {}),
     });
     lk = room;
@@ -1552,8 +1557,22 @@ $("#flip-btn").addEventListener("click", async () => {
    Original = the camera itself (full 1080p). With a filter, each frame is drawn on a canvas with the effect,
    and the canvas is what everyone sees. */
 const cam = { stream: null, raw: null, video: null, canvas: null, ctx: null, small: null, raf: 0, out: null, pub: null, filterId: 0 };
-// ask for 4K; phones that can't do it give their best (usually 1080p)
-const camConstraints = () => ({ width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 30 }, facingMode: camFacing });
+// Full HD from the camera. (Asking for 4K made phones overload and send a very blurry picture.)
+const camConstraints = () => ({ width: { ideal: 1920, max: 1920 }, height: { ideal: 1080, max: 1080 }, frameRate: { ideal: 30, max: 30 }, facingMode: camFacing });
+// How the camera is sent:
+//  - H.264: done by the phone's video chip on almost every phone (sharp, fast, cool); VP8 is software on most Androids
+//  - up to 3.5 Mbps for Full HD, plus 720p and 360p copies for weaker connections and small bubbles
+//  - when the phone or network struggles, keep the picture sharp and lower the frame rate instead
+function CAM_PUBLISH() {
+  const V = LivekitClient.VideoPresets;
+  return {
+    simulcast: true,
+    videoCodec: "h264",
+    videoEncoding: { maxBitrate: 3_500_000, maxFramerate: 30, priority: "high" },
+    videoSimulcastLayers: [V.h360, V.h720],
+    degradationPreference: "maintain-resolution",
+  };
+}
 async function cameraOn() {
   if (!lk || cam.starting || cam.stream) return; // already on, or starting right now
   cam.starting = true;
@@ -1576,15 +1595,8 @@ async function publishCam() {
       }
     }
     cam.pub = track;
-    // 4K camera → send 4K + 1080p + 360p copies; otherwise 1080p + 540p + 180p
-    const st = track.getSettings ? track.getSettings() : {};
-    const is4k = Math.max(st.width || 0, st.height || 0) >= 2500;
-    await lk.localParticipant.publishTrack(track, {
-      source: LivekitClient.Track.Source.Camera, name: "camera",
-      simulcast: true,
-      videoEncoding: is4k ? V.h2160.encoding : V.h1080.encoding,
-      videoSimulcastLayers: is4k ? [V.h360, V.h1080] : [V.h180, V.h540],
-    });
+    try { track.contentHint = "detail"; } catch {} // tell the encoder sharpness matters more than smooth motion
+    await lk.localParticipant.publishTrack(track, { source: LivekitClient.Track.Source.Camera, name: "camera", ...CAM_PUBLISH() });
   } finally { cam.busy = false; }
   if (!cam.filterId) stopFilterPipeline();
   renderPeople();
