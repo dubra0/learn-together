@@ -659,15 +659,18 @@ const TIERS = [
 const tierOf = (xp) => { const lv = levelOf(xp); return TIERS.find((x) => lv >= x.min); };
 
 /* ---------------- 🪙 levels 1–100: only coins sent as gifts count (profiles.gift_coins) ----------------
-   Quick at first: level 80 = 50,000 coins in total (≈ $50). Then very hard: level 100 ≈ 80.8 million coins in total (≈ $80,000).
-   The app never shows these totals: people only see how many coins are left to their next level. */
+   The app never shows the totals: people only see how many coins are left to their next level. */
+// Total money for each level (1000 coins = $0.99), in three parts:
+//   Lv 1 → 25 : easy, ≈ $1,000 in total
+//   Lv 25 → 80: harder, ≈ $30,000 in total
+//   Lv 80 → 100: very hard, ≈ $80,000 in total
 const LV_NEED = (() => {
-  const n = [0, 0];                                         // n[L] = total coins needed for level L
-  const a = 961.5, r = 1.052, raw80 = a * (Math.pow(r, 79) - 1);
-  for (let L = 2; L <= 80; L++) n[L] = Math.round(50000 * (a * (Math.pow(r, L - 1) - 1)) / raw80 / 10) * 10;
-  const s = 1.4, b = (80808000 - 50000) / (Math.pow(s, 20) - 1);
-  for (let L = 81; L <= 100; L++) n[L] = Math.round((50000 + b * (Math.pow(s, L - 80) - 1)) / 100) * 100;
-  return n;
+  const usd = [0, 0];                                       // usd[L] = total dollars needed for level L
+  const g = (r, i, n) => (Math.pow(r, i) - 1) / (Math.pow(r, n) - 1);
+  for (let L = 2; L <= 25; L++) usd[L] = 1000 * g(1.2, L - 1, 24);
+  for (let L = 26; L <= 80; L++) usd[L] = 1000 + 29000 * g(1.035, L - 25, 55);
+  for (let L = 81; L <= 100; L++) usd[L] = 30000 + 50000 * g(1.07, L - 80, 20);
+  return usd.map((d) => Math.round((d / 0.99) * 1000 / 10) * 10); // dollars → coins
 })();
 const coinsOf = (x) => Number(typeof x === "object" && x ? x.gift_coins : x) || 0;
 const coinLevel = (x) => { const c = coinsOf(x); let L = 1; while (L < 100 && c >= LV_NEED[L + 1]) L++; return L; };
