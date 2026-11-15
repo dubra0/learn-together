@@ -1973,8 +1973,10 @@ $("#room-more").addEventListener("click", () => {
     ${amHost() && currentRoom?.video && !battleInfo() ? `<button type="button" id="rm-battle">⚔️ ${esc(t("battle"))}</button>` : ""}
     ${amHost() ? `<button type="button" id="rm-end" class="danger">⏹ ${esc(t("endRoom"))}</button>`
                : `<button type="button" id="rm-report" class="danger">🚩 ${esc(t("reportRoom"))}</button>`}
+    ${currentRoom?.video && typeof openVideoStats === "function" ? `<button type="button" id="rm-vstats">📊 Video info</button>` : ""}
     <button type="button" id="rm-leave">🚪 ${esc(t("leave"))}</button>
     <button type="button" id="rm-close">${esc(t("close"))}</button></div>`);
+  $("#rm-vstats")?.addEventListener("click", () => { closeSheet(); openVideoStats(); });
   $("#rm-share").addEventListener("click", () => { closeSheet(); $("#room-share").click(); });
   $("#rm-invite")?.addEventListener("click", openInvitePicker);
   $("#rm-battle")?.addEventListener("click", openBattlePicker);
