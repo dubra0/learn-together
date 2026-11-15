@@ -782,6 +782,7 @@ function openSettings() {
   $("#settings-body").innerHTML = `
     <div class="menu">
       <button type="button" id="me-edit">✏️ ${esc(t("editProfile"))}</button>
+      ${typeof openWallet === "function" ? `<button type="button" id="me-wallet">💰 ${esc(t("w_wallet"))}</button>` : ""}
       <button type="button" id="me-photos">📷 ${esc(t("photos"))}<span class="end">${(p.photos || []).length}/6</span></button>
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
@@ -795,10 +796,12 @@ function openSettings() {
       <label>🌐 ${esc(t("appLanguage"))}<select id="me-lang">${uiLangOptions()}</select></label>
       <a href="privacy.html" target="_blank" rel="noopener">📄 ${esc(t("privacy"))}</a>
       ${isAdmin ? `<a href="admin.html" target="_blank" rel="noopener">🛡️ ${esc(t("adminPanel"))}</a>` : ""}
+      ${isAdmin ? `<a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}</a>` : ""}
       <button type="button" id="me-id">🪪 ${esc(t("yourId"))}<span class="end">${esc(me.id.slice(0, 8))}…</span></button>
       <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>
     </div>`;
   $("#me-edit").addEventListener("click", openEditProfile);
+  $("#me-wallet")?.addEventListener("click", openWallet);
   $("#me-photos").addEventListener("click", () => {
     openSheet(`<h1>📷 ${esc(t("photos"))}</h1>${galleryHtml(profile || {}, true)}`);
     document.querySelectorAll("#sheet [data-photo]").forEach((b) => b.addEventListener("click", () => viewPhoto(profile, Number(b.dataset.photo), true)));
@@ -2995,6 +2998,7 @@ function openGifts() {
   const render = () => {
     const now = Date.now();
     openSheet(`<h1>🎁 ${esc(t("gifts"))}</h1>
+      ${typeof openPaidGifts === "function" ? `<button type="button" class="btn sm" id="to-paid" style="margin-bottom:8px">🪙 ${esc(t("w_paidGifts"))}</button>` : ""}
       <div class="muted small">${esc(t("sendTo"))}</div>
       <div class="gift-targets">${targets.map((x) => `<button type="button" class="btn sm ${x.id === giftTarget ? "" : "ghost"}" data-gt="${esc(x.id)}">${x.side === "a" ? "❤️ " : x.side === "b" ? "💙 " : ""}${esc(x.name)}</button>`).join("")}</div>
       <div class="gift-grid">${GIFTS.map((g) => {
@@ -3003,6 +3007,7 @@ function openGifts() {
           <span class="ge">${g.e}</span><span class="gn">${esc(t("g_" + g.id))}</span>
           <span class="gp">${wait > 0 ? esc(t("giftWait", { s: wait })) : `+${g.pts} ${esc(t("pts"))}`}</span></button>`;
       }).join("")}</div>`);
+    $("#to-paid")?.addEventListener("click", () => { closeSheet(); openPaidGifts(); });
     document.querySelectorAll("#sheet [data-gt]").forEach((b) => b.addEventListener("click", () => { giftTarget = b.dataset.gt; render(); }));
     document.querySelectorAll("#sheet [data-gift]").forEach((b) => b.addEventListener("click", () => { sendGift(b.dataset.gift); render(); }));
   };

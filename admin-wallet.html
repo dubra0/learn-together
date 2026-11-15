@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talk Together — جزدان (بەڕێوەبەر)</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#6d4aff">
+<link rel="icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f5fb;--card:#fff;--ink:#17142b;--muted:#6e6888;--line:#ebe8f5;--brand:#6d4aff;--soft:#efeaff;--danger:#e11d48;--ok:#16a34a;--gold:#f59e0b}
+@media (prefers-color-scheme: dark){:root{--bg:#0f0d1a;--card:#1a1729;--ink:#f3f1ff;--muted:#a49fbe;--line:#2a2541;--brand:#8b72ff;--soft:#262043}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Arabic",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+h1{margin:0 0 4px} h2{margin:6px 0 10px;font-size:1.1rem} .muted{color:var(--muted)}
+.tabs{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+.tabs button,.btn{border:0;border-radius:12px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer;background:var(--soft);color:var(--brand)}
+.tabs button.on{background:var(--brand);color:#fff}
+.btn.main{background:var(--brand);color:#fff} .btn.ok{background:var(--ok);color:#fff} .btn.danger{background:var(--danger);color:#fff}
+.btn:disabled{opacity:.5}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.stat b{display:block;font-size:1.4rem;font-variant-numeric:tabular-nums} .stat span{font-size:.8rem;color:var(--muted)}
+.stat.money b{color:var(--ok)} .stat.warn b{color:var(--gold)}
+label{display:block;font-weight:700;margin:10px 0 4px;font-size:.9rem}
+input,select,textarea{width:100%;font:inherit;color:inherit;background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px}
+textarea{direction:ltr;text-align:left;font-family:ui-monospace,Consolas,monospace;min-height:220px;letter-spacing:.06em}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end} .row > *{flex:1;min-width:140px}
+table{width:100%;border-collapse:collapse;font-size:.88rem} th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:start;vertical-align:middle}
+th{color:var(--muted);font-weight:700;font-size:.78rem}
+.scroll{overflow-x:auto}
+.tag{border-radius:999px;padding:1px 9px;font-size:.75rem;font-weight:700;white-space:nowrap}
+.tag.new,.tag.pending{background:#fef3c7;color:#92400e} .tag.redeemed,.tag.paid{background:#dcfce7;color:#166534} .tag.void,.tag.rejected{background:#ffe4e6;color:#9f1239}
+code{direction:ltr;display:inline-block}
+.empty{text-align:center;padding:30px;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💰 بەڕێوەبردنی جزدان</h1>
+  <div class="muted">کۆدی شەحن، ڕاکێشانی پارە، ڕێکخستن و نرخی دیارییەکان</div>
+  <div class="tabs" id="tabs">
+    <button class="on" data-t="stats">📊 کورتە</button>
+    <button data-t="make">🎟️ دروستکردنی کۆد</button>
+    <button data-t="codes">🗂️ کۆدەکان</button>
+    <button data-t="payouts">💵 ڕاکێشانەکان</button>
+    <button data-t="settings">⚙️ ڕێکخستن</button>
+    <button data-t="prices">🎁 نرخی دیاری</button>
+  </div>
+  <div id="box"><div class="empty">…</div></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script>
+"use strict";
+const SUPABASE_URL = "https://vjuqtzhefxpiqsmasfkb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_hs16UKvg16dApnabYQM9Cw_l2S-_XAU";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const n = (x) => Number(x || 0).toLocaleString("en");
+const usd = (x) => "$" + Number(x || 0).toFixed(2);
+const day = (s) => s ? new Date(s).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+const METHODS = { fib: "FIB", zaincash: "Zain Cash", fastpay: "FastPay" };
+const ST = { new: "نوێ", redeemed: "بەکارهاتوو", void: "هەڵوەشاوە", pending: "چاوەڕوان", paid: "دراوە", rejected: "ڕەتکراوە" };
+let tab = "stats", settings = null;
+
+$("#tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-t]"); if (!b) return;
+  tab = b.dataset.t; document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); load();
+});
+
+async function start() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("#box").innerHTML = `<div class="card">سەرەتا ئەپەکە لەم وێبگەڕەدا بکەرەوە و بچۆ ژوورەوە.</div>`; return; }
+  const { data: ok } = await sb.rpc("is_admin");
+  if (!ok) { $("#box").innerHTML = `<div class="card">⛔ تۆ بەڕێوەبەر نیت.</div>`; return; }
+  const s = await sb.from("wallet_settings").select("*").eq("id", 1).maybeSingle();
+  settings = s.data;
+  load();
+}
+async function names(ids) {
+  const list = [...new Set(ids.filter(Boolean))];
+  if (!list.length) return {};
+  const { data } = await sb.from("profiles").select("id,name").in("id", list);
+  return Object.fromEntries((data || []).map((p) => [p.id, p.name]));
+}
+const priceOf = (coins) => coins / 1000 * Number(settings?.usd_per_1000 || 0.99);
+
+async function load() {
+  const box = $("#box"); box.innerHTML = `<div class="empty">…</div>`;
+  try { await ({ stats, make, codes, payouts, settingsTab, prices })[tab === "settings" ? "settingsTab" : tab](box); }
+  catch (err) { box.innerHTML = `<div class="card">⚠️ ${esc(err.message || err)}</div>`; }
+}
+
+/* 📊 overview */
+async function stats(box) {
+  const { data, error } = await sb.rpc("admin_wallet_stats"); if (error) throw error;
+  const s = data[0];
+  const giftUsd = Number(s.gifts_coins) / 1000 * Number(settings.usd_per_1000);
+  const keepUsd = (Number(s.gifts_coins) - Number(s.diamonds_given)) / 1000 * Number(settings.usd_per_1000);
+  box.innerHTML = `
+    <h2>💵 پارە</h2>
+    <div class="grid">
+      <div class="stat money"><b>${usd(s.usd_sold)}</b><span>فرۆشراو (${n(s.codes_redeemed)} کۆدی بەکارهاتوو · ${n(s.coins_sold)} 🪙)</span></div>
+      <div class="stat money"><b>${usd(keepUsd)}</b><span>بەشی تۆ لە دیارییەکان (${Math.round((1 - settings.gift_share) * 100)}٪)</span></div>
+      <div class="stat warn"><b>${usd(s.pending_usd)}</b><span>ڕاکێشانی چاوەڕوان (${n(s.pending_count)})</span></div>
+      <div class="stat"><b>${usd(s.paid_usd)}</b><span>پارەی دراو بۆ بەکارهێنەران</span></div>
+    </div>
+    <h2 style="margin-top:18px">🎁 دیاری و کۆد</h2>
+    <div class="grid">
+      <div class="stat"><b>${n(s.gifts_count)}</b><span>دیاریی نێردراو (${n(s.gifts_coins)} 🪙 · ${usd(giftUsd)})</span></div>
+      <div class="stat"><b>${n(s.diamonds_given)} 💎</b><span>ئەڵماسی دراو بە وەرگران</span></div>
+      <div class="stat"><b>${n(s.codes_new)}</b><span>کۆدی نەفرۆشراو (${n(s.codes_new_coins)} 🪙)</span></div>
+      <div class="stat"><b>${n(s.coins_in_wallets)} 🪙</b><span>سکە لە جزدانەکان</span></div>
+      <div class="stat"><b>${n(s.diamonds_in_wallets)} 💎</b><span>ئەڵماس لە جزدانەکان</span></div>
+    </div>`;
+}
+
+/* 🎟️ make codes */
+async function make(box) {
+  box.innerHTML = `<div class="card">
+    <h2>🎟️ کۆدی نوێ دروست بکە</h2>
+    <div class="row">
+      <div><label for="m-count">ژمارەی کۆد</label><input id="m-count" type="number" min="1" max="500" value="10"></div>
+      <div><label for="m-coins">سکەی هەر کۆدێک</label>
+        <select id="m-coins"><option>1000</option><option>5000</option><option selected>10000</option><option>25000</option><option>50000</option><option>100000</option></select></div>
+      <div><label for="m-batch">ناوی کۆمەڵە (ئارەزوومەندانە)</label><input id="m-batch" placeholder="دوکانی ئەحمەد"></div>
+    </div>
+    <div class="muted" id="m-calc" style="margin-top:8px"></div>
+    <button class="btn main" id="m-go" style="margin-top:12px">دروستکردن</button>
+    <div class="muted" style="margin-top:8px">⚠️ کۆدەکان تەنها یەک جار لێرە پیشان دەدرێن. دوای دروستکردن ڕاستەوخۆ کۆپییان بکە یان دایانبەزێنە.</div>
+  </div><div id="m-out"></div>`;
+  const calc = () => {
+    const c = Math.max(0, Number($("#m-count").value) || 0), coins = Number($("#m-coins").value);
+    $("#m-calc").textContent = `هەر کۆدێک: ${n(coins)} 🪙 = ${usd(priceOf(coins))} · کۆی گشتی: ${n(c * coins)} 🪙 = ${usd(priceOf(c * coins))}`;
+  };
+  $("#m-count").addEventListener("input", calc); $("#m-coins").addEventListener("change", calc); calc();
+  $("#m-go").addEventListener("click", async (e) => {
+    const count = Number($("#m-count").value), coins = Number($("#m-coins").value), batch = $("#m-batch").value.trim();
+    if (!(count >= 1 && count <= 500)) return alert("ژمارەکە دەبێت لە نێوان ١ و ٥٠٠ بێت.");
+    e.target.disabled = true;
+    const { data, error } = await sb.rpc("admin_generate_codes", { p_count: count, p_coins: coins, p_batch: batch || null });
+    e.target.disabled = false;
+    if (error) return alert(error.message);
+    const codes = (data || []).map((r) => r.code);
+    const text = codes.map((c) => `${c}   ${n(coins)} coins`).join("\n");
+    $("#m-out").innerHTML = `<div class="card"><h2>✅ ${n(codes.length)} کۆد دروست کرا (${n(coins)} 🪙 = ${usd(priceOf(coins))} بۆ هەر یەکێک)</h2>
+      <textarea id="m-text" readonly>${esc(text)}</textarea>
+      <div class="row" style="margin-top:10px"><button class="btn main" id="m-copy">📋 کۆپیکردنی هەموو</button><button class="btn" id="m-dl">⬇️ دابەزاندن (.txt)</button></div></div>`;
+    $("#m-copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(text); alert("کۆپی کرا ✅"); } catch { $("#m-text").select(); } });
+    $("#m-dl").addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain" }));
+      a.download = `talk-together-codes-${coins}-${new Date().toISOString().slice(0, 10)}.txt`; a.click();
+    });
+  });
+}
+
+/* 🗂️ code list */
+async function codes(box) {
+  const { data, error } = await sb.from("recharge_codes").select("id,last4,coins,batch,status,created_at,redeemed_by,redeemed_at").order("created_at", { ascending: false }).limit(300);
+  if (error) throw error;
+  const who = await names((data || []).map((r) => r.redeemed_by));
+  box.innerHTML = `<div class="card"><h2>🗂️ دوایین کۆدەکان</h2><div class="muted">بۆ پاراستن، تەنها ٤ پیتی کۆتایی هەر کۆدێک پیشان دەدرێت.</div>
+    <div class="scroll"><table><tr><th>کۆد</th><th>سکە</th><th>کۆمەڵە</th><th>دۆخ</th><th>شەحن کرا بۆ</th><th>کات</th><th></th></tr>
+    ${(data || []).map((r) => `<tr><td><code>…${esc(r.last4)}</code></td><td class="num">${n(r.coins)}</td><td>${esc(r.batch || "")}</td>
+      <td><span class="tag ${r.status}">${ST[r.status]}</span></td><td>${esc(who[r.redeemed_by] || "")}</td><td class="num">${day(r.redeemed_at || r.created_at)}</td>
+      <td>${r.status === "new" ? `<button class="btn" data-void="${r.id}">هەڵوەشاندنەوە</button>` : ""}</td></tr>`).join("")}</table></div>
+    ${(data || []).length ? "" : `<div class="empty">هێشتا هیچ کۆدێک نییە</div>`}</div>`;
+  box.querySelectorAll("[data-void]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("ئەم کۆدە هەڵبوەشێنرێتەوە؟ ئیتر کار ناکات.")) return;
+    const { error: e2 } = await sb.rpc("admin_void_code", { p_id: Number(b.dataset.void) }); if (e2) alert(e2.message); load();
+  }));
+}
+
+/* 💵 withdrawals */
+async function payouts(box) {
+  const [pend, done] = await Promise.all([
+    sb.from("withdrawals").select("*").eq("status", "pending").order("created_at"),
+    sb.from("withdrawals").select("*").neq("status", "pending").order("processed_at", { ascending: false }).limit(50),
+  ]);
+  if (pend.error) throw pend.error;
+  const who = await names([...(pend.data || []), ...(done.data || [])].map((r) => r.user_id));
+  const row = (r, act) => `<tr><td>${esc(who[r.user_id] || "—")}</td><td class="num">${n(r.diamonds)} 💎</td><td class="num"><b>${usd(r.usd_net)}</b><div class="muted" style="font-size:.75rem">ڕسوم ${usd(r.fee_usd)}</div></td>
+    <td>${esc(METHODS[r.method] || r.method)}</td><td><code>${esc(r.account)}</code> <button class="btn" data-copy="${esc(r.account)}">📋</button></td><td class="num">${day(r.created_at)}</td>
+    <td>${act ? `<button class="btn ok" data-paid="${r.id}">✅ دراوە</button> <button class="btn danger" data-rej="${r.id}">❌</button>` : `<span class="tag ${r.status}">${ST[r.status]}</span>${r.note ? `<div class="muted" style="font-size:.75rem">${esc(r.note)}</div>` : ""}`}</td></tr>`;
+  box.innerHTML = `<div class="card"><h2>⏳ چاوەڕوان (${n((pend.data || []).length)})</h2>
+    <div class="muted">١) پارەکە بە FIB / زەین کاش / FastPay بنێرە بۆ ژمارەکە ← ٢) «✅ دراوە» دابگرە. ئەگەر ڕەتی بکەیتەوە، ئەڵماسەکان دەگەڕێنەوە بۆ کەسەکە.</div>
+    <div class="scroll"><table><tr><th>کەس</th><th>ئەڵماس</th><th>بینێرە</th><th>ڕێگا</th><th>ژمارە</th><th>کات</th><th></th></tr>${(pend.data || []).map((r) => row(r, true)).join("")}</table></div>
+    ${(pend.data || []).length ? "" : `<div class="empty">هیچ داواکارییەک نییە 🎉</div>`}</div>
+    <div class="card"><h2>📜 پێشوو</h2><div class="scroll"><table><tr><th>کەس</th><th>ئەڵماس</th><th>بڕ</th><th>ڕێگا</th><th>ژمارە</th><th>کات</th><th>دۆخ</th></tr>${(done.data || []).map((r) => row(r, false)).join("")}</table></div></div>`;
+  box.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "✅"; } catch {} }));
+  box.querySelectorAll("[data-paid]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("دڵنیایت کە پارەکەت ناردووە؟")) return;
+    const { error } = await sb.rpc("admin_set_withdrawal", { p_id: Number(b.dataset.paid), p_status: "paid", p_note: null }); if (error) alert(error.message); load();
+  }));
+  box.querySelectorAll("[data-rej]").forEach((b) => b.addEventListener("click", async () => {
+    const note = prompt("هۆکاری ڕەتکردنەوە (بەکارهێنەرەکە دەیبینێت):", "ژمارەکە هەڵەیە");
+    if (note === null) return;
+    const { error } = await sb.rpc("admin_set_withdrawal", { p_id: Number(b.dataset.rej), p_status: "rejected", p_note: note }); if (error) alert(error.message); load();
+  }));
+}
+
+/* ⚙️ settings */
+async function settingsTab(box) {
+  const s = settings;
+  box.innerHTML = `<div class="card"><h2>⚙️ ڕێژە و یاساکان</h2>
+    <div class="row">
+      <div><label for="s-price">نرخی ١,٠٠٠ سکە ($)</label><input id="s-price" type="number" step="0.01" min="0.01" value="${s.usd_per_1000}"></div>
+      <div><label for="s-share">بەشی وەرگری دیاری (٪)</label><input id="s-share" type="number" min="0" max="100" value="${Math.round(s.gift_share * 100)}"></div>
+      <div><label for="s-fee">ڕسومی ڕاکێشان (٪)</label><input id="s-fee" type="number" step="0.5" min="0" max="50" value="${(s.withdraw_fee * 100).toFixed(1)}"></div>
+    </div>
+    <div class="row">
+      <div><label for="s-min">کەمترین ڕاکێشان (ئەڵماس)</label><input id="s-min" type="number" min="0" value="${s.min_withdraw}"></div>
+      <div><label for="s-hold">ڕۆژانی چاوەڕوانی</label><input id="s-hold" type="number" min="0" max="60" value="${s.hold_days}"></div>
+    </div>
+    <label>ڕێگاکانی پارەدان</label>
+    <div class="row">${Object.entries(METHODS).map(([k, v]) => `<label style="font-weight:600;display:flex;gap:6px;align-items:center"><input type="checkbox" data-m="${k}" style="width:auto" ${s.payout_methods.includes(k) ? "checked" : ""}> ${v}</label>`).join("")}</div>
+    <div class="muted" id="s-ex" style="margin-top:8px"></div>
+    <button class="btn main" id="s-save" style="margin-top:12px">💾 پاشەکەوت</button></div>`;
+  const ex = () => {
+    const price = Number($("#s-price").value), share = Number($("#s-share").value) / 100, fee = Number($("#s-fee").value) / 100;
+    const gross = 1000 * share / 1000 * price, net = gross - gross * fee;
+    $("#s-ex").textContent = `نموونە: دیارییەکی ١,٠٠٠ سکە (${usd(price)}) ← وەرگر ${n(Math.floor(1000 * share))} 💎 = ${usd(net)} پاش ڕسوم · بەشی تۆ ${usd(price - net)}`;
+  };
+  box.querySelectorAll("input").forEach((i) => i.addEventListener("input", ex)); ex();
+  $("#s-save").addEventListener("click", async () => {
+    const methods = [...box.querySelectorAll("[data-m]:checked")].map((c) => c.dataset.m);
+    if (!methods.length) return alert("لانیکەم یەک ڕێگای پارەدان هەڵبژێرە.");
+    const row = { usd_per_1000: Number($("#s-price").value), gift_share: Number($("#s-share").value) / 100, withdraw_fee: Number($("#s-fee").value) / 100,
+      min_withdraw: Math.floor(Number($("#s-min").value)), hold_days: Math.floor(Number($("#s-hold").value)), payout_methods: methods };
+    const { data, error } = await sb.from("wallet_settings").update(row).eq("id", 1).select().single();
+    if (error) return alert(error.message);
+    settings = data; alert("پاشەکەوت کرا ✅");
+  });
+}
+
+/* 🎁 gift prices */
+async function prices(box) {
+  const { data, error } = await sb.from("gift_catalog").select("*").order("sort"); if (error) throw error;
+  box.innerHTML = `<div class="card"><h2>🎁 نرخی دیارییەکان (بە سکە)</h2><div class="muted">${usd(Number(settings.usd_per_1000))} = ١,٠٠٠ سکە</div>
+    <div class="scroll"><table><tr><th></th><th>نرخ (🪙)</th><th>بە دۆلار</th><th>چالاک</th><th></th></tr>
+    ${data.map((g) => `<tr><td style="font-size:1.6rem">${g.emoji}</td><td><input type="number" min="1" value="${g.price}" data-price="${esc(g.id)}" style="max-width:130px"></td>
+      <td class="num" data-usd="${esc(g.id)}">${usd(priceOf(g.price))}</td><td><input type="checkbox" data-act="${esc(g.id)}" ${g.active ? "checked" : ""} style="width:auto"></td>
+      <td><button class="btn" data-save="${esc(g.id)}">💾</button></td></tr>`).join("")}</table></div></div>`;
+  box.querySelectorAll("[data-price]").forEach((i) => i.addEventListener("input", () => { box.querySelector(`[data-usd="${i.dataset.price}"]`).textContent = usd(priceOf(Number(i.value))); }));
+  box.querySelectorAll("[data-save]").forEach((b) => b.addEventListener("click", async () => {
+    const id = b.dataset.save;
+    const price = Math.floor(Number(box.querySelector(`[data-price="${id}"]`).value));
+    if (!(price >= 1)) return alert("نرخەکە دروست نییە.");
+    const { error: e2 } = await sb.from("gift_catalog").update({ price, active: box.querySelector(`[data-act="${id}"]`).checked }).eq("id", id);
+    if (e2) return alert(e2.message);
+    b.textContent = "✅"; setTimeout(() => (b.textContent = "💾"), 1200);
+  }));
+}
+
+start();
+</script>
+</body>
+</html>
