@@ -220,7 +220,7 @@ function sendPaidGift(targets) {
   W.wallet = { ...W.wallet, coins: (W.wallet?.coins || 0) - g.price };
   paintCoins();
   window.GiftFX?.play(g.id, profile?.name || "", toName, me?.id, { qty: 1, price: g.price }); // others get it from the server
-  const b = $("#pg-send"); if (b) { b.classList.remove("pg-pulse"); void b.offsetWidth; b.classList.add("pg-pulse"); }
+  tapCount(g, to);
   // group the taps: send when the finger stops for a moment (or every 500 taps)
   const key = `${to}|${g.id}|${room}`;
   let q = GB.get(key);
@@ -228,6 +228,22 @@ function sendPaidGift(targets) {
   q.qty++;
   clearTimeout(q.timer);
   if (q.qty >= 500) flushGifts(key); else q.timer = setTimeout(() => flushGifts(key), 350);
+}
+/* 🔢 right under my finger: the gift I tap shows ×1, ×2, ×3 … (resets 2.5 s after I stop) */
+let tapN = 0, tapKey = "", tapT = 0;
+function tapCount(g, to) {
+  const key = g.id + "|" + to;
+  tapN = key === tapKey ? tapN + 1 : 1; tapKey = key;
+  clearTimeout(tapT); tapT = setTimeout(() => { tapN = 0; tapKey = ""; document.querySelectorAll("#sheet .pg-x").forEach((e) => e.remove()); }, 2500);
+  const item = document.querySelector(`#sheet [data-pg="${CSS.escape(g.id)}"]`);
+  if (item) {
+    let x = item.querySelector(".pg-x");
+    if (!x) { x = document.createElement("span"); x.className = "pg-x"; item.appendChild(x); }
+    x.textContent = "×" + tapN.toLocaleString("en-US");
+    try { x.animate([{ transform: "scale(1.6)" }, { transform: "scale(1)" }], { duration: 220, easing: "ease-out" }); } catch {}
+  }
+  const b = $("#pg-send");
+  if (b) { const e = g.emoji || "🎁"; b.textContent = `${t("w_send")} ${e} ×${tapN.toLocaleString("en-US")}`; try { b.animate([{ transform: "scale(.95)" }, { transform: "scale(1)" }], { duration: 160 }); } catch {} }
 }
 const waitingCost = () => { let s = 0; for (const q of GB.values()) s += q.qty * q.g.price; return s; };
 function flushGifts(key) {

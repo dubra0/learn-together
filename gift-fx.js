@@ -86,11 +86,14 @@ for (const [tier, list] of Object.entries(GIFTS)) for (const g of list) BY_ID[g.
 /* ================= effects layer ================= */
 const fx = $("#tgfx"), cv = $("#tgfx-c"), cx = cv.getContext("2d");
 let W = 0, H = 0, DPR = 1, parts = [], emitters = [];
-function resize() { DPR = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+// ⚡ a lighter canvas (phones in a live are already busy with video and voice)
+function resize() { DPR = Math.min(1.25, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cx.setTransform(DPR, 0, 0, DPR, 0, 0); }
 addEventListener("resize", resize); resize();
 
+const MAX_PARTS = 220;
 function spawn(o) {
-  if (reduce && parts.length > 60) return;
+  if (parts.length >= (reduce ? 60 : MAX_PARTS)) return;   // never more than this many pieces on screen
+  wake();
   parts.push(Object.assign({ x: W / 2, y: H / 2, vx: 0, vy: 0, g: 600, life: 0, max: 1.6, size: 28, rot: 0, vr: 0, drag: 0.995, glyph: null, color: null, kind: "emoji", grow: 0 }, o));
 }
 function burst(x, y, glyphs, n = 24, speed = 500, opts = {}) {
@@ -111,30 +114,34 @@ function sparks(x, y, color, n = 70, speed = 380) {
 }
 // emit particles from an element while it moves
 function trail(el, every, make) {
-  const e = { el, every, make, acc: 0 }; emitters.push(e);
+  const e = { el, every, make, acc: 0 }; emitters.push(e); wake();
   return () => (emitters = emitters.filter((x) => x !== e));
 }
 function centerOf(el) { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height }; }
 
-let last = performance.now();
+/* ⚡ the drawing loop runs ONLY while something is flying. Before, it redrew the whole screen
+   60 times a second all the time, even with nothing to show — a big reason phones got slow in a live. */
+let last = performance.now(), running = false, drewSomething = false;
+function wake() { if (running) return; running = true; last = performance.now(); requestAnimationFrame(loop); }
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  cx.clearRect(0, 0, W, H);
+  if (drewSomething) cx.clearRect(0, 0, W, H);
+  drewSomething = parts.length > 0;
+  if (!parts.length && !emitters.length) { running = false; return; }   // nothing left: stop until the next gift
   for (const e of emitters) { e.acc += dt; while (e.acc > e.every) { e.acc -= e.every; e.make(centerOf(e.el)); } }
   parts = parts.filter((p) => (p.life += dt) < p.max);
   for (const p of parts) {
     p.vy += p.g * dt; p.vx *= p.drag; p.vy *= p.drag; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.size += p.grow * dt;
     const a = Math.max(0, 1 - p.life / p.max);
     cx.save(); cx.globalAlpha = a; cx.translate(p.x, p.y); cx.rotate(p.rot);
-    if (p.kind === "emoji") { cx.font = `${p.size}px serif`; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText(p.glyph, 0, 0); }
+    if (p.kind === "emoji") { const f = `${Math.round(p.size)}px serif`; if (cx.font !== f) cx.font = f; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText(p.glyph, 0, 0); }
     else if (p.kind === "rect") { cx.fillStyle = p.color; cx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2); }
-    else if (p.kind === "dot") { cx.fillStyle = p.color; cx.shadowColor = p.color; cx.shadowBlur = 12; cx.beginPath(); cx.arc(0, 0, p.size, 0, 7); cx.fill(); }
+    else if (p.kind === "dot") { cx.fillStyle = p.color; cx.beginPath(); cx.arc(0, 0, p.size * 1.6, 0, 7); cx.globalAlpha *= 0.35; cx.fill(); cx.globalAlpha /= 0.35; cx.beginPath(); cx.arc(0, 0, p.size, 0, 7); cx.fill(); }   // a soft glow without the slow blur
     else if (p.kind === "smoke") { const g = cx.createRadialGradient(0, 0, 0, 0, 0, p.size); g.addColorStop(0, p.color); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.beginPath(); cx.arc(0, 0, p.size, 0, 7); cx.fill(); }
     cx.restore();
   }
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
 
 /* building blocks */
 function el(cls, html, style) { const d = document.createElement("div"); d.className = cls; if (html != null) d.innerHTML = html; if (style) Object.assign(d.style, style); fx.appendChild(d); return d; }
@@ -792,8 +799,8 @@ function bumpCombo(g, to, key, fromId, add = 1) {
    - under 100 coins (🌹 ❤️ 👏): only the small name strip, no big animation at all
    - other small gifts: their little animation at most every 0.6 s (the counter still counts every one)
    - big gifts: one at a time, at most 20 waiting; more than that are only counted (x…), not piled up */
-const SMALL_MAX = 100, BIG_WAIT_MAX = 20;
-let lastSmall = 0;
+const SMALL_MAX = 100, BIG_WAIT_MAX = 3;
+let lastSmall = 0, lastSound = 0;
 function playGift(id, fromName, toName, fromId, opts) {
   const meta = BY_ID[id]; if (!meta) return;
   const qty = Math.max(1, Math.min(10000, Math.floor(Number(opts?.qty) || 1)));
@@ -801,12 +808,16 @@ function playGift(id, fromName, toName, fromId, opts) {
   const g = { ...meta, say: sayFor(id) };
   const to = { name: toName || "", from: fromName || "" };
   const n = bumpCombo(g, to, `${fromId || fromName}|${id}|${toName}`, fromId, qty);
-  if (Number.isFinite(price) && price > 0 && price < SMALL_MAX) return;   // cheap gift: the strip is enough
+  const now = performance.now();
+  if (Number.isFinite(price) && price > 0 && price < SMALL_MAX) {
+    // cheap gift: the strip + only this gift's own little sound (at most ~6 times a second, so it never stutters)
+    if (now - lastSound > 160) { lastSound = now; try { audio(); play(meta.s); } catch {} }
+    return;
+  }
   try { audio(); } catch {}
   if (meta.tier === "small") {
-    const now = performance.now();
-    if (now - lastSmall < 600) return;
-    lastSmall = now; combo.n = n; combo.id = id;
+    if (now - lastSmall < 600) { if (now - lastSound > 160) { lastSound = now; play(meta.s); } return; }
+    lastSmall = now; lastSound = now; combo.n = n; combo.id = id;
     g.run(g, to, n);
     return;
   }

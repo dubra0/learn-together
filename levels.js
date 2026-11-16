@@ -142,7 +142,7 @@
       const x = s.el.querySelector(".ggx"); x.textContent = "x" + s.n.toLocaleString("en-US"); x.hidden = false;
       // the little bounce at most every 120 ms, so thousands of taps stay smooth
       const now = performance.now();
-      if (!s.popAt || now - s.popAt > 120) { s.popAt = now; x.classList.remove("pop"); void x.offsetWidth; x.classList.add("pop"); }
+      if (!s.popAt || now - s.popAt > 120) { s.popAt = now; try { x.animate([{ transform: "scale(1.8)" }, { transform: "scale(1)" }], { duration: 300, easing: "cubic-bezier(.2,1.6,.4,1)" }); } catch {} }
     } else {
       h.querySelectorAll(".lx-gs").forEach((e) => { if (h.querySelectorAll(".lx-gs").length >= 2) e.remove(); });
       const who = fromId === me?.id ? profile : profileCache?.get?.(fromId);
@@ -152,7 +152,7 @@
       el.style.setProperty("--a", P.a); el.style.setProperty("--b", P.b); el.style.setProperty("--c", P.c);
       el.innerHTML = `<div class="strip${L >= 40 ? " lg" : ""}">${avHtml(fromName || "?", who?.avatar_url, "xs")}
         <span class="tx"><span class="bd">${L >= 20 ? badge(L) : ""}</span> <span dir="auto">${nm(fromName)}</span><small dir="auto">${esc(t("lx_gift", { name: String(toName || "").slice(0, 30) }))}</small></span>
-        <span class="gge">${emoji}</span><span class="ggx"${add > 1 ? "" : " hidden"}>x${add.toLocaleString("en-US")}</span></div>`;
+        <span class="gge">${emoji}</span><span class="ggx">x${add.toLocaleString("en-US")}</span></div>`;
       el.style.top = 22 + h.querySelectorAll(".lx-gs").length * 9 + "%";
       h.appendChild(el);
       s = { el, n: add, timer: 0 }; strips.set(key, s);
