@@ -3,6 +3,9 @@
    Loaded after the main styles in index.html, so everything here wins.
    To go back to the old look: remove the <link href="theme.css"> line.
    ===================================================================== */
+/* no zooming inside the app (no double-tap zoom, no pinch zoom), like a real app */
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,input,textarea,select,[data-act]{touch-action:manipulation}
 :root{
   --bg:#f2f5f3; --card:#ffffff; --ink:#0f1d19; --muted:#5d6f69; --line:#dce5e0;
   --brand:#0fa88f; --brand-2:#2f7fc4; --brand-ink:#ffffff; --soft:#d9f3ec; --soft-2:#e3eef9;

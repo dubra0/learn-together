@@ -1,7 +1,7 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v8";
+const CACHE = "talk-together-v9";
 const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "random-call.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
   "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
@@ -37,15 +37,25 @@ self.addEventListener("push", (e) => {
     data: { url: typeof d.url === "string" && d.url.startsWith(scope) ? d.url : scope },
   }));
 });
-// tapping it opens the app at the right place (a chat, a live, a profile)
+// windows that told us they are the installed app (home-screen icon), not a browser tab
+const appWindows = new Set();
+self.addEventListener("message", (e) => {
+  if (e.data?.type === "standalone" && e.source?.id) appWindows.add(e.source.id);
+});
+
+// tapping it opens the INSTALLED app at the right place (a chat, a live, a profile) — never a browser tab with the link on top
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = e.notification.data?.url || self.registration.scope;
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const w of wins) {
-      if (w.url.startsWith(self.registration.scope)) { await w.focus(); try { await w.navigate(url); } catch {} return; }
+    const app = wins.find((w) => appWindows.has(w.id));
+    if (app) {
+      try { await app.focus(); } catch {}
+      app.postMessage({ type: "open", url }); // open the chat/live inside the running app, no reload
+      return;
     }
+    // app not open: openWindow launches the installed app (Android opens in-scope links in the app)
     await self.clients.openWindow(url);
   })());
 });

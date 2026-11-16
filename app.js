@@ -308,7 +308,24 @@ async function enterApp() {
   subscribeGifts();
   checkNewFollowers().catch(() => {});
   // opened from a shared link?
-  const q = new URLSearchParams(location.search);
+  openDeepLink(location.search);
+}
+// 🚫🔍 no zoom inside the app — iPhone ignores the viewport setting, so block its pinch gestures here
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+// 🔔 a notification was tapped while the installed app was already open → open it inside the app
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.type === "open" && typeof e.data.url === "string" && me) {
+      try { openDeepLink(new URL(e.data.url).search); } catch {}
+    }
+  });
+  // tell the service worker this window is the installed app (not a browser tab), so notifications open here
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone) navigator.serviceWorker.ready.then((r) => r.active?.postMessage({ type: "standalone" })).catch(() => {});
+}
+function openDeepLink(search) {
+  const q = new URLSearchParams(search);
   const rid = q.get("room");
   const pid = Number(q.get("post"));
   const UUIDRE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
