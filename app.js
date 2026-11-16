@@ -719,7 +719,22 @@ function countsHtml(c) {
     <button type="button" data-fl="following"><b>${c.following}</b><span>${esc(t("followingTitle"))}</span></button></div>`;
 }
 /* ---------------- Profile, TikTok style (Me tab + other people's page) ---------------- */
-const PROFILE_COLS = "id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak,gift_coins,cover_url";
+const PROFILE_COLS = "id,name,avatar_url,country,native_lang,learning,bio,xp,streak,minutes,best_streak,gift_coins,cover_url,created_at";
+// words of the new profile page (other languages fall back to English)
+try {
+  const PFW = {
+    en: { pf_edit: "✏️ Edit", pf_cover: "📷 Change cover", pf_follow: "＋ Follow", pf_following: "Following ✓", pf_since: "Member since {d}",
+      pf_native: "native", pf_live: "Live now", pf_goIn: "Go in", pf_posts: "Posts", pf_videos: "Videos", pf_noVideos: "Videos will show here",
+      pf_lvLeft: "{n} coins to Lv {lv}", pf_newPost: "New post" },
+    ckb: { pf_newPost: "پۆستی نوێ", pf_edit: "✏️ دەستکاری", pf_cover: "📷 گۆڕینی پشتەوە", pf_follow: "＋ فۆڵۆ", pf_following: "فۆڵۆ کراوە ✓", pf_since: "لە {d}ەوە ئەندامە",
+      pf_native: "زمانی دایک", pf_live: "ئێستا لە لایڤە", pf_goIn: "بچۆ ژوورەوە", pf_posts: "پۆستەکان", pf_videos: "ڤیدیۆکان", pf_noVideos: "ڤیدیۆکان لێرە دەردەکەون",
+      pf_lvLeft: "{n} کۆین ماوە بۆ لێڤڵ {lv}" },
+    ar: { pf_newPost: "منشور جديد", pf_edit: "✏️ تعديل", pf_cover: "📷 تغيير الخلفية", pf_follow: "＋ متابعة", pf_following: "تتابعه ✓", pf_since: "عضو منذ {d}",
+      pf_native: "لغة الأم", pf_live: "مباشر الآن", pf_goIn: "ادخل", pf_posts: "المنشورات", pf_videos: "الفيديوهات", pf_noVideos: "ستظهر الفيديوهات هنا",
+      pf_lvLeft: "{n} عملة حتى Lv {lv}" },
+  };
+  for (const [l, o] of Object.entries(PFW)) if (I18N[l]) Object.assign(I18N[l], o);
+} catch {}
 function galleryHtml(p, isMe) {
   const photos = (Array.isArray(p.photos) ? p.photos : []).filter((u) => safeAvatar(u));
   const tiles = photos.map((u, i) => `<button type="button" data-photo="${i}"><img src="${esc(u)}" alt="" loading="lazy"></button>`).join("");
@@ -739,39 +754,86 @@ function relTag(id) {
   if (myFollowers.has(id)) return `<span class="rel fy">${esc(t("followsYou"))}</span>`;
   return "";
 }
+/* ---------------- 👤 profile page (same look as the approved demo) ----------------
+   cover → photo with turning ring + level, buttons beside it → name, member since, bio, languages
+   → (someone else, while hosting) live-now card → following / followers / likes → (me) coins to next level
+   → Posts / Videos tabs → 3-column grid (mine starts with a "＋ new post" tile) */
+function pfSince(p) {
+  if (!p.created_at) return "";
+  const d = new Date(p.created_at); if (isNaN(d)) return "";
+  const CKB_MONTHS = ["کانوونی دووەم", "شوبات", "ئازار", "نیسان", "ئایار", "حوزەیران", "تەممووز", "ئاب", "ئەیلوول", "تشرینی یەکەم", "تشرینی دووەم", "کانوونی یەکەم"];
+  let s;
+  if (uiLang === "ckb") s = `${CKB_MONTHS[d.getMonth()]}ی ${d.getFullYear().toLocaleString("ar-IQ", { useGrouping: false })}`;
+  else { try { s = new Intl.DateTimeFormat(uiLang, { month: "long", year: "numeric" }).format(d); }
+  catch { s = d.toLocaleDateString("en", { month: "long", year: "numeric" }); } }
+  return t("pf_since", { d: s });
+}
+const pfLangName = (code) => String(LANGS[code] || code || "").replace(/^\S+\s/, "");
+function pfLevelBarHtml(p) {
+  const coins = Number(p.gift_coins || 0), L = coinLevel(coins);
+  const pct = L >= 100 ? 100 : Math.max(2, Math.min(100, ((coins - LV_NEED[L]) / (LV_NEED[L + 1] - LV_NEED[L])) * 100));
+  const txt = L >= 100 ? t("lv_max") : t("pf_lvLeft", { n: (LV_NEED[L + 1] - coins).toLocaleString("en-US"), lv: L + 1 });
+  return `<button type="button" class="pf2-lvbar" data-act="level"><span class="go">👑</span>
+    <span class="t"><span class="tx">${esc(txt)}</span><span class="bar"><i style="width:${pct.toFixed(1)}%"></i></span></span><span class="go">‹</span></button>`;
+}
 function profileCardHtml(p, o) {
-  let actions;
-  if (o.isMe) actions = `<button class="btn" type="button" data-act="edit">✏️ ${esc(t("editProfile"))}</button>
-    <button class="btn ghost" type="button" data-act="newpost">＋ ${esc(t("newPost"))}</button>`;
+  const isMe = !!o.isMe;
+  const top = isMe
+    ? `<button class="glass" type="button" data-act="settings" aria-label="settings">⚙️</button>
+       ${typeof openWallet === "function" ? `<button class="glass" type="button" data-act="wallet" aria-label="wallet">💰 <span class="c pf2-coins">…</span></button>` : "<span></span>"}`
+    : `<button class="glass" type="button" data-act="back" aria-label="back">${document.documentElement.dir === "rtl" ? "→" : "←"}</button>
+       <button class="glass" type="button" data-act="more" aria-label="more">⋯</button>`;
+  let acts;
+  if (isMe) acts = `<button class="btn2 ghost" type="button" data-act="edit">${esc(t("pf_edit"))}</button>`;
   else {
     const f = following.has(p.id), fm = myFollowers.has(p.id);
-    actions = `<button class="btn ${f ? "ghost" : ""}" type="button" data-act="follow">${esc(f ? t("unfollow") : fm ? t("followBack") : t("follow"))}</button>` +
-      (o.canMsg ? `<button class="btn" type="button" data-act="msg">💬 ${esc(t("messageBtn"))}</button>`
-                : `<button class="btn line" type="button" data-act="msg-locked">🔒 ${esc(t("messageBtn"))}</button>`) +
-      `<button class="btn gift-btn" type="button" data-act="gift">🎁 ${esc(t("gifts"))}</button>`;
+    acts = `<button class="btn2 ${f ? "ghost" : "pri"}" type="button" data-act="follow">${esc(f ? t("pf_following") : fm ? "＋ " + t("followBack") : t("pf_follow"))}</button>` +
+      (o.canMsg ? `<button class="btn2 ic" type="button" data-act="msg" aria-label="${esc(t("messageBtn"))}">💬</button>`
+                : `<button class="btn2 ic" type="button" data-act="msg-locked" aria-label="${esc(t("messageBtn"))}">🔒</button>`) +
+      `<button class="btn2 ic gift" type="button" data-act="gift" aria-label="${esc(t("gifts"))}">🎁</button>`;
   }
-  const cover = safeAvatar(p.cover_url) ? ` style="background-image:url('${esc(p.cover_url)}')"` : "";
-  return `<div class="card pf">
-      <div class="pf-cover${cover ? " has-img" : ""}"${cover}>${o.isMe ? `<button type="button" class="pf-gear" data-act="settings" aria-label="settings">⚙️</button>
-        ${typeof openWallet === "function" ? `<button type="button" class="pf-gear pf-wallet" data-act="wallet" aria-label="wallet">💰</button>` : ""}
-        <button type="button" class="pf-cover-btn" data-act="cover">📷 ${esc(t("coverPhoto"))}</button>` : ""}</div>
-      <div class="pf-main">
-        <button type="button" ${o.isMe ? 'data-act="avatar"' : ""} style="background:none;border:0;padding:0;position:relative;cursor:${o.isMe ? "pointer" : "default"}">
-          <span class="ring ${ringCls(p)}">${avHtml(p.name, p.avatar_url, "lg")}</span>${o.isMe ? '<span class="pf-edit-dot">📷</span>' : ""}</button>
-        <div class="pf-name" dir="auto">${esc(p.name || "")} ${flag(p.country)}</div>
-        <button type="button" class="pf-lv" data-act="level" aria-label="level">${lvHtml(p)}</button>
-        ${relTag(p.id)}
-        <div class="pf-stats">${statsHtml({ following: "…", followers: "…", likes: "…" })}</div>
-        <div class="pf-actions">${actions}</div>
-        ${p.bio ? `<div class="muted" dir="auto">${esc(p.bio)}</div>` : ""}
-      </div>
+  const rel = !me || p.id === me.id ? "" : following.has(p.id) && myFollowers.has(p.id) ? t("friendsTag") : myFollowers.has(p.id) ? t("followsYou") : "";
+  const learn = (Array.isArray(p.learning) ? p.learning : []).map((l) => l && l.lang).filter(Boolean);
+  const langs = (p.native_lang ? `<span class="native">🗣️ ${esc(pfLangName(p.native_lang))} <small>${esc(t("pf_native"))}</small></span>` : "") +
+    learn.map((l) => `<span>📚 ${esc(pfLangName(l))}</span>`).join("");
+  const coverImg = safeAvatar(p.cover_url);
+  const kind = lvKind(coinLevel(p));
+  return `<div class="pf2${isMe ? " me" : ""}">
+    <div class="pf2-cover${coverImg ? " has-img" : ""}"${coverImg ? ` style="background-image:url('${esc(coverImg)}')"` : ""}>
+      <div class="pf2-top">${top}</div>
+      ${isMe ? `<button class="glass pf2-cover-btn" type="button" data-act="cover">${esc(t("pf_cover"))}</button>` : ""}
     </div>
-    <div class="pf-content"><div class="empty">…</div></div>`;
+    <div class="pf2-head">
+      <div class="pf2-avrow">
+        <button type="button" class="pf2-av${kind >= 5 ? " tier" + kind : ""}" ${isMe ? 'data-act="avatar"' : ""} aria-label="photo">
+          ${avHtml(p.name, p.avatar_url, "lg")}${isMe ? `<span class="pf2-cam">📷</span>` : ""}
+          <span class="pf2-lv" data-act="level">${lvHtml(p)}</span>
+        </button>
+        <div class="pf2-acts">${acts}</div>
+      </div>
+      <div class="pf2-name" dir="auto"><span>${esc(p.name || "")}</span> ${flag(p.country)} ${rel ? `<span class="tag">${esc(rel)}</span>` : ""}</div>
+      ${pfSince(p) ? `<div class="pf2-since">${esc(pfSince(p))}</div>` : ""}
+      ${p.bio ? `<p class="pf2-bio" dir="auto">${esc(p.bio)}</p>` : ""}
+      ${langs ? `<div class="pf2-langs">${langs}</div>` : ""}
+    </div>
+    ${isMe ? "" : `<div class="pf2-livebox"></div>`}
+    <div class="pf2-stats">
+      <button type="button" data-fl="following"><b data-n="following">…</b><small>${esc(t("followingTitle"))}</small></button>
+      <button type="button" data-fl="followers"><b data-n="followers">…</b><small>${esc(t("followers"))}</small></button>
+      <button type="button" data-fl="likes"><b data-n="likes">…</b><small>${esc(t("likes"))}</small></button>
+    </div>
+    ${isMe ? pfLevelBarHtml(p) : ""}
+    <div class="pf2-tabs" role="tablist">
+      <button type="button" role="tab" data-pftab="posts" aria-selected="true">${esc(t("pf_posts"))}</button>
+      <button type="button" role="tab" data-pftab="videos" aria-selected="false">${esc(t("pf_videos"))}</button>
+    </div>
+    <div class="pf-content"><div class="empty">…</div></div>
+  </div>`;
 }
 function tileHtml(post) {
   const vid = safeVideo(post.video_url);
   return `<button type="button" class="ptile" data-ptile="${post.id}">
-    ${vid ? `<video src="${esc(vid)}#t=0.5" muted playsinline preload="metadata"></video><span class="play">▶</span><span class="vw">👁 ${fmtNum(post.view_count)}</span>`
+    ${vid ? `<video src="${esc(vid)}#t=0.5" muted playsinline preload="metadata"></video><span class="pl">▶ ${fmtNum(post.view_count)}</span>`
       : post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="" loading="lazy">`
       : `<div class="txt" dir="auto">${esc(post.body || "")}</div>`}
     <span class="lk">❤️ ${fmtNum(post.like_count)}</span></button>`;
@@ -781,42 +843,70 @@ function renderPfContent(root) {
   const isMe = root._isMe;
   const box = root.querySelector(".pf-content");
   if (!box) return;
-  const posts = root._posts;
-  if (!posts) return;
-  box.innerHTML = posts.length ? `<div class="pgrid">${posts.map(tileHtml).join("")}</div>`
-    : `<div class="empty"><span class="big">📝</span>${esc(t("noPosts"))}${isMe ? `<br><br><button type="button" class="btn sm" data-act="newpost">＋ ${esc(t("newPost"))}</button>` : ""}</div>`;
+  const all = root._posts;
+  if (!all) return;
+  const videos = root._pfTab === "videos";
+  const posts = videos ? all.filter((x) => safeVideo(x.video_url)) : all;
+  root.querySelectorAll("[data-pftab]").forEach((b) => {
+    b.setAttribute("aria-selected", String(b.dataset.pftab === (videos ? "videos" : "posts")));
+    if (b.dataset.pftab === "posts") b.textContent = `${t("pf_posts")} · ${all.length}`;
+  });
+  const newTile = isMe && !videos ? `<button type="button" class="ptile new" data-act="newpost"><span>＋</span>${esc(t("pf_newPost"))}</button>` : "";
+  box.innerHTML = posts.length || newTile ? `<div class="pgrid">${newTile}${posts.map(tileHtml).join("")}</div>`
+    : `<div class="empty">${videos ? `<span class="big">🎬</span>${esc(t("pf_noVideos"))}` : `<span class="big">📝</span>${esc(t("noPosts"))}`}</div>`;
   // tap a post: it opens full screen, the same as the feed, and you can swipe through all of them
   box.querySelectorAll("[data-ptile]").forEach((b) => b.addEventListener("click", () => {
-    const i = (root._posts || []).findIndex((x) => x.id === Number(b.dataset.ptile)); if (i >= 0) openPostViewer(root._posts, i);
+    const i = posts.findIndex((x) => x.id === Number(b.dataset.ptile)); if (i >= 0) openPostViewer(posts, i);
   }));
   box.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
 }
 async function loadPfExtras(root) {
   const p = root._p;
-  const [c, posts] = await Promise.all([
+  const [c, posts, live] = await Promise.all([
     followCounts(p.id),
     sb.from("posts").select("*").eq("user_id", p.id).order("created_at", { ascending: false }).limit(60),
+    root._isMe ? Promise.resolve({ data: [] })
+      : sb.from("rooms").select("id,title,language,starts_at").eq("host_id", p.id).eq("is_live", true).order("created_at", { ascending: false }).limit(3),
   ]);
   if (root._p !== p) return;
   root._posts = posts.data || [];
   root._posts.forEach((x) => feedCache.set(x.id, x));
   const likes = root._posts.reduce((s, x) => s + (x.like_count || 0), 0);
-  const st = root.querySelector(".pf-stats");
-  if (st) {
-    st.innerHTML = statsHtml({ ...c, likes });
-    st.querySelectorAll("[data-fl]").forEach((b) => b.addEventListener("click", () => openFollowsPage(p.id, b.dataset.fl)));
+  const n = { following: c.following, followers: c.followers, likes };
+  root.querySelectorAll(".pf2-stats [data-n]").forEach((b) => { b.textContent = fmtNum(n[b.dataset.n] || 0); });
+  // 🔴 hosting a live right now? (scheduled rooms that haven't started don't count)
+  const room = (live.data || []).find((r) => !r.starts_at || new Date(r.starts_at).getTime() <= Date.now());
+  const lb = root.querySelector(".pf2-livebox");
+  if (lb) {
+    lb.innerHTML = room ? `<button type="button" class="pf2-live"><span class="eq"><i></i><i></i><i></i></span>
+      <span class="t"><b>${esc(t("pf_live"))}</b><span dir="auto">${esc(room.title)} · ${esc(pfLangName(room.language))}</span></span>
+      <span class="go">${esc(t("pf_goIn"))}</span></button>` : "";
+    lb.querySelector(".pf2-live")?.addEventListener("click", () => openRoomLink(room.id));
   }
   renderPfContent(root);
 }
 function wireProfileCard(root, p, isMe, rerender) {
-  root._p = p; root._isMe = isMe; root._posts = null;
+  root._p = p; root._isMe = isMe; root._posts = null; root._pfTab = "posts";
   root.querySelectorAll('[data-act="edit"]').forEach((b) => b.addEventListener("click", openEditProfile));
-  root.querySelector('[data-act="avatar"]')?.addEventListener("click", () => pickPhoto("avatar"));
+  root.querySelector('[data-act="avatar"]')?.addEventListener("click", (e) => { if (!e.target.closest(".pf2-lv")) pickPhoto("avatar"); });
   root.querySelector('[data-act="cover"]')?.addEventListener("click", (e) => { e.stopPropagation(); pickPhoto("cover"); });
   // my own profile: tapping anywhere on the background area also changes it
-  if (isMe) root.querySelector(".pf-cover")?.addEventListener("click", (e) => { if (!e.target.closest("button")) pickPhoto("cover"); });
+  if (isMe) root.querySelector(".pf2-cover")?.addEventListener("click", (e) => { if (!e.target.closest("button")) pickPhoto("cover"); });
+  root.querySelector('[data-act="back"]')?.addEventListener("click", () => $("#pf-back").click());
+  root.querySelector('[data-act="more"]')?.addEventListener("click", () => $("#pf-more").click());
   root.querySelector('[data-act="wallet"]')?.addEventListener("click", () => openWallet());
-  root.querySelector('[data-act="level"]')?.addEventListener("click", () => openLevelSheet(p, isMe));
+  root.querySelectorAll('[data-act="level"]').forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); openLevelSheet(p, isMe); }));
+  root.querySelectorAll(".pf2-stats [data-fl]").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.fl !== "likes") openFollowsPage(p.id, b.dataset.fl);
+  }));
+  root.querySelectorAll("[data-pftab]").forEach((b) => b.addEventListener("click", () => { root._pfTab = b.dataset.pftab; renderPfContent(root); }));
+  // my coins on the 💰 button
+  const coinEl = root.querySelector(".pf2-coins");
+  if (coinEl) {
+    const put = (w) => { if (w && coinEl.isConnected) coinEl.textContent = Number(w.coins || 0).toLocaleString("en-US"); };
+    try { put(typeof W !== "undefined" ? W.wallet : null); } catch {}
+    if (typeof loadWallet === "function") loadWallet().then(put).catch(() => {});
+  }
   root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
   root.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
   root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });

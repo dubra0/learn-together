@@ -320,3 +320,103 @@ html[dir="rtl"] .entry{border-radius:999px 0 0 999px;padding:5px 8px 5px 16px;an
 #toast button{background:var(--brand);color:var(--brand-ink)}
 code{background:var(--soft)}
 #net-bar{background:linear-gradient(90deg,transparent,#2fd1b3,#ffb23f,transparent)!important;background-size:50% 100%!important;background-repeat:no-repeat!important}
+
+/* =====================================================================
+   👤 Profile page — same as the approved demo
+   ===================================================================== */
+.pf2{--pf-bg:var(--bg)}
+/* someone else's page: the cover goes to the very top (the back / ⋯ buttons sit on it) */
+#screen-profile > .appbar{display:none}
+.pf2-cover{position:relative;height:170px;margin:-16px -16px 0;background-color:#0b8f7a;background-size:cover;background-position:center;
+  background-image:radial-gradient(120px 90px at 82% 30%,rgba(255,178,63,.55),transparent 70%),radial-gradient(160px 120px at 15% 80%,rgba(47,209,179,.6),transparent 70%),linear-gradient(135deg,#0b8f7a,#0c1a17 85%)}
+#screen-profile .pf2-cover{height:calc(170px + env(safe-area-inset-top))}
+.pf2-cover::after{content:"";position:absolute;inset:auto 0 0;height:70px;background:linear-gradient(transparent,rgba(0,0,0,.28));pointer-events:none}
+.pf2-cover:not(.has-img)::before{content:"";position:absolute;inset:0;opacity:.22;pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.9) 1px,transparent 1.6px);background-size:14px 14px;
+  -webkit-mask-image:linear-gradient(115deg,transparent 30%,#000 75%);mask-image:linear-gradient(115deg,transparent 30%,#000 75%)}
+.pf2-cover.has-img::after{height:100%;background:linear-gradient(rgba(0,0,0,.22),transparent 35%,transparent 60%,rgba(0,0,0,.3))}
+.pf2.me .pf2-cover{cursor:pointer}
+.pf2-top{position:absolute;inset:12px 12px auto;display:flex;justify-content:space-between;align-items:center;z-index:2}
+#screen-profile .pf2-top{top:calc(12px + env(safe-area-inset-top))}
+.pf2 .glass{border:0;background:rgba(10,25,21,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;cursor:pointer;font:inherit;
+  height:38px;min-width:38px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;font-weight:700;font-size:14px}
+.pf2 .glass .c{color:var(--amber);font-variant-numeric:tabular-nums}
+.pf2-cover-btn{position:absolute!important;bottom:12px;inset-inline-end:12px;z-index:2;font-size:12.5px!important;height:32px!important}
+
+.pf2-head{padding:0 2px;position:relative}
+.pf2-avrow{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-top:-48px;position:relative;z-index:3}
+.pf2-av{position:relative;width:104px;height:104px;flex:0 0 auto;border-radius:50%;padding:4px;background:none;border:0;cursor:pointer;font:inherit}
+.pf2-av::before{content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 200deg,var(--amber),#ffd98a,var(--brand),#2fd1b3,var(--amber));box-shadow:0 8px 24px rgba(15,168,143,.3)}
+.pf2-av.tier5::before{background:conic-gradient(#ffd76a,#e8a920,#ffd76a,#e8a920,#ffd76a);box-shadow:0 0 20px rgba(232,169,32,.5)}
+.pf2-av.tier6::before{background:conic-gradient(#ff5f8f,#c2185b,#ff5f8f,#c2185b,#ff5f8f);box-shadow:0 0 20px rgba(194,24,91,.45)}
+.pf2-av.tier7::before,.pf2-av.tier8::before{background:conic-gradient(#7fd6ff,#3f7fe8,#ffd76a,#ff5f8f,#7fd6ff);box-shadow:0 0 24px rgba(63,127,232,.6)}
+.pf2-av .av.lg{position:relative;width:100%;height:100%;border-radius:50%;border:4px solid var(--pf-bg);font-size:38px;font-weight:900;
+  display:grid;place-items:center;background:linear-gradient(135deg,#2fd1b3,#0b8f7a);color:#fff;overflow:hidden;box-shadow:none}
+.pf2-av .av.lg img{width:100%;height:100%;object-fit:cover;display:block}
+.pf2-cam{position:absolute;bottom:4px;inset-inline-end:2px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;
+  display:grid;place-items:center;font-size:14px;border:3px solid var(--pf-bg)}
+.pf2-lv{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);white-space:nowrap;cursor:pointer;z-index:2}
+.pf2-lv .lvb{font-size:12px;padding:2px 10px;border-radius:999px;border:3px solid var(--pf-bg);line-height:1.5}
+.pf2-acts{display:flex;gap:8px;padding-bottom:6px}
+.btn2{border:0;border-radius:999px;height:40px;padding:0 16px;font:inherit;font-weight:800;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.btn2.pri{background:var(--brand);color:#fff}
+.btn2.ghost{background:var(--card);border:1.5px solid var(--line)}
+.btn2.ic{width:40px;padding:0;background:var(--card);border:1.5px solid var(--line);font-size:17px}
+.btn2.gift{background:var(--amber-soft);border-color:transparent}
+
+.pf2-name{margin:16px 0 2px;font-size:22px;font-weight:900;display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-wrap:balance}
+.pf2-name .tag{font-size:12px;font-weight:700;background:var(--soft);color:var(--brand);padding:3px 10px;border-radius:999px}
+.pf2-since{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:1px}
+.pf2-bio{color:var(--muted);font-size:14.5px;line-height:1.75;margin:6px 0 0}
+.pf2-langs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.pf2-langs span{font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+.pf2-langs span small{font-size:10.5px;color:var(--muted);font-weight:600}
+.pf2-langs span.native{background:var(--soft);border-color:transparent;color:var(--brand)}
+
+.pf2-live{margin:14px 2px 0;border:0;width:calc(100% - 4px);display:flex;align-items:center;gap:12px;text-align:start;cursor:pointer;font:inherit;
+  background:linear-gradient(135deg,#0c1a17,#13261f);color:#fff;border-radius:18px;padding:11px 12px}
+.pf2-live .eq{display:flex;gap:3px;align-items:flex-end;height:22px;width:26px;justify-content:center;flex:0 0 auto}
+.pf2-live .eq i{width:4px;border-radius:3px;background:#2fd1b3;height:40%}
+.pf2-live .t{flex:1;min-width:0;font-size:12.5px;color:#9fbab1;line-height:1.5;overflow:hidden}
+.pf2-live .t span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pf2-live .t b{display:block;color:#fff;font-size:14px}
+.pf2-live .t b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#f0463c;margin-inline-end:6px;vertical-align:middle}
+.pf2-live .go{background:#f0463c;border-radius:999px;padding:6px 13px;font-weight:800;font-size:12.5px;white-space:nowrap}
+
+.pf2-stats{margin:16px 2px 0;background:var(--card);border-radius:18px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line)}
+.pf2-stats button{border:0;background:none;padding:12px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font:inherit;color:var(--ink)}
+.pf2-stats button[data-fl="likes"]{cursor:default}
+.pf2-stats button+button{border-inline-start:1px solid var(--line)}
+.pf2-stats b{font-size:19px;font-weight:900;font-variant-numeric:tabular-nums}
+.pf2-stats small{font-size:12.5px;color:var(--muted);font-weight:600}
+
+.pf2-lvbar{margin:12px 2px 0;background:var(--amber-soft);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:12px;border:0;width:calc(100% - 4px);text-align:start;cursor:pointer;font:inherit;color:var(--ink)}
+.pf2-lvbar .t{flex:1;min-width:0}
+.pf2-lvbar .tx{display:block;font-size:13px;font-weight:800;color:#7a4a00}
+.pf2-lvbar .bar{display:block;height:7px;border-radius:9px;background:rgba(122,74,0,.15);margin-top:6px;overflow:hidden}
+.pf2-lvbar .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--amber),#ff8a3d);border-radius:9px}
+.pf2-lvbar .go{font-size:18px}
+
+.pf2-tabs{display:flex;gap:22px;padding:18px 2px 0;border-bottom:1px solid var(--line)}
+.pf2-tabs button{border:0;background:none;padding:10px 0;font:inherit;font-weight:800;font-size:14.5px;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px;cursor:pointer}
+.pf2-tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--brand)}
+.pf2 .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:4px -12px 0}
+.pf2 .ptile{aspect-ratio:3/4;border-radius:12px;max-width:100%;transition:transform .2s}
+.pf2 .ptile:active{transform:scale(.97)}
+.pf2 .ptile .txt{display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;line-height:1.6;-webkit-line-clamp:unset}
+.pf2 .ptile .lk{bottom:6px;inset-inline-start:7px;font-size:11.5px}
+.pf2 .ptile .pl{position:absolute;top:7px;inset-inline-end:8px;font-size:12px;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.pf2 .ptile.new{background:var(--card);border:2px dashed var(--line);color:var(--brand);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-weight:800;font-size:13px}
+.pf2 .ptile.new span{font-size:28px;line-height:1}
+@media (prefers-color-scheme: dark){
+  .pf2-lvbar .tx{color:#ffcf85}
+  .pf2-name .tag,.pf2-langs span.native{color:#7fe6d2}
+}
+@media (prefers-reduced-motion:no-preference){
+  .pf2-av::before{animation:pf2spin 8s linear infinite}
+  .pf2-live .eq i{animation:pf2eq .9s ease-in-out infinite alternate}
+  .pf2-live .eq i:nth-child(2){animation-delay:-.3s}.pf2-live .eq i:nth-child(3){animation-delay:-.6s}
+}
+@keyframes pf2spin{to{transform:rotate(360deg)}}
+@keyframes pf2eq{from{height:25%}to{height:100%}}
