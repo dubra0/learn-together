@@ -54,6 +54,13 @@
 
   const css = document.createElement("style");
   css.textContent = `
+  .rc-home{cursor:pointer;display:grid;gap:14px}
+  .rc-home .rh-row{display:flex;align-items:center;gap:12px}
+  .rc-home .rh-globe{font-size:2.4rem;line-height:1}
+  .rc-home .rh-row2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .rc-home .rh-online{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.1);border-radius:999px;padding:5px 12px;font-weight:800;font-size:.82rem;font-variant-numeric:tabular-nums}
+  .rc-home .rh-online::before{content:"";width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.25)}
+  .rc-home .btn{box-shadow:none}
   .rc-card{display:flex;align-items:center;gap:12px;width:100%;margin:12px 0 0;padding:14px;border-radius:22px;border:1.5px solid var(--line);background:var(--card);cursor:pointer;text-align:start;color:var(--ink)}
   .rc-card .ic{width:48px;height:48px;border-radius:16px;background:var(--soft);display:grid;place-items:center;font-size:1.5rem;flex:0 0 auto}
   .rc-card b{display:block;font-weight:900}
@@ -136,8 +143,23 @@ const RC_FLAGS = ["🇬🇧 🇹🇷 🇩🇪", "🇸🇦 🇮🇶 🇫🇷", "�
 const rcMMSS = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
 const rcFmt = (n) => Number(n || 0).toLocaleString("en-US");
 
+// the big dark card at the top of the rooms page (where "today's goal" used to be)
 function rcCardHtml() {
-  return `<button type="button" class="rc-card" id="rc-open"><span class="ic">📞</span><span><b>${esc(t("rc_card"))}</b><span>${esc(t("rc_cardSub"))}</span></span><span class="go flip">‹</span></button>`;
+  return `<div class="goal-card rc-home" id="rc-open" role="button" tabindex="0">
+    <canvas class="goal-cv" aria-hidden="true"></canvas>
+    <div class="rh-row"><span class="rh-globe">🌍</span><div><div class="g-big">${esc(t("rc_card"))}</div><small>${esc(t("rc_cardSub"))}</small></div></div>
+    <div class="rh-row2"><span class="rh-online" id="rc-home-online">…</span><button type="button" class="btn sm" id="rc-open-go">${esc(t("rc_start"))}</button></div>
+  </div>`;
+}
+// live number of people in calls + the moving waves behind the card
+async function rcFillCard(box) {
+  try {
+    const { data } = await sb.rpc("rc_status");
+    const s = Array.isArray(data) ? data[0] : data;
+    const el = box.querySelector("#rc-home-online");
+    if (el && s) el.textContent = t("rc_online", { n: rcFmt(Math.max(1, s.o_online || 0)) });
+    else if (el) el.textContent = t("rc_cardSub");
+  } catch {}
 }
 
 function rcEl() {
