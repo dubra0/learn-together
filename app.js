@@ -34,7 +34,9 @@ function countryName(cc) {
   try { return new Intl.DisplayNames([uiLang, "en"], { type: "region" }).of(cc) || cc; } catch { return cc; }
 }
 const AVATAR_PREFIX = CONFIG.SUPABASE_URL + "/storage/v1/object/public/avatars/";
-const safeAvatar = (u) => (typeof u === "string" && u.startsWith(AVATAR_PREFIX) && u.length < 500 ? u : "");
+// only our own storage, and only plain URL letters (no quotes, spaces or brackets that could break out of HTML / CSS)
+const SAFE_URL_CHARS = /^[A-Za-z0-9\-._~\/:%?=&+]+$/;
+const safeAvatar = (u) => (typeof u === "string" && u.startsWith(AVATAR_PREFIX) && u.length < 500 && SAFE_URL_CHARS.test(u) && !u.includes("..") ? u : "");
 function avHtml(name, url, size = "sm") {
   const inner = safeAvatar(url) ? `<img src="${esc(url)}" alt="" loading="lazy">` : esc([...(name || "?")][0] || "?");
   return `<span class="av ${size}">${inner}</span>`;
@@ -87,6 +89,8 @@ function applyI18n() {
 let toastTimer;
 function toast(msg, actionLabel, action) {
   const el = $("#toast");
+  // 🔒 the server's spam brake (update-20): say it in people's words
+  if (/slow_down/.test(String(msg))) msg = ({ ckb: "⏳ زۆر خێرایت، کەمێک چاوەڕێ بکە و دووبارە هەوڵ بدەرەوە.", ar: "⏳ أنت سريع جداً، انتظر قليلاً ثم حاول مجدداً." }[uiLang]) || "⏳ Too fast — wait a moment and try again.";
   el.innerHTML = `<span>${esc(msg)}</span>` + (actionLabel ? `<button type="button">${esc(actionLabel)}</button>` : "");
   if (actionLabel) el.querySelector("button").onclick = () => { el.classList.remove("show"); action(); };
   el.classList.add("show");
@@ -2630,7 +2634,7 @@ async function loadMoreFeed(first) {
   } finally { feedLoading = false; }
 }
 const VIDEO_PREFIX = CONFIG.SUPABASE_URL + "/storage/v1/object/public/videos/";
-const safeVideo = (u) => (typeof u === "string" && u.startsWith(VIDEO_PREFIX) && u.length < 500 ? u : "");
+const safeVideo = (u) => (typeof u === "string" && u.startsWith(VIDEO_PREFIX) && u.length < 500 && SAFE_URL_CHARS.test(u) && !u.includes("..") ? u : "");
 let feedMuted = true;
 const viewedSet = new Set();
 const fmtNum = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(n || 0));

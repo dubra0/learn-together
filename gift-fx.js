@@ -418,7 +418,8 @@ async function crownGift(g, to) {
   banner(g, to, 5000);
   glow("rgba(255,207,77,.75)", 5000, 1); rays(4800);
   const tgt = seatPoint(to);
-  const name = el("tg-bubble", `👑 ${to.name} 👑`, { top: "64%" });
+  // the name is typed by people: never put it in as HTML (it could hide code)
+  const name = el("tg-bubble", null, { top: "64%" }); name.textContent = `👑 ${to.name} 👑`;
   name.style.background = "linear-gradient(135deg,#ffe58a,#ffb020)";
   const a = actor(g.e, 34);
   play("fanfare");
