@@ -311,12 +311,20 @@ async function enterApp() {
   const q = new URLSearchParams(location.search);
   const rid = q.get("room");
   const pid = Number(q.get("post"));
+  const UUIDRE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const chatWith = q.get("chat"), userId = q.get("user"); // opened from a 🔔 notification
   if (rid) {
     history.replaceState(null, "", location.pathname);
     openRoomLink(rid, q.get("code"));
   } else if (pid) {
     history.replaceState(null, "", location.pathname);
     openPostById(pid);
+  } else if (chatWith && UUIDRE.test(chatWith)) {
+    history.replaceState(null, "", location.pathname);
+    openDm(chatWith);
+  } else if (userId && UUIDRE.test(userId)) {
+    history.replaceState(null, "", location.pathname);
+    openProfilePage(userId);
   }
 }
 async function loadSocial() {
@@ -462,6 +470,7 @@ async function startScheduled(r) {
   const { data, error } = await sb.from("rooms").update(patch).eq("id", r.id).select().single();
   if (error) return toast(t("error") + error.message);
   joinRoom(data);
+  window.Push?.notify("live", { roomId: data.id }); // 🔔 tell my followers
 }
 function subscribeRooms() {
   if (listChannel) return;
@@ -530,7 +539,7 @@ $("#create-form").addEventListener("submit", async (e) => {
   btn.disabled = false;
   if (error) { console.error(error); return toast(t("createFail") + error.message); }
   if (startsAt) { goMain("rooms", true); toast(t("scheduled"), t("share"), () => shareRoom(data)); }
-  else joinRoom(data, data.join_code);
+  else { joinRoom(data, data.join_code); window.Push?.notify("live", { roomId: data.id }); } // 🔔 tell my followers
 });
 
 /* ---------------- Share ---------------- */
@@ -874,6 +883,7 @@ function openSettings() {
       <button type="button" id="me-edit">✏️ ${esc(t("editProfile"))}</button>
       ${typeof openWallet === "function" ? `<button type="button" id="me-wallet">💰 ${esc(t("w_wallet"))}</button>` : ""}
       <button type="button" id="me-photos">📷 ${esc(t("photos"))}<span class="end">${(p.photos || []).length}/6</span></button>
+      ${window.Push ? `<button type="button" id="me-push">${esc(t("pn_menu"))}<span class="end" id="me-push-st">…</span></button>` : ""}
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
     </div>
@@ -897,6 +907,11 @@ function openSettings() {
     document.querySelectorAll("#sheet [data-photo]").forEach((b) => b.addEventListener("click", () => viewPhoto(profile, Number(b.dataset.photo), true)));
     document.querySelectorAll("#sheet [data-addphoto]").forEach((b) => b.addEventListener("click", () => { closeSheet(); pickPhoto("gallery"); }));
   });
+  if (window.Push && $("#me-push")) { // 🔔 on / off
+    const paint = async () => { const on = await window.Push.isOn(); if ($("#me-push-st")) $("#me-push-st").textContent = on ? `✅ ${t("pn_onState")}` : t("pn_offState"); return on; };
+    paint();
+    $("#me-push").addEventListener("click", async () => { if (await window.Push.isOn()) await window.Push.disable(); else await window.Push.enable(); paint(); });
+  }
   $("#me-saved").addEventListener("click", openSaved);
   $("#me-inbox").addEventListener("click", openInbox);
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
@@ -1205,6 +1220,7 @@ async function openProfile(id, participant) {
         actions += `<button class="btn ghost" id="sh-invite">🎙️ ${esc(t("inviteToStage"))}</button>`;
         if (handUp(participant)) actions += `<button class="btn ghost" id="sh-speaker">${esc(t("allow"))}</button>`;
       }
+      if (typeof safetyButtons === "function") actions += safetyButtons(participant); // 🛡️ mic off / stop chat
       actions += `<button class="btn danger-ghost" id="sh-kick">🚪 ${esc(t("removeFromRoom"))}</button>`;
     }
     actions += `<button class="btn line" id="sh-report">🚩 ${esc(t("report"))}</button>`;
@@ -1229,6 +1245,7 @@ async function openProfile(id, participant) {
   $("#sh-report")?.addEventListener("click", () => openReport({ userId: id }));
   $("#sh-speaker")?.addEventListener("click", async () => { closeSheet(); await setSpeaker(id, !speaker); });
   $("#sh-invite")?.addEventListener("click", async () => { closeSheet(); await inviteToStage(id); });
+  if (typeof wireSafetyButtons === "function") wireSafetyButtons(id);
   $("#sh-kick")?.addEventListener("click", async () => {
     if (!confirm(t("removeConfirm", { name: p.name }))) return;
     closeSheet(); await hostAction({ action: "kick", identity: id });
@@ -1241,6 +1258,7 @@ async function toggleFollow(id) {
     if (error) toast(t("error") + error.message);
     else {
       following.add(id);
+      window.Push?.notify("follow", { target: id }); // 🔔
       // they already follow me → we are friends now and can chat
       const back = await sb.from("follows").select("follower").eq("follower", id).eq("followee", me.id).maybeSingle();
       if (back.data) {
@@ -1962,14 +1980,18 @@ function showInvite(hostP) {
 $("#mic-btn").addEventListener("click", async () => {
   if (!lk) return;
   const btn = $("#mic-btn"); btn.disabled = true;
+  window._selfMuting = true; // my own button: not "the host muted me"
   try { await lk.localParticipant.setMicrophoneEnabled(!lk.localParticipant.isMicrophoneEnabled); }
   catch (err) { toast(t("micFail") + (err?.message || err)); }
+  setTimeout(() => (window._selfMuting = false), 800);
   btn.disabled = false; renderPeople();
 });
 /* a speaker steps down from the stage by themself (the host's app makes the change) */
 $("#stage-down-btn").addEventListener("click", async () => {
   if (!lk || amHost()) return;
+  window._selfMuting = true;
   try { await lk.localParticipant.setMicrophoneEnabled(false); } catch {}
+  setTimeout(() => (window._selfMuting = false), 800);
   await sendControl({ type: "leave_stage" }, [currentRoom.host_id]);
   toast(t("leftStage"));
   renderPeople();
@@ -2014,6 +2036,10 @@ function addSystem(text) {
 }
 function addChat(p, text, reply) {
   if (blocked.has(p.identity)) return;
+  if (typeof cleanText === "function") { // 🛡️ bad words → ***
+    text = cleanText(text);
+    if (reply) reply = { ...reply, text: cleanText(reply.text) };
+  }
   const mine = lk && p === lk.localParticipant, isHost = p.identity === currentRoom?.host_id;
   const name = p.name || t("guest");
   const div = document.createElement("div");
@@ -2047,8 +2073,10 @@ let lastChatAt = 0;
 $("#chat-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("#chat-input");
-  const text = input.value.trim().slice(0, 300);
+  let text = input.value.trim().slice(0, 300);
+  if (typeof cleanText === "function") text = cleanText(text); // 🛡️ never send bad words
   if (!text || !lk || Date.now() - lastChatAt < 700) return;
+  if (lk.localParticipant.permissions?.canPublishData === false) return toast(t("sf_noChat"));
   lastChatAt = Date.now();
   const msg = { type: "chat", text };
   if (replyTo) msg.reply = replyTo;
@@ -2332,6 +2360,7 @@ $("#dm-form").addEventListener("submit", async (e) => {
   const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, body: text }).select().single();
   if (error) { $("#dm-input").value = text; return toast(/row-level|policy/i.test(error.message) ? t("mutualOnly") : t("error") + error.message); }
   appendDm(data);
+  window.Push?.notify("dm", { target: dmWith.id }); // 🔔
 });
 
 /* ---- voice messages: tap 🎤 to record, tap again to send (max 60 s) ---- */
@@ -2373,6 +2402,7 @@ async function sendVoice(blob, mime, secs) {
   const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, audio_path: path, audio_secs: secs }).select().single();
   if (error) { sb.storage.from("voice-notes").remove([path]); return toast(t("error") + error.message); }
   appendDm(data);
+  window.Push?.notify("dm", { target: dmWith.id }); // 🔔
 }
 
 /* =====================================================================

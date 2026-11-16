@@ -1,8 +1,8 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v6";
-const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
+const CACHE = "talk-together-v7";
+const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
   "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
 
@@ -22,6 +22,33 @@ function save(req, res) {
   if (res && (res.ok || res.type === "opaque")) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
   return res;
 }
+
+// 🔔 a notification arrived from our server (send-push)
+self.addEventListener("push", (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
+  const scope = self.registration.scope;
+  e.waitUntil(self.registration.showNotification(d.title || "Talk Together", {
+    body: d.body || "",
+    icon: d.icon || scope + "icons/icon-192.png",
+    badge: scope + "icons/icon-192.png",
+    tag: d.tag || undefined,
+    renotify: !!d.tag,
+    data: { url: typeof d.url === "string" && d.url.startsWith(scope) ? d.url : scope },
+  }));
+});
+// tapping it opens the app at the right place (a chat, a live, a profile)
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url || self.registration.scope;
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const w of wins) {
+      if (w.url.startsWith(self.registration.scope)) { await w.focus(); try { await w.navigate(url); } catch {} return; }
+    }
+    await self.clients.openWindow(url);
+  })());
+});
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;

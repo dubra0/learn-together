@@ -208,6 +208,7 @@ async function sendPaidGift(targets) {
     const r = Array.isArray(data) ? data[0] : null;
     if (r?.o_status !== "ok") { toast(statusMsg(r?.o_status)); if (r) W.wallet = { ...W.wallet, coins: r.o_coins }; return; }
     W.wallet = { ...W.wallet, coins: r.o_coins };
+    window.Push?.notify("gift", { target: W.target }); // 🔔 the receiver gets a notification
     const toName = targets.find((x) => x.id === W.target)?.name || "";
     if (TIER_OF(g.id) !== "small" || !currentRoom) closeSheet();
     window.GiftFX?.play(g.id, profile?.name || "", toName); // I see mine right away; others get it from the server

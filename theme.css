@@ -300,6 +300,16 @@ html[dir="rtl"] .entry{border-radius:999px 0 0 999px;padding:5px 8px 5px 16px;an
 #inst-bar .inst-x{border:0;background:var(--soft);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;flex:0 0 auto}
 @keyframes instin{from{transform:translateY(-120%);opacity:0}}
 
+/* ---------- 🔔 "turn on notifications?" card ---------- */
+#push-ask{position:fixed;inset-inline:10px;bottom:calc(var(--tabbar) + 22px + env(safe-area-inset-bottom));z-index:60;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;
+  padding:14px;background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow-lg);max-width:560px;margin:0 auto;animation:pushin .35s ease-out}
+#push-ask .pa-ic{width:44px;height:44px;border-radius:14px;background:var(--amber-soft);display:grid;place-items:center;font-size:1.4rem}
+#push-ask .pa-t b{display:block;font-weight:900}
+#push-ask .pa-t span{display:block;color:var(--muted);font-size:.84rem;line-height:1.45}
+#push-ask .pa-b{grid-column:1 / -1;display:flex;gap:8px}
+#push-ask .pa-b .btn{flex:1}
+@keyframes pushin{from{transform:translateY(30px);opacity:0}}
+
 #top-streak{display:none}  /* the streak is shown in the hello row of the rooms tab */
 
 /* ---------- toast + small things ---------- */
