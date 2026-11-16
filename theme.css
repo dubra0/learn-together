@@ -134,6 +134,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .smsg.host .who{color:#ffc164}
 .smsg.mine .bub{background:rgba(47,209,179,.32)}
 .smsg .quote{border-inline-start-color:#2fd1b3}
+/* 💬 live comments: a box that shows about the newest 7; older ones float up and fade at the top.
+   Swipe the comments down to read every comment since you came in. */
+.s-chat{max-height:min(40vh,330px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-top:34px;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 56px);mask-image:linear-gradient(180deg,transparent 0,#000 56px)}
+.s-chat::-webkit-scrollbar{display:none}
+.video-mode .s-chat{max-height:min(34vh,300px)}
+.s-chat .smsg{animation:chatIn .3s ease-out;flex:0 0 auto}
+@keyframes chatIn{from{opacity:0;transform:translateY(14px)}}
+.s-bottom{position:relative}
+#chat-new{position:absolute;top:-46px;left:50%;transform:translateX(-50%);z-index:5;border:0;border-radius:999px;padding:8px 16px;
+  background:#2fd1b3;color:#04201a;font:inherit;font-weight:900;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.35);cursor:pointer;white-space:nowrap;animation:chatIn .25s ease-out}
+@media (prefers-reduced-motion:reduce){.s-chat .smsg,#chat-new{animation:none}}
 .s-round.on{background:#14b89c}
 .s-round.send{background:linear-gradient(135deg,#14b89c,#0b8f7a)}
 .s-round.cam-on{background:#2f7fc4}

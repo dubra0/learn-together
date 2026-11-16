@@ -2140,11 +2140,38 @@ $("#topic-btn").addEventListener("click", async () => {
 function cleanReply(r) {
   return r && typeof r.name === "string" && typeof r.text === "string" ? { name: r.name.slice(0, 40), text: r.text.slice(0, 80) } : null;
 }
-function scrollChat() {
+/* 💬 live comments: the box shows about the newest 7; older ones float up and fade at the top.
+   Every comment since you came into the live stays: swipe the comments down to read them all.
+   While you read old ones, new ones don't pull you down — a "⬇ new comments" button appears instead. */
+function chatAtBottom(list) { return list.scrollHeight - list.scrollTop - list.clientHeight < 60; }
+function scrollChat(force) {
   const body = $(".stage-body");
   if (body.scrollHeight - body.scrollTop - body.clientHeight < 220) body.scrollTop = body.scrollHeight;
+  const list = $("#chat-list");
+  if (force === true || list._stick !== false) { list.scrollTop = list.scrollHeight; chatNewBtn(false); }
+  else chatNewBtn(true);
 }
-function trimChat() { const list = $("#chat-list"); while (list.children.length > 150) list.firstElementChild.remove(); }
+function chatNewBtn(on) {
+  let b = $("#chat-new");
+  if (!b) {
+    if (!on) return;
+    b = document.createElement("button");
+    b.type = "button"; b.id = "chat-new";
+    b.addEventListener("click", () => { const l = $("#chat-list"); l._stick = true; l.scrollTo({ top: l.scrollHeight, behavior: "smooth" }); chatNewBtn(false); });
+    $(".s-bottom").appendChild(b);
+  }
+  b.textContent = `⬇ ${t("newComments")}`;
+  b.hidden = !on;
+}
+$("#chat-list").addEventListener("scroll", (e) => {
+  const l = e.currentTarget; l._stick = chatAtBottom(l);
+  if (l._stick) chatNewBtn(false);
+}, { passive: true });
+function trimChat() { const list = $("#chat-list"); while (list.children.length > 400) list.firstElementChild.remove(); }
+try {
+  for (const [l, s] of Object.entries({ en: "New comments", ckb: "کۆمێنتی نوێ", ar: "تعليقات جديدة", tr: "Yeni yorumlar", fa: "نظرات جدید", de: "Neue Kommentare", fr: "Nouveaux commentaires", es: "Comentarios nuevos" }))
+    if (I18N[l]) I18N[l].newComments = s;
+} catch {}
 function addSystem(text) {
   const div = document.createElement("div");
   div.className = "smsg sys";
@@ -2165,7 +2192,7 @@ function addChat(p, text, reply) {
     ${reply ? `<div class="quote" dir="auto">↩ ${esc(reply.name)}: ${esc(reply.text)}</div>` : ""}
     <span class="who" dir="auto">${isHost ? "👑 " : ""}${esc(name)}</span><span dir="auto">${esc(text)}</span></div>`;
   div.querySelector(".bub").addEventListener("click", () => msgActions(name, text));
-  $("#chat-list").appendChild(div); trimChat(); scrollChat();
+  $("#chat-list").appendChild(div); trimChat(); scrollChat(!!mine);
 }
 function msgActions(name, text) {
   openSheet(`<div class="muted small" dir="auto" style="margin-bottom:8px"><b>${esc(name)}:</b> ${esc(text)}</div>
@@ -2257,6 +2284,7 @@ async function leaveRoom(stay) {
   camFacing = "user";
   const room = lk; lk = null; currentRoom = null; currentCode = null; replyTo = null; pendingInvites.clear();
   window.RoomLooks?.reset();
+  $("#chat-list")._stick = true; chatNewBtn(false);
   if (room) { try { await room.disconnect(); } catch {} }
   $("#audio-sink").innerHTML = ""; $("#chat-list").innerHTML = ""; $("#audio-unlock").hidden = true; $("#reply-bar").hidden = true;
   closeSheet();
