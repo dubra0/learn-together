@@ -382,6 +382,7 @@ function renderTab(force) {
   ["rooms", "feed", "chats", "partners", "ranking", "me"].forEach((k) => ($("#tab-" + k).hidden = k !== currentTab));
   if (currentTab !== "feed") pauseReels();
   $("#screen-main").classList.toggle("feed-mode", currentTab === "feed");
+  $("#screen-main").classList.toggle("me-mode", currentTab === "me"); // 👤 my profile: no top bar, the cover starts at the top
   $("#tab-feed").classList.toggle("reels", currentTab === "feed");
   $("#new-room-btn").hidden = currentTab !== "rooms";
   $("#new-post-btn").hidden = currentTab !== "feed";
