@@ -736,19 +736,67 @@ function sayFor(id) {
   const s = SAY[id]; if (!s) return "";
   return s[l] || (l === "fa" ? s.ar : s.en);
 }
-function playGift(id, fromName, toName) {
+/* 🔢 combo counter: every time the same person sends the same gift, the number goes up (x1, x2, x3 …).
+   It stays on screen while the gifts keep coming, and a few seconds after the last one. */
+const combos = new Map();   // "from|gift|to" → { n, el, timer }
+function comboCss() {
+  if (document.getElementById("gfx-combo-css")) return;
+  const s = document.createElement("style"); s.id = "gfx-combo-css";
+  s.textContent = `
+.gc-wrap{position:fixed;inset-inline-start:10px;top:calc(96px + env(safe-area-inset-top));z-index:70;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.gc{display:flex;align-items:center;gap:8px;padding:5px 14px 5px 6px;border-radius:999px;background:linear-gradient(90deg,rgba(255,138,61,.92),rgba(255,95,162,.55) 70%,transparent);
+  color:#fff;font-weight:800;font-size:13px;max-width:78vw;animation:gcin .3s ease-out;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+[dir=rtl] .gc{background:linear-gradient(270deg,rgba(255,138,61,.92),rgba(255,95,162,.55) 70%,transparent)}
+.gc .ge2{font-size:26px;line-height:1}
+.gc .gt{min-width:0;line-height:1.25}
+.gc .gt b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.gc .gt span{font-size:11px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:46vw}
+.gc .gx{font-size:26px;font-weight:900;font-style:italic;color:#ffe066;text-shadow:0 2px 0 #b5470b,0 0 12px rgba(255,200,60,.7);margin-inline-start:4px;direction:ltr;unicode-bidi:isolate}
+.gc .gx.pop{animation:gcpop .35s cubic-bezier(.2,1.6,.4,1)}
+.gc.out{animation:gcout .4s ease-in forwards}
+@keyframes gcin{from{opacity:0;transform:translateX(-30px)}}
+[dir=rtl] .gc{animation-name:gcinr}
+@keyframes gcinr{from{opacity:0;transform:translateX(30px)}}
+@keyframes gcpop{0%{transform:scale(1.9)}100%{transform:scale(1)}}
+@keyframes gcout{to{opacity:0;transform:translateY(-14px)}}
+@media (prefers-reduced-motion:reduce){.gc,.gc .gx.pop,.gc.out{animation:none}}`;
+  document.head.appendChild(s);
+}
+function bumpCombo(g, to, key) {
+  comboCss();
+  let wrap = document.querySelector(".gc-wrap");
+  if (!wrap) { wrap = document.createElement("div"); wrap.className = "gc-wrap"; document.body.appendChild(wrap); }
+  const safe = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  let c = combos.get(key);
+  if (!c || !c.el.isConnected) {
+    const el = document.createElement("div"); el.className = "gc";
+    el.innerHTML = `<span class="ge2">${g.e}</span><span class="gt"><b dir="auto">${safe(to.from)}</b><span dir="auto">→ ${safe(to.name)}</span></span><span class="gx">x1</span>`;
+    while (wrap.children.length >= 3) wrap.firstElementChild.remove();   // at most 3 counters at once
+    wrap.appendChild(el);
+    c = { n: 0, el, timer: 0 }; combos.set(key, c);
+  }
+  c.n++;
+  const gx = c.el.querySelector(".gx");
+  gx.textContent = "x" + c.n;
+  gx.classList.remove("pop"); void gx.offsetWidth; gx.classList.add("pop");
+  clearTimeout(c.timer);
+  c.timer = setTimeout(() => { c.el.classList.add("out"); setTimeout(() => { c.el.remove(); if (combos.get(key) === c) combos.delete(key); }, 420); }, 3500);
+  return c.n;
+}
+function playGift(id, fromName, toName, fromId) {
   const meta = BY_ID[id]; if (!meta) return;
   try { audio(); } catch {}
   const g = { ...meta, say: sayFor(id) };
   const to = { name: toName || "", from: fromName || "" };
+  const n = bumpCombo(g, to, `${fromId || fromName}|${id}|${toName}`);
   if (meta.tier === "small") {
-    combo.n = combo.id === id ? combo.n + 1 : 1; combo.id = id;
-    clearTimeout(combo.timer); combo.timer = setTimeout(() => (combo.id = null), 2500);
-    banner(g, to, 2200);
-    g.run(g, to, combo.n);
+    combo.n = n; combo.id = id;
+    if (n === 1) banner(g, to, 2200);
+    g.run(g, to, n);
     return;
   }
-  if (pending > 6) return; // too many big gifts waiting: skip the animation (the chat line still shows)
+  // big gifts: every single one plays, one after another (100 lions = 100 lions)
+  if (pending > 500) return;   // safety for the phone's memory only
   pending++;
   queueP = queueP.then(() => g.run(g, to)).catch((e) => console.warn("gift fx", e)).finally(() => pending--);
 }

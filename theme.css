@@ -134,6 +134,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0
 .smsg.host .who{color:#ffc164}
 .smsg.mine .bub{background:rgba(47,209,179,.32)}
 .smsg .quote{border-inline-start-color:#2fd1b3}
+/* 🎁 the send button bounces on every tap */
+#pg-send.pg-pulse{animation:pgPulse .28s ease-out}
+@keyframes pgPulse{40%{transform:scale(.94)}100%{transform:scale(1)}}
 /* 💬 live comments: a box that shows about the newest 7; older ones float up and fade at the top.
    Swipe the comments down to read every comment since you came in. */
 .s-chat{max-height:min(40vh,330px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-top:34px;

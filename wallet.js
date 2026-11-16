@@ -197,25 +197,42 @@ function renderPaid(targets) {
   }));
   $("#pg-send").addEventListener("click", () => sendPaidGift(targets));
 }
-async function sendPaidGift(targets) {
+/* 🔢 tap again and again: each tap sends one more gift right away (x1, x2, x3 …).
+   The sends go to the server one after another in the background, so fast taps are never lost. */
+let sendChain = Promise.resolve(), inFlight = 0, notified = new Set();
+function paintCoins() {
+  const coins = W.wallet?.coins || 0;
+  const c = document.querySelector("#sheet .pg-coins"); if (c) c.textContent = `🪙 ${fmtN(coins)}`;
+  document.querySelectorAll("#sheet [data-pg]").forEach((b) => {
+    const g = W.catalog.find((x) => x.id === b.dataset.pg); if (g) b.classList.toggle("poor", g.price > coins);
+  });
+}
+function sendPaidGift(targets) {
   const g = W.catalog.find((x) => x.id === W.chosen);
-  if (!g || !W.target || W.sending) return;
+  if (!g || !W.target) return;
   if ((W.wallet?.coins || 0) < g.price) return toast(t("w_noCoins"));
-  W.sending = true;
-  try {
-    const { data, error } = await sb.rpc("send_gift", { p_to: W.target, p_gift: g.id, p_room: currentRoom?.id || null });
-    if (error) throw error;
-    const r = Array.isArray(data) ? data[0] : null;
-    if (r?.o_status !== "ok") { toast(statusMsg(r?.o_status)); if (r) W.wallet = { ...W.wallet, coins: r.o_coins }; return; }
-    W.wallet = { ...W.wallet, coins: r.o_coins };
-    window.Push?.notify("gift", { target: W.target }); // 🔔 the receiver gets a notification
-    const toName = targets.find((x) => x.id === W.target)?.name || "";
-    if (TIER_OF(g.id) !== "small" || !currentRoom) closeSheet();
-    window.GiftFX?.play(g.id, profile?.name || "", toName); // I see mine right away; others get it from the server
-    if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji} → ${toName}`);
-    if (!currentRoom) toast(t("w_sent"));
-  } catch (err) { console.error(err); toast(t("error") + (err?.message || err)); }
-  finally { W.sending = false; if (!$("#sheet").hidden && $("#pg-send")) renderPaid(targets); }
+  const to = W.target, room = currentRoom?.id || null;
+  const toName = targets.find((x) => x.id === to)?.name || "";
+  // show it now (my coins go down at once, the animation and the counter start at once)
+  W.wallet = { ...W.wallet, coins: (W.wallet?.coins || 0) - g.price };
+  paintCoins();
+  window.GiftFX?.play(g.id, profile?.name || "", toName, me?.id); // I see mine right away; others get it from the server
+  if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji} → ${toName}`);
+  const b = $("#pg-send"); if (b) { b.classList.remove("pg-pulse"); void b.offsetWidth; b.classList.add("pg-pulse"); }
+  inFlight++;
+  sendChain = sendChain.then(async () => {
+    try {
+      const { data, error } = await sb.rpc("send_gift", { p_to: to, p_gift: g.id, p_room: room });
+      if (error) throw error;
+      const r = Array.isArray(data) ? data[0] : null;
+      if (r?.o_status !== "ok") { toast(statusMsg(r?.o_status)); if (r) W.wallet = { ...W.wallet, coins: r.o_coins }; return; }
+      if (inFlight === 1) W.wallet = { ...W.wallet, coins: r.o_coins };   // the server's number, once the taps stop
+      const nk = to + "|" + Math.floor(Date.now() / 60000);
+      if (!notified.has(nk)) { notified.add(nk); window.Push?.notify("gift", { target: to }); } // 🔔 once a minute, not 100 times
+      if (!currentRoom && inFlight === 1) toast(t("w_sent"));
+    } catch (err) { console.error(err); toast(t("error") + (err?.message || err)); loadWallet().then(paintCoins); }
+    finally { inFlight--; paintCoins(); }
+  });
 }
 
 /* everyone in the room sees a paid gift (it comes from the server, so it can't be faked) */
@@ -228,7 +245,7 @@ function subscribePaidGifts() {
       const emoji = window.GiftFX?.emoji(row.gift_id) || "🎁";
       if (row.room_id && currentRoom && row.room_id === currentRoom.id) window.TopGifters?.soon(); // 👑 top gifters strip
       if (row.room_id && currentRoom && row.room_id === currentRoom.id && row.from_id !== me.id) {
-        window.GiftFX?.play(row.gift_id, row.from_name, row.to_name);
+        window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id);
         if (typeof addSystem === "function") addSystem(`🪙 ${row.from_name} ${emoji} → ${row.to_name}`);
         // in a battle, premium gifts count too (1 point per 10 coins)
         try {
@@ -241,7 +258,7 @@ function subscribePaidGifts() {
       if (row.to_id === me.id) {
         // a gift for me from outside my current room (e.g. from my profile): I still see the animation
         const shownInRoom = row.room_id && currentRoom && row.room_id === currentRoom.id;
-        if (!shownInRoom && row.from_id !== me.id) window.GiftFX?.play(row.gift_id, row.from_name, row.to_name);
+        if (!shownInRoom && row.from_id !== me.id) window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id);
         toast(t("w_got", { name: row.from_name || "", gift: emoji, d: fmtN(row.diamonds) }));
         loadWallet();
       }
