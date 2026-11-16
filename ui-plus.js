@@ -203,6 +203,45 @@ function partnerCard(p) {
   </article>`;
 }
 
+/* ---------- 📲 "install the app" banner ----------
+   Installed, the app opens full screen like a normal app: no browser bar and no web address on top. */
+(() => {
+  const W = {
+    en: { inst_t: "Install Talk Together", inst_s: "Opens like a real app: full screen, faster.", inst_b: "Install", inst_ios: "Tap ⎙ Share, then “Add to Home Screen”.", inst_later: "Later" },
+    ckb: { inst_t: "ئەپەکە دابەزێنە", inst_s: "وەک ئەپێکی ڕاستەقینە دەکرێتەوە: شاشەی تەواو و خێراتر.", inst_b: "دابەزاندن", inst_ios: "⎙ Share دابگرە، پاشان «Add to Home Screen».", inst_later: "دواتر" },
+    ar: { inst_t: "ثبّت التطبيق", inst_s: "يفتح كتطبيق حقيقي: شاشة كاملة وأسرع.", inst_b: "تثبيت", inst_ios: "اضغط ⎙ مشاركة ثم «إضافة إلى الشاشة الرئيسية».", inst_later: "لاحقاً" },
+  };
+  try { for (const [l, o] of Object.entries(W)) if (I18N[l]) Object.assign(I18N[l], o); } catch {}
+
+  const installed = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
+  let deferred = null;
+  const snoozed = () => { try { return Date.now() < Number(store.get("instLater") || 0); } catch { return false; } };
+
+  function show() {
+    if (installed() || snoozed() || document.getElementById("inst-bar")) return;
+    if (!deferred && !isIOS) return; // this browser can't install: nothing to offer
+    const bar = document.createElement("div");
+    bar.id = "inst-bar";
+    bar.innerHTML = `<img src="icons/icon-192.png" alt=""><div class="it"><b>${esc(t("inst_t"))}</b><span>${esc(deferred ? t("inst_s") : t("inst_ios"))}</span></div>
+      ${deferred ? `<button type="button" class="btn sm" id="inst-go">${esc(t("inst_b"))}</button>` : ""}
+      <button type="button" class="inst-x" id="inst-later" aria-label="${esc(t("inst_later"))}">✕</button>`;
+    document.body.appendChild(bar);
+    bar.querySelector("#inst-go")?.addEventListener("click", async () => {
+      bar.remove();
+      try { deferred.prompt(); await deferred.userChoice; } catch {}
+      deferred = null;
+    });
+    bar.querySelector("#inst-later").addEventListener("click", () => {
+      try { store.set("instLater", String(Date.now() + 3 * 24 * 3600e3)); } catch {} // ask again in 3 days
+      bar.remove();
+    });
+  }
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; setTimeout(show, 4000); });
+  window.addEventListener("appinstalled", () => document.getElementById("inst-bar")?.remove());
+  if (isIOS) setTimeout(show, 6000);
+})();
+
 /* ---------- 🏆 podium for the top 3 ---------- */
 function podiumHtml(rows, valueText) {
   if (!rows.length) return "";

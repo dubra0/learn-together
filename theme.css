@@ -290,6 +290,16 @@ html[dir="rtl"] .entry{border-radius:999px 0 0 999px;padding:5px 8px 5px 16px;an
 .rank-seg{background:var(--card);border:1px solid var(--line)}
 .rank-seg button.on{background:var(--soft);color:var(--brand);box-shadow:none}
 
+/* ---------- 📲 install banner ---------- */
+#inst-bar{position:fixed;inset-inline:10px;top:calc(10px + env(safe-area-inset-top));z-index:60;display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);animation:instin .35s ease-out;max-width:560px;margin:0 auto}
+#inst-bar img{width:42px;height:42px;border-radius:12px;flex:0 0 auto}
+#inst-bar .it{flex:1;min-width:0}
+#inst-bar .it b{display:block;font-weight:900;font-size:.95rem}
+#inst-bar .it span{display:block;color:var(--muted);font-size:.8rem;line-height:1.4}
+#inst-bar .inst-x{border:0;background:var(--soft);color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;flex:0 0 auto}
+@keyframes instin{from{transform:translateY(-120%);opacity:0}}
+
 #top-streak{display:none}  /* the streak is shown in the hello row of the rooms tab */
 
 /* ---------- toast + small things ---------- */
