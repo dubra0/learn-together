@@ -220,6 +220,8 @@ $("#photo-input").addEventListener("change", (e) => {
     composePhoto = f;
     $("#compose-img").src = URL.createObjectURL(f);
     $("#compose-preview").hidden = false;
+    composeEdit = null; showComposeEdit();
+    editComposeMedia();   // ✂️ open the editor right away (texts on the photo)
     return;
   }
   pendingPhoto = f;
@@ -834,7 +836,7 @@ function profileCardHtml(p, o) {
 function tileHtml(post) {
   const vid = safeVideo(post.video_url);
   return `<button type="button" class="ptile" data-ptile="${post.id}">
-    ${vid ? `<video src="${esc(vid)}#t=0.5" muted playsinline preload="metadata"></video><span class="pl">▶ ${fmtNum(post.view_count)}</span>`
+    ${vid ? `<video src="${esc(vid)}#t=${(Number(post.edit?.a) || 0) + 0.5}" muted playsinline preload="metadata"></video><span class="pl">▶ ${fmtNum(post.view_count)}</span>`
       : post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="" loading="lazy">`
       : `<div class="txt" dir="auto">${esc(post.body || "")}</div>`}
     <span class="lk">❤️ ${fmtNum(post.like_count)}</span></button>`;
@@ -2641,6 +2643,7 @@ function wireReels(root) {
     });
   });
   root.querySelectorAll("video.reel-video").forEach((v) => reelObserver().observe(v));
+  window.PostEditor?.decorate(root);   // ✂️ texts on the post + play only the trimmed part
 }
 /* play the video that is on screen, pause the others; count a view after 1.5 s of watching */
 let _reelObs = null;
@@ -2822,6 +2825,7 @@ function postHtml(post) {
     </div></article>`;
 }
 function wirePosts(root) {
+  window.PostEditor?.decorate(root);
   root.querySelectorAll("[data-like]").forEach((b) => b.addEventListener("click", () => toggleLike(Number(b.dataset.like))));
   root.querySelectorAll("[data-ptr]").forEach((b) => b.addEventListener("click", () => translateText(feedCache.get(Number(b.dataset.ptr))?.body || "")));
   root.querySelectorAll("[data-pmore]").forEach((b) => b.addEventListener("click", () => postMenu(Number(b.dataset.pmore))));
@@ -2952,11 +2956,49 @@ async function openPostSheet(post) {
 }
 
 /* ---- new post ---- */
-let composePhoto = null;
+let composePhoto = null, composeEdit = null;
+// ✂️ the editor: trim / sound / texts for the chosen video or photo (see post-editor.js)
+async function editComposeMedia() {
+  if (!window.PostEditor) return;
+  const isVid = !!composeVideo;
+  const src = isVid ? $("#compose-video").src : $("#compose-img").src;
+  if (!src || (!isVid && !composePhoto)) return;
+  if (isVid) $("#compose-video").pause();
+  const e = await PostEditor.open({ kind: isVid ? "video" : "image", src, edit: composeEdit });
+  if (e === null) return;               // ✕ = keep what was there before
+  composeEdit = Object.keys(e).length ? e : null;
+  showComposeEdit();
+}
+// the small preview in the new-post form shows the texts and plays the trimmed part
+function showComposeEdit() {
+  for (const id of ["#compose-preview", "#compose-vpreview"]) {
+    const box = $(id); if (!box) continue;
+    box.querySelector(".pe-ov")?.remove();
+    if (!box.querySelector(".pe-editbtn") && window.PostEditor) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "pe-editbtn"; b.textContent = t("pe_editBtn");
+      b.addEventListener("click", editComposeMedia);
+      box.appendChild(b);
+    }
+    const isThis = id === "#compose-vpreview" ? !!composeVideo : !!composePhoto;
+    if (isThis && composeEdit?.texts && window.PostEditor) {
+      const ov = document.createElement("div"); ov.className = "pe-ov";
+      ov.innerHTML = PostEditor.textsHtml(PostEditor.clean(composeEdit)?.texts || []);
+      box.insertBefore(ov, box.querySelector(".pe-editbtn"));
+    }
+  }
+  const v = $("#compose-video");
+  v.muted = true;
+  if (composeEdit?.a != null && v.readyState >= 1) { try { v.currentTime = composeEdit.a; } catch {} }
+}
+$("#compose-video").addEventListener("timeupdate", () => {
+  const v = $("#compose-video"), e = composeEdit;
+  if (e && e.b && (v.currentTime >= e.b || v.currentTime < (e.a || 0) - 0.3)) { try { v.currentTime = e.a || 0; } catch {} }
+});
 function openCompose() {
   closeSheet();
   if (profile?.banned) return toast(t("e_banned"));
-  composePhoto = null; clearComposeVideo();
+  composePhoto = null; composeEdit = null; clearComposeVideo(); showComposeEdit();
   $("#compose-text").value = ""; $("#compose-count").textContent = "0 / 500";
   $("#compose-preview").hidden = true;
   show("screen-compose");
@@ -2965,12 +3007,13 @@ function openCompose() {
 $("#new-post-btn").addEventListener("click", openCompose);
 $("#compose-text").addEventListener("input", () => { $("#compose-count").textContent = `${$("#compose-text").value.length} / 500`; });
 $("#compose-photo").addEventListener("click", () => pickPhoto("post"));
-$("#compose-remove").addEventListener("click", () => { composePhoto = null; $("#compose-preview").hidden = true; });
+$("#compose-remove").addEventListener("click", () => { composePhoto = null; composeEdit = null; showComposeEdit(); $("#compose-preview").hidden = true; });
 
 /* ---- video in a post (one video, max 50 MB and 3 minutes) ---- */
 let composeVideo = null;
 const VIDEO_MAX_MB = 50, VIDEO_MAX_SEC = 180;
 function clearComposeVideo() {
+  if (composeVideo) composeEdit = null;
   composeVideo = null;
   const v = $("#compose-video");
   if (v.src) { URL.revokeObjectURL(v.src); v.removeAttribute("src"); v.load(); }
@@ -2992,6 +3035,8 @@ $("#video-input").addEventListener("change", (e) => {
     composePhoto = null; $("#compose-preview").hidden = true;   // a post has a photo OR a video
     $("#compose-video").src = url;
     $("#compose-vpreview").hidden = false;
+    composeEdit = null; showComposeEdit();
+    editComposeMedia();   // ✂️ open the editor right away (trim, sound, texts)
   };
   probe.onerror = () => { URL.revokeObjectURL(url); toast(t("error") + "video"); };
   probe.src = url;
@@ -3024,8 +3069,15 @@ $("#compose-form").addEventListener("submit", async (e) => {
     }
     const row = { body: body || null, image_url };
     if (video_url) row.video_url = video_url;
-    const { error } = await sb.from("posts").insert(row);
+    const edit = window.PostEditor ? PostEditor.clean(composeEdit) : null;
+    if (edit) row.edit = edit;
+    let { error } = await sb.from("posts").insert(row);
+    // the database doesn't know the "edit" column yet (update-17 not run) → post without the edits
+    if (error && edit && /edit/i.test(error.message || "") && /column|schema/i.test(error.message || "")) {
+      delete row.edit; ({ error } = await sb.from("posts").insert(row));
+    }
     if (error) throw error;
+    composeEdit = null;
     clearComposeVideo();
     toast(t("posted"));
     feedKind = "all";
