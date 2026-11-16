@@ -393,7 +393,8 @@ async function renderRoomsTab() {
       <div class="hh-me">${avHtml(profile?.name, profile?.avatar_url, "sm")}<div><div class="hh-lbl">${esc(helloWord())}</div><div class="hh-name" dir="auto">${esc(name)}</div></div></div>
       <span class="hh-streak">🔥 ${profile?.streak || 0}</span>
     </div>
-    ${goalCardHtml()}` : `
+    ${goalCardHtml()}
+    ${typeof rcCardHtml === "function" ? rcCardHtml() : ""}` : `
     <div class="hero">
       <div class="hello">${esc(t("hello", { name }))}</div>
       <div class="sub">${esc(t("appTagline"))}</div>
@@ -410,6 +411,7 @@ async function renderRoomsTab() {
     roomFilter = c.dataset.f; renderRoomsTab();
   });
   if (hasGoal) startGoalWaves(box);
+  box.querySelector("#rc-open")?.addEventListener("click", () => openRandomCall()); // 📞 random call
   await loadRooms();
 }
 async function loadRooms() {

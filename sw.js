@@ -1,8 +1,8 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v7";
-const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
+const CACHE = "talk-together-v8";
+const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "random-call.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
   "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
 
