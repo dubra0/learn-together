@@ -227,6 +227,17 @@ function sendPaidGift(targets) {
       const r = Array.isArray(data) ? data[0] : null;
       if (r?.o_status !== "ok") { toast(statusMsg(r?.o_status)); if (r) W.wallet = { ...W.wallet, coins: r.o_coins }; return; }
       if (inFlight === 1) W.wallet = { ...W.wallet, coins: r.o_coins };   // the server's number, once the taps stop
+      // 👑 my level comes from coins I gave: did this gift take me to a new level?
+      if (profile) {
+        const before = coinLevel(profile.gift_coins || 0);
+        profile.gift_coins = (profile.gift_coins || 0) + g.price;
+        const after = coinLevel(profile.gift_coins);
+        if (after > before && currentRoom && typeof lk !== "undefined" && lk) {
+          window.LevelFX?.levelup(profile.name || "", after);
+          if (typeof addSystem === "function") addSystem(t("lx_sys", { name: profile.name || "", lv: after }));
+          try { lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "levelup", lv: after, coins: profile.gift_coins })), { reliable: true, topic: "lv" }); } catch {}
+        }
+      }
       const nk = to + "|" + Math.floor(Date.now() / 60000);
       if (!notified.has(nk)) { notified.add(nk); window.Push?.notify("gift", { target: to }); } // 🔔 once a minute, not 100 times
       if (!currentRoom && inFlight === 1) toast(t("w_sent"));

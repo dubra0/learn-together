@@ -762,7 +762,11 @@ function comboCss() {
 @media (prefers-reduced-motion:reduce){.gc,.gc .gx.pop,.gc.out{animation:none}}`;
   document.head.appendChild(s);
 }
-function bumpCombo(g, to, key) {
+function bumpCombo(g, to, key, fromId) {
+  // 👑 in a live: the sender's name + level badge + gift fly in like coming in (levels.js), x2, x3 …
+  if (window.LevelFX && document.getElementById("screen-room") && !document.getElementById("screen-room").hidden) {
+    return window.LevelFX.giftStrip(g.e, to.from, to.name, fromId) || 1;
+  }
   comboCss();
   let wrap = document.querySelector(".gc-wrap");
   if (!wrap) { wrap = document.createElement("div"); wrap.className = "gc-wrap"; document.body.appendChild(wrap); }
@@ -788,7 +792,7 @@ function playGift(id, fromName, toName, fromId) {
   try { audio(); } catch {}
   const g = { ...meta, say: sayFor(id) };
   const to = { name: toName || "", from: fromName || "" };
-  const n = bumpCombo(g, to, `${fromId || fromName}|${id}|${toName}`);
+  const n = bumpCombo(g, to, `${fromId || fromName}|${id}|${toName}`, fromId);
   if (meta.tier === "small") {
     combo.n = n; combo.id = id;
     if (n === 1) banner(g, to, 2200);

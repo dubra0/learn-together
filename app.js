@@ -708,7 +708,11 @@ const coinsOf = (x) => Number(typeof x === "object" && x ? x.gift_coins : x) || 
 const coinLevel = (x) => { const c = coinsOf(x); let L = 1; while (L < 100 && c >= LV_NEED[L + 1]) L++; return L; };
 // look of the badge: 1 plain · 10 bronze · 20 silver · 25 jade · 40 gold · 60 ruby · 80 diamond · 100 legend
 const lvKind = (L) => (L >= 100 ? 8 : L >= 80 ? 7 : L >= 60 ? 6 : L >= 40 ? 5 : L >= 25 ? 4 : L >= 20 ? 3 : L >= 10 ? 2 : 1);
-const lvHtml = (x) => { const L = coinLevel(x); return `<span class="lvb k${lvKind(L)}">${L >= 90 ? "👑" : L >= 80 ? "💎" : ""}Lv ${L}</span>`; };
+const lvHtml = (x) => {
+  const L = coinLevel(x);
+  if (L >= 20 && window.LevelFX) return LevelFX.badge(L);   // 👑 Lv 20–100: a new look every 2 levels (levels.js)
+  return `<span class="lvb k${lvKind(L)}">${L >= 90 ? "👑" : L >= 80 ? "💎" : ""}Lv ${L}</span>`;
+};
 const ringCls = (x) => "lr" + lvKind(coinLevel(x));
 async function followCounts(id) {
   const [a, b] = await Promise.all([
@@ -1557,6 +1561,12 @@ async function joinRoom(row, code) {
         if (topic === "battle" && msg?.type === "vote" && amHost()) onBattleVote(p, msg.side);
         if (topic === "battle" && msg?.type === "gift" && amHost()) onGiftReceived(p, msg);
         if (topic === "battle" && msg?.type === "giftshow" && p.identity === currentRoom?.host_id) showGift(msg);
+        // 🎉 someone in the room went up a level (they tell the room after their gift went through)
+        if (topic === "lv" && msg?.type === "levelup" && Number.isInteger(msg.lv) && msg.lv >= 2 && msg.lv <= 100 && !blocked.has(p.identity)) {
+          window.LevelFX?.levelup(p.name || t("guest"), msg.lv);
+          addSystem(t("lx_sys", { name: p.name || t("guest"), lv: msg.lv }));
+          const c = profileCache.get(p.identity); if (c && typeof msg.coins === "number") c.gift_coins = Math.max(c.gift_coins || 0, msg.coins);
+        }
         if (topic !== "control" || !msg) return;
         const fromHost = p.identity === currentRoom?.host_id;
         if (msg.type === "end" && fromHost) { toast(t("roomEnded")); leaveRoom(); }
