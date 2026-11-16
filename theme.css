@@ -331,7 +331,7 @@ html[dir="rtl"] .entry{border-radius:999px 0 0 999px;padding:5px 8px 5px 16px;an
 #top-streak{display:none}  /* the streak is shown in the hello row of the rooms tab */
 
 /* ---------- toast + small things ---------- */
-#toast{border-radius:18px}
+#toast{border-radius:18px;z-index:300}   /* above the story / editor screens, so their messages can be seen */
 #toast button{background:var(--brand);color:var(--brand-ink)}
 code{background:var(--soft)}
 #net-bar{background:linear-gradient(90deg,transparent,#2fd1b3,#ffb23f,transparent)!important;background-size:50% 100%!important;background-repeat:no-repeat!important}
