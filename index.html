@@ -897,6 +897,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
     <form class="s-form" id="chat-form">
       <input id="chat-input" maxlength="300" autocomplete="off" dir="auto" data-i18n-ph="chatPh">
       <button class="s-round" id="topic-btn" type="button" hidden title="topic">🃏</button>
+      <button class="s-round" id="bg-btn" type="button" hidden title="background" onclick="window.RoomLooks&&RoomLooks.openPicker()">🎨</button>
       <button class="s-round" id="hand-btn" type="button" hidden title="hand">✋</button>
       <button class="s-round" id="stage-down-btn" type="button" hidden title="leave stage">⬇️</button>
       <button class="s-round" id="gift-btn" type="button" hidden title="gift">🎁</button>
@@ -939,5 +940,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
 <script src="push.js"></script>
 <script src="random-call.js"></script>
 <script src="post-editor.js"></script>
+<script src="stories.js"></script>
+<script src="room-looks.js"></script>
 </body>
 </html>

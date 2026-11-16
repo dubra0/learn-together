@@ -903,6 +903,7 @@ function wireProfileCard(root, p, isMe, rerender) {
     if (b.dataset.fl !== "likes") openFollowsPage(p.id, b.dataset.fl);
   }));
   root.querySelectorAll("[data-pftab]").forEach((b) => b.addEventListener("click", () => { root._pfTab = b.dataset.pftab; renderPfContent(root); }));
+  window.Stories?.decorateProfile(root, p, isMe);   // 📸 ring on the photo → watch their story (friends or not)
   // my coins on the 💰 button
   const coinEl = root.querySelector(".pf2-coins");
   if (coinEl) {
@@ -1468,6 +1469,7 @@ async function joinRoom(row, code) {
   $("#room-status").textContent = t("connecting");
   $("#seats").innerHTML = ""; $("#audience").innerHTML = ""; $("#topic-box").innerHTML = ""; $("#chat-list").innerHTML = "";
   $("#mic-btn").disabled = true; $("#mic-btn").hidden = true; $("#hand-btn").hidden = true; $("#topic-btn").hidden = true;
+  if ($("#bg-btn")) $("#bg-btn").hidden = true;
   show("screen-room");
 
   try {
@@ -1646,6 +1648,7 @@ const AUD_SHOW = 12;
 function listenersSorted() { return allParticipants().filter((p) => !isSpeaker(p)).sort((a, b) => handUp(b) - handUp(a)); }
 function renderPeople() {
   if (!lk || !currentRoom) return;
+  window.RoomLooks?.sync();   // 🎨 the background the host chose
   const all = allParticipants();
   const host = all.find((p) => p.identity === currentRoom.host_id) || null;
   const stage = [host, ...all.filter((p) => isSpeaker(p) && p !== host)].slice(0, MAX_STAGE);
@@ -1679,6 +1682,7 @@ function renderPeople() {
 
   const local = lk.localParticipant, canSpeak = isSpeaker(local), micOn = local.isMicrophoneEnabled;
   $("#mic-btn").hidden = !canSpeak; $("#hand-btn").hidden = canSpeak; $("#topic-btn").hidden = !amHost();
+  if ($("#bg-btn")) $("#bg-btn").hidden = !amHost() || !window.RoomLooks || !!currentRoom?.video;
   $("#stage-down-btn").hidden = !canSpeak || amHost();
   const camOn = local.isCameraEnabled;
   $("#cam-btn").hidden = !(currentRoom.video && canSpeak);
@@ -2226,6 +2230,7 @@ $("#room-more").addEventListener("click", () => {
   openSheet(`<div class="menu" style="box-shadow:none">
     <button type="button" id="rm-share">🔗 ${esc(t("share"))}</button>
     ${amHost() ? `<button type="button" id="rm-invite">🎙️ ${esc(t("inviteToStage"))}</button>` : ""}
+    ${amHost() && window.RoomLooks && !currentRoom?.video ? `<button type="button" id="rm-bg">${esc(t("rl_menu"))}</button>` : ""}
     ${amHost() && currentRoom?.video && !battleInfo() ? `<button type="button" id="rm-battle">⚔️ ${esc(t("battle"))}</button>` : ""}
     ${amHost() ? `<button type="button" id="rm-end" class="danger">⏹ ${esc(t("endRoom"))}</button>`
                : `<button type="button" id="rm-report" class="danger">🚩 ${esc(t("reportRoom"))}</button>`}
@@ -2235,6 +2240,7 @@ $("#room-more").addEventListener("click", () => {
   $("#rm-vstats")?.addEventListener("click", () => { closeSheet(); openVideoStats(); });
   $("#rm-share").addEventListener("click", () => { closeSheet(); $("#room-share").click(); });
   $("#rm-invite")?.addEventListener("click", openInvitePicker);
+  $("#rm-bg")?.addEventListener("click", () => { closeSheet(); RoomLooks.openPicker(); });
   $("#rm-battle")?.addEventListener("click", openBattlePicker);
   $("#rm-end")?.addEventListener("click", () => { closeSheet(); endRoom(true); });
   $("#rm-report")?.addEventListener("click", () => openReport({ roomId: currentRoom?.id }));
@@ -2250,6 +2256,7 @@ async function leaveRoom(stay) {
   for (const [id] of videoEls) dropVideoEl(id);
   camFacing = "user";
   const room = lk; lk = null; currentRoom = null; currentCode = null; replyTo = null; pendingInvites.clear();
+  window.RoomLooks?.reset();
   if (room) { try { await room.disconnect(); } catch {} }
   $("#audio-sink").innerHTML = ""; $("#chat-list").innerHTML = ""; $("#audio-unlock").hidden = true; $("#reply-bar").hidden = true;
   closeSheet();
@@ -2353,11 +2360,15 @@ async function renderChatsTab() {
   await loadProfiles(friends);
   if (seq !== chatsSeq) return;
   const strip = $("#friends-strip");
-  strip.innerHTML = friends.length ? friends.map((id) => {
+  if (window.Stories) {
+    // 📸 stories row: my story ＋ then friends with new stories, then the other friends
+    await Stories.fillRow(strip);
+    if (seq !== chatsSeq) return;
+  } else strip.innerHTML = friends.length ? friends.map((id) => {
     const p = profileCache.get(id) || { name: t("guest") };
     return `<button type="button" data-dm="${esc(id)}">${avHtml(p.name, p.avatar_url, "md")}<span class="fn" dir="auto">${esc(p.name)}</span></button>`;
   }).join("") : `<div class="muted small" style="padding:6px 2px">${esc(t("noFriendsYet"))}</div>`;
-  strip.querySelectorAll("[data-dm]").forEach((el) => el.addEventListener("click", () => openDm(el.dataset.dm)));
+  if (!window.Stories) strip.querySelectorAll("[data-dm]").forEach((el) => el.addEventListener("click", () => openDm(el.dataset.dm)));
   $("#chat-search").addEventListener("input", (e) => {
     const q = e.target.value.trim().toLowerCase();
     box.querySelectorAll("#inbox-list [data-dm], #friends-strip [data-dm]").forEach((el) => {
@@ -2386,7 +2397,7 @@ async function fillInbox(box) {
   }
   box.innerHTML = ids.length ? ids.map((id) => {
     const c = convs.get(id), p = profileCache.get(id) || { name: t("guest") };
-    const snip = c.last.body ? (sharedPostId(c.last.body) ? `📌 ${t("sharedPost")}` : c.last.body) : `🎤 ${t("voiceMsg")}`;
+    const snip = c.last.body ? (sharedPostId(c.last.body) ? `📌 ${t("sharedPost")}` : window.Stories?.snippet(c.last.body) || c.last.body) : `🎤 ${t("voiceMsg")}`;
     return `<div class="row-item" data-dm="${esc(id)}">${avHtml(p.name, p.avatar_url, "sm")}
       <div class="info"><div class="name" dir="auto">${esc(p.name)} ${flag(p.country)}</div>
         <div class="meta" dir="auto">${c.last.sender === me.id ? "↪ " : ""}${esc(snip)}</div></div>
@@ -2394,6 +2405,7 @@ async function fillInbox(box) {
         ${c.unread ? `<span class="unread">${c.unread}</span>` : ""}</div></div>`;
   }).join("") : `<div class="empty"><span class="big">💬</span>${esc(t("noChats"))}<br><small>${esc(t("chatsHelp"))}</small></div>`;
   box.querySelectorAll("[data-dm]").forEach((el) => el.addEventListener("click", () => openDm(el.dataset.dm)));
+  window.Stories?.ringList(box);   // 📸 ring on the photo of people with a story
 }
 
 async function openDm(otherId) {
@@ -2442,6 +2454,8 @@ function appendDm(m) {
   if (m.audio_path) {
     div.innerHTML = `<div class="b">🎤 ${esc(t("voiceMsg"))}${m.audio_secs ? ` · ${m.audio_secs}s` : ""}<audio controls preload="none"></audio>${tm}</div>`;
     sb.storage.from("voice-notes").createSignedUrl(m.audio_path, 3600).then(({ data }) => { if (data?.signedUrl) div.querySelector("audio").src = data.signedUrl; });
+  } else if (window.Stories && Stories.chatCard(div, m, mine, tm)) {
+    // 📸 a reply to a story: the story picture + the reply
   } else if (sharedPostId(m.body)) {
     const pid = sharedPostId(m.body);
     div.innerHTML = `<div class="b"><div class="dm-post"><div class="th">📌</div><div class="tx muted">…</div></div>${tm}</div>`;
