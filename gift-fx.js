@@ -763,10 +763,10 @@ function comboCss() {
 @media (prefers-reduced-motion:reduce){.gc,.gc .gx.pop,.gc.out{animation:none}}`;
   document.head.appendChild(s);
 }
-function bumpCombo(g, to, key, fromId) {
+function bumpCombo(g, to, key, fromId, add = 1) {
   // 👑 in a live: the sender's name + level badge + gift fly in like coming in (levels.js), x2, x3 …
   if (window.LevelFX && document.getElementById("screen-room") && !document.getElementById("screen-room").hidden) {
-    return window.LevelFX.giftStrip(g.e, to.from, to.name, fromId) || 1;
+    return window.LevelFX.giftStrip(g.e, to.from, to.name, fromId, add) || 1;
   }
   comboCss();
   let wrap = document.querySelector(".gc-wrap");
@@ -780,7 +780,7 @@ function bumpCombo(g, to, key, fromId) {
     wrap.appendChild(el);
     c = { n: 0, el, timer: 0 }; combos.set(key, c);
   }
-  c.n++;
+  c.n += add;
   const gx = c.el.querySelector(".gx");
   gx.textContent = "x" + c.n;
   gx.classList.remove("pop"); void gx.offsetWidth; gx.classList.add("pop");
@@ -788,20 +788,33 @@ function bumpCombo(g, to, key, fromId) {
   c.timer = setTimeout(() => { c.el.classList.add("out"); setTimeout(() => { c.el.remove(); if (combos.get(key) === c) combos.delete(key); }, 420); }, 3500);
   return c.n;
 }
-function playGift(id, fromName, toName, fromId) {
+/* ⚡ never lag, even with 50,000 gifts:
+   - under 100 coins (🌹 ❤️ 👏): only the small name strip, no big animation at all
+   - other small gifts: their little animation at most every 0.6 s (the counter still counts every one)
+   - big gifts: one at a time, at most 20 waiting; more than that are only counted (x…), not piled up */
+const SMALL_MAX = 100, BIG_WAIT_MAX = 20;
+let lastSmall = 0;
+function playGift(id, fromName, toName, fromId, opts) {
   const meta = BY_ID[id]; if (!meta) return;
-  try { audio(); } catch {}
+  const qty = Math.max(1, Math.min(10000, Math.floor(Number(opts?.qty) || 1)));
+  const price = Number(opts?.price);
   const g = { ...meta, say: sayFor(id) };
   const to = { name: toName || "", from: fromName || "" };
-  const n = bumpCombo(g, to, `${fromId || fromName}|${id}|${toName}`, fromId);
+  const n = bumpCombo(g, to, `${fromId || fromName}|${id}|${toName}`, fromId, qty);
+  if (Number.isFinite(price) && price > 0 && price < SMALL_MAX) return;   // cheap gift: the strip is enough
+  try { audio(); } catch {}
   if (meta.tier === "small") {
-    combo.n = n; combo.id = id;
-    if (n === 1) banner(g, to, 2200);
+    const now = performance.now();
+    if (now - lastSmall < 600) return;
+    lastSmall = now; combo.n = n; combo.id = id;
     g.run(g, to, n);
     return;
   }
-  // big gifts: every single one plays, one after another (100 lions = 100 lions)
-  if (pending > 500) return;   // safety for the phone's memory only
+  // big gifts: one after another, never more than BIG_WAIT_MAX waiting
+  const add = Math.min(qty, Math.max(0, BIG_WAIT_MAX - pending));
+  for (let i = 0; i < add; i++) queueBig(g, to);
+}
+function queueBig(g, to) {
   pending++;
   queueP = queueP.then(() => g.run(g, to)).catch((e) => console.warn("gift fx", e)).finally(() => pending--);
 }

@@ -132,14 +132,17 @@
 
   /* 🎁 a gift: name + badge + gift fly in, ~2 s; more of the same counts up */
   const strips = new Map();
-  function giftStrip(emoji, fromName, toName, fromId) {
+  function giftStrip(emoji, fromName, toName, fromId, add = 1) {
     const h = host(); if (!h) return 0;
+    add = Math.max(1, Math.floor(add) || 1);
     const key = `${fromId || fromName}|${emoji}|${toName}`;
     let s = strips.get(key);
     if (s && s.el.isConnected && !s.el.classList.contains("out")) {
-      s.n++;
-      const x = s.el.querySelector(".ggx"); x.textContent = "x" + s.n; x.hidden = false;
-      x.classList.remove("pop"); void x.offsetWidth; x.classList.add("pop");
+      s.n += add;
+      const x = s.el.querySelector(".ggx"); x.textContent = "x" + s.n.toLocaleString("en-US"); x.hidden = false;
+      // the little bounce at most every 120 ms, so thousands of taps stay smooth
+      const now = performance.now();
+      if (!s.popAt || now - s.popAt > 120) { s.popAt = now; x.classList.remove("pop"); void x.offsetWidth; x.classList.add("pop"); }
     } else {
       h.querySelectorAll(".lx-gs").forEach((e) => { if (h.querySelectorAll(".lx-gs").length >= 2) e.remove(); });
       const who = fromId === me?.id ? profile : profileCache?.get?.(fromId);
@@ -149,10 +152,10 @@
       el.style.setProperty("--a", P.a); el.style.setProperty("--b", P.b); el.style.setProperty("--c", P.c);
       el.innerHTML = `<div class="strip${L >= 40 ? " lg" : ""}">${avHtml(fromName || "?", who?.avatar_url, "xs")}
         <span class="tx"><span class="bd">${L >= 20 ? badge(L) : ""}</span> <span dir="auto">${nm(fromName)}</span><small dir="auto">${esc(t("lx_gift", { name: String(toName || "").slice(0, 30) }))}</small></span>
-        <span class="gge">${emoji}</span><span class="ggx" hidden>x1</span></div>`;
+        <span class="gge">${emoji}</span><span class="ggx"${add > 1 ? "" : " hidden"}>x${add.toLocaleString("en-US")}</span></div>`;
       el.style.top = 22 + h.querySelectorAll(".lx-gs").length * 9 + "%";
       h.appendChild(el);
-      s = { el, n: 1, timer: 0 }; strips.set(key, s);
+      s = { el, n: add, timer: 0 }; strips.set(key, s);
       // a viewer may not have this person's level yet: fetch it and add the badge
       if (!who && fromId && typeof getProfile === "function") getProfile(fromId).then((p) => {
         const L2 = p ? lvOf(p) : 0; if (L2 >= 20 && el.isConnected) { el.querySelector(".bd").innerHTML = badge(L2); const P2 = pal(L2); el.style.setProperty("--a", P2.a); el.style.setProperty("--b", P2.b); el.style.setProperty("--c", P2.c); }

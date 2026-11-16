@@ -197,9 +197,12 @@ function renderPaid(targets) {
   }));
   $("#pg-send").addEventListener("click", () => sendPaidGift(targets));
 }
-/* 🔢 tap again and again: each tap sends one more gift right away (x1, x2, x3 …).
-   The sends go to the server one after another in the background, so fast taps are never lost. */
+/* 🔢 tap again and again: each tap counts at once on my screen (x1, x2, x3 …).
+   Fast taps are grouped: "100 × 🌹" goes to the server as ONE send (send_gifts, update-21),
+   so 100 or 50,000 taps never flood the server or the other phones in the live. */
 let sendChain = Promise.resolve(), inFlight = 0, notified = new Set();
+const GB = new Map();   // taps waiting to be sent: "to|gift|room" → { g, to, toName, room, qty, timer }
+let batchOk = true;     // false = the server doesn't have send_gifts yet (update-21 not run): send one by one
 function paintCoins() {
   const coins = W.wallet?.coins || 0;
   const c = document.querySelector("#sheet .pg-coins"); if (c) c.textContent = `🪙 ${fmtN(coins)}`;
@@ -213,51 +216,84 @@ function sendPaidGift(targets) {
   if ((W.wallet?.coins || 0) < g.price) return toast(t("w_noCoins"));
   const to = W.target, room = currentRoom?.id || null;
   const toName = targets.find((x) => x.id === to)?.name || "";
-  // show it now (my coins go down at once, the animation and the counter start at once)
+  // show it now (my coins go down at once, the counter goes up at once)
   W.wallet = { ...W.wallet, coins: (W.wallet?.coins || 0) - g.price };
   paintCoins();
-  window.GiftFX?.play(g.id, profile?.name || "", toName, me?.id); // I see mine right away; others get it from the server
-  if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji} → ${toName}`);
+  window.GiftFX?.play(g.id, profile?.name || "", toName, me?.id, { qty: 1, price: g.price }); // others get it from the server
   const b = $("#pg-send"); if (b) { b.classList.remove("pg-pulse"); void b.offsetWidth; b.classList.add("pg-pulse"); }
+  // group the taps: send when the finger stops for a moment (or every 500 taps)
+  const key = `${to}|${g.id}|${room}`;
+  let q = GB.get(key);
+  if (!q) { q = { g, to, toName, room, qty: 0, timer: 0 }; GB.set(key, q); }
+  q.qty++;
+  clearTimeout(q.timer);
+  if (q.qty >= 500) flushGifts(key); else q.timer = setTimeout(() => flushGifts(key), 350);
+}
+const waitingCost = () => { let s = 0; for (const q of GB.values()) s += q.qty * q.g.price; return s; };
+function flushGifts(key) {
+  const q = GB.get(key); if (!q) return;
+  GB.delete(key); clearTimeout(q.timer);
   inFlight++;
-  sendChain = sendChain.then(async () => {
-    try {
-      const { data, error } = await sb.rpc("send_gift", { p_to: to, p_gift: g.id, p_room: room });
-      if (error) throw error;
-      const r = Array.isArray(data) ? data[0] : null;
-      if (r?.o_status !== "ok") { toast(statusMsg(r?.o_status)); if (r) W.wallet = { ...W.wallet, coins: r.o_coins }; return; }
-      if (inFlight === 1) W.wallet = { ...W.wallet, coins: r.o_coins };   // the server's number, once the taps stop
-      // 👑 my level comes from coins I gave: did this gift take me to a new level?
-      if (profile) {
-        const before = coinLevel(profile.gift_coins || 0);
-        profile.gift_coins = (profile.gift_coins || 0) + g.price;
-        const after = coinLevel(profile.gift_coins);
-        if (after > before && currentRoom && typeof lk !== "undefined" && lk) {
-          window.LevelFX?.levelup(profile.name || "", after);
-          if (typeof addSystem === "function") addSystem(t("lx_sys", { name: profile.name || "", lv: after }));
-          try { lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "levelup", lv: after, coins: profile.gift_coins })), { reliable: true, topic: "lv" }); } catch {}
-        }
+  sendChain = sendChain.then(() => sendBatch(q)).finally(() => { inFlight--; paintCoins(); });
+}
+async function sendBatch(q) {
+  const { g, to, toName, room } = q;
+  let sent = 0, coinsNow = null, status = "ok";
+  try {
+    if (batchOk) {
+      const { data, error } = await sb.rpc("send_gifts", { p_to: to, p_gift: g.id, p_room: room, p_qty: q.qty });
+      if (error && /send_gifts|PGRST202|function/i.test((error.code || "") + (error.message || ""))) batchOk = false;
+      else if (error) throw error;
+      else { const r = Array.isArray(data) ? data[0] : null; status = r?.o_status || "error"; coinsNow = r?.o_coins ?? null; sent = r?.o_qty || 0; }
+    }
+    if (!batchOk) {   // older server: one by one (works, just slower)
+      for (let i = 0; i < q.qty; i++) {
+        const { data, error } = await sb.rpc("send_gift", { p_to: to, p_gift: g.id, p_room: room });
+        if (error) throw error;
+        const r = Array.isArray(data) ? data[0] : null;
+        status = r?.o_status || "error"; coinsNow = r?.o_coins ?? coinsNow;
+        if (status !== "ok") break;
+        sent++;
       }
-      const nk = to + "|" + Math.floor(Date.now() / 60000);
-      if (!notified.has(nk)) { notified.add(nk); window.Push?.notify("gift", { target: to }); } // 🔔 once a minute, not 100 times
-      if (!currentRoom && inFlight === 1) toast(t("w_sent"));
-    } catch (err) { console.error(err); toast(t("error") + (err?.message || err)); loadWallet().then(paintCoins); }
-    finally { inFlight--; paintCoins(); }
-  });
+    }
+    // my coins = the server's number, minus taps that are still waiting to be sent
+    if (coinsNow != null) W.wallet = { ...W.wallet, coins: Math.max(0, coinsNow - waitingCost()) };
+    if (status !== "ok" && !sent) return toast(statusMsg(status));
+    if (sent < q.qty) toast(t("w_noCoins"));
+    if (!sent) return;
+    if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji}${sent > 1 ? " ×" + sent : ""} → ${toName}`);
+    // 👑 my level comes from coins I gave: did these gifts take me to a new level?
+    if (profile) {
+      const before = coinLevel(profile.gift_coins || 0);
+      profile.gift_coins = (profile.gift_coins || 0) + g.price * sent;
+      const after = coinLevel(profile.gift_coins);
+      if (after > before && currentRoom && typeof lk !== "undefined" && lk) {
+        window.LevelFX?.levelup(profile.name || "", after);
+        if (typeof addSystem === "function") addSystem(t("lx_sys", { name: profile.name || "", lv: after }));
+        try { lk.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "levelup", lv: after, coins: profile.gift_coins })), { reliable: true, topic: "lv" }); } catch {}
+      }
+    }
+    const nk = to + "|" + Math.floor(Date.now() / 60000);
+    if (!notified.has(nk)) { notified.add(nk); window.Push?.notify("gift", { target: to }); } // 🔔 once a minute, not 100 times
+    if (!currentRoom) toast(t("w_sent"));
+  } catch (err) { console.error(err); toast(t("error") + (err?.message || err)); loadWallet().then(paintCoins); }
 }
 
 /* everyone in the room sees a paid gift (it comes from the server, so it can't be faked) */
-let giftSub = null;
-function subscribePaidGifts() {
-  if (giftSub || !sb || !me) return;
-  giftSub = sb.channel("paid-gifts")
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "gift_sends" }, (payload) => {
-      const row = payload.new; if (!row) return;
-      const emoji = window.GiftFX?.emoji(row.gift_id) || "🎁";
+/* Each phone listens only to: gifts in the live it is in + gifts sent to me.
+   (Before, every phone heard every gift in the whole app — a big gift storm slowed everyone down.) */
+let giftSub = null, roomSub = null, roomSubId = null;
+const seenGift = new Set();
+function onGiftRow(payload) {
+  const row = payload.new; if (!row || seenGift.has(row.id)) return;
+  seenGift.add(row.id); if (seenGift.size > 500) seenGift.delete(seenGift.values().next().value);
+  const qty = Math.max(1, Number(row.qty) || 1), unit = Math.round((Number(row.price) || 0) / qty);
+  const emoji = window.GiftFX?.emoji(row.gift_id) || "🎁";
+  {
       if (row.room_id && currentRoom && row.room_id === currentRoom.id) window.TopGifters?.soon(); // 👑 top gifters strip
       if (row.room_id && currentRoom && row.room_id === currentRoom.id && row.from_id !== me.id) {
-        window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id);
-        if (typeof addSystem === "function") addSystem(`🪙 ${row.from_name} ${emoji} → ${row.to_name}`);
+        window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id, { qty, price: unit });
+        if (typeof addSystem === "function") addSystem(`🪙 ${row.from_name} ${emoji}${qty > 1 ? " ×" + qty : ""} → ${row.to_name}`);
         // in a battle, premium gifts count too (1 point per 10 coins)
         try {
           if (typeof amHost === "function" && amHost() && typeof hostBattle !== "undefined" && hostBattle && !hostBattle.done) {
@@ -269,15 +305,31 @@ function subscribePaidGifts() {
       if (row.to_id === me.id) {
         // a gift for me from outside my current room (e.g. from my profile): I still see the animation
         const shownInRoom = row.room_id && currentRoom && row.room_id === currentRoom.id;
-        if (!shownInRoom && row.from_id !== me.id) window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id);
-        toast(t("w_got", { name: row.from_name || "", gift: emoji, d: fmtN(row.diamonds) }));
-        loadWallet();
+        if (!shownInRoom && row.from_id !== me.id) window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id, { qty, price: unit });
+        toast(t("w_got", { name: row.from_name || "", gift: `${emoji}${qty > 1 ? " ×" + qty : ""}`, d: fmtN(row.diamonds) }));
+        clearTimeout(onGiftRow._w); onGiftRow._w = setTimeout(loadWallet, 1500);   // once after a burst, not 100 times
       }
-    })
+  }
+}
+function subscribePaidGifts() {
+  if (giftSub || !sb || !me) return;
+  giftSub = sb.channel("gifts-to-me")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "gift_sends", filter: `to_id=eq.${me.id}` }, onGiftRow)
+    .subscribe();
+}
+// the live I'm in: listen to its gifts only while I'm there
+function syncRoomGifts() {
+  const id = (typeof currentRoom !== "undefined" && currentRoom?.id) || null;
+  if (id === roomSubId) return;
+  if (roomSub) { try { sb.removeChannel(roomSub); } catch {} roomSub = null; }
+  roomSubId = id;
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+  roomSub = sb.channel("gifts-room-" + id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "gift_sends", filter: `room_id=eq.${id}` }, onGiftRow)
     .subscribe();
 }
 // start once the app has signed in
-const wWait = setInterval(() => { if (typeof sb !== "undefined" && sb && typeof me !== "undefined" && me) { clearInterval(wWait); subscribePaidGifts(); } }, 1000);
+const wWait = setInterval(() => { if (typeof sb !== "undefined" && sb && typeof me !== "undefined" && me) { clearInterval(wWait); subscribePaidGifts(); setInterval(syncRoomGifts, 1000); } }, 1000);
 
 /* =====================================================================
    💰 Wallet screen
