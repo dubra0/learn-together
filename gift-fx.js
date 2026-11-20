@@ -462,15 +462,29 @@ void main(){
   if (spill >= 1.0) c.g = min(c.g, m); // full clean-up (fire / glow clips): no green tint left anywhere
   gl_FragColor = vec4(c*a, a);
 }`;
-async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0] } = {}) {
+async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0 } = {}) {
   const video = document.createElement("video");
-  video.src = src; video.muted = true; video.playsInline = true; video.crossOrigin = "anonymous"; video.preload = "auto";
-  await new Promise((res, rej) => { video.oncanplay = res; video.onerror = () => rej(new Error("video")); });
+  // iPhone: muted + playsinline must be set as attributes BEFORE the source, or Safari refuses to play it inline
+  video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
+  video.muted = true; video.playsInline = true; video.crossOrigin = "anonymous"; video.preload = "auto";
+  video.src = src;
+  // iPhone Safari does not load a video until play() is asked for, so "canplay" never came and the gift waited forever.
+  // Start it now (muted is always allowed), pause right away, and give up after 8 s so other gifts are never blocked.
+  await new Promise((res, rej) => {
+    const done = () => { clearTimeout(tm); video.pause(); res(); };
+    const tm = setTimeout(() => rej(new Error("video timeout")), 8000);
+    video.addEventListener("loadeddata", done, { once: true });
+    video.onerror = () => { clearTimeout(tm); rej(new Error("video")); };
+    video.play().catch(() => {}); // Low Power Mode may refuse; loadeddata still arrives on most phones
+  });
+  video.currentTime = 0;
   // keep the clip's real proportions at the asked height; the animal (at focusX across the frame) is centred on screen
   const ar = (mode === "packed" ? video.videoWidth / 2 : video.videoWidth) / video.videoHeight;
   const cvs = el("tg-keyed", null, { position: "absolute", left: "50%", bottom, width: `calc(${height} * ${ar.toFixed(4)})`, aspectRatio: `${ar.toFixed(4)}`,
     transform: `translateX(-${(focusX * 100).toFixed(1)}%)`, filter: "drop-shadow(0 20px 40px rgba(0,0,0,.6))" });
   const can = document.createElement("canvas"); can.style.cssText = "width:100%;height:100%;display:block"; cvs.appendChild(can);
+  // soften the clip's top edge (smoke that reaches the top of the frame would otherwise end in a straight line)
+  if (fadeTop) { const m = `linear-gradient(to bottom, transparent 0, #000 ${fadeTop}%)`; can.style.webkitMaskImage = m; can.style.maskImage = m; }
   can.width = mode === "packed" ? video.videoWidth / 2 : video.videoWidth; can.height = video.videoHeight;
   const gl = can.getContext("webgl", { premultipliedAlpha: true, alpha: true });
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; };
@@ -528,7 +542,8 @@ async function volcanoGift(g, to) {
   setTimeout(() => { play("fireworks"); rays(3200); sparks(W / 2, H * 0.88, "#ff7a2a", 120, 640); shake(1200); }, 1800);
   setTimeout(() => { sparks(W / 2, H * 0.9, "#ffcf4d", 80, 520); }, 5200);
   // the clip's green is rgb(7,165,8); it has thin black bars (8 px top, 4 px bottom of 464) that are skipped
-  try { await playKeyedVideo(g.video, { height: "100vh", bottom: "0", focusX: 0.5, maxMs: 9800, key: [0.027, 0.647, 0.031], crop: [10 / 464, 6 / 464], sim: 0.14, smooth: 0.1, spill: 1 }); }
+  // a little further away: smaller, sitting on the horizon, so the whole eruption is in view
+  try { await playKeyedVideo(g.video, { height: "64vh", bottom: "6vh", focusX: 0.5, maxMs: 9800, fadeMs: 700, fadeTop: 22, key: [0.027, 0.647, 0.031], crop: [10 / 464, 6 / 464], sim: 0.14, smooth: 0.1, spill: 1 }); }
   catch { await new Promise((r) => setTimeout(r, 3000)); } // video missing: the glow, sparks and sound still play
 }
 
