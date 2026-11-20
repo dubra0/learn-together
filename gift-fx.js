@@ -66,8 +66,8 @@ const GIFTS = {
     { id: "rooster", e: "🐓", run: roosterGift, s: "crow" },
     { id: "dolphin", e: "🐬", run: dolphinGift, s: "dolphin" },
     { id: "eagle", e: "🦅", run: realEagleGift, s: "screech", video: "gifts/eagle.mp4" },
-    { id: "horse", e: "🐎", run: horseGift, s: "neigh" },
-    { id: "elephant", e: "🐘", run: elephantGift, s: "trumpet" },
+    { id: "horse", e: "🐎", run: realHorseGift, s: "neigh", video: "gifts/horse.mp4" },
+    { id: "elephant", e: "🐘", run: realElephantGift, s: "trumpet", video: "gifts/elephant.mp4" },
     { id: "lion", e: "🦁", run: lionGift, s: "roar" },
   ],
   special: [
@@ -446,7 +446,7 @@ async function crownGift(g, to) {
    - "packed alpha" MP4  → colour on the left half, transparency mask on the right half
      (the format professional gift designers export)                                   */
 const KEY_VS = `attribute vec2 p; varying vec2 uv0; void main(){ uv0 = vec2((p.x+1.)/2., (1.-p.y)/2.); gl_Position = vec4(p,0.,1.); }`;
-const KEY_FS = `precision mediump float; varying vec2 uv0; uniform sampler2D tex; uniform int mode; uniform vec3 key; uniform float sim, smoothv, spill; uniform vec2 crop;
+const KEY_FS = `precision mediump float; varying vec2 uv0; uniform sampler2D tex; uniform int mode; uniform vec3 key; uniform float sim, smoothv, spill; uniform vec2 crop; uniform int kmode; uniform vec2 dom;
 vec2 cbcr(vec3 c){ return vec2(-0.1687*c.r-0.3313*c.g+0.5*c.b, 0.5*c.r-0.4187*c.g-0.0813*c.b); }
 void main(){
   // crop = black bars to skip at the top and bottom of the clip (fractions of its height)
@@ -457,12 +457,14 @@ void main(){
   vec3 c = texture2D(tex, uv).rgb;
   float d = distance(cbcr(c), cbcr(key));
   float a = smoothstep(sim, sim + smoothv, d);
+  // "how much greener than red/blue" — removes every shade of green at once (dark wall + light floor)
+  if (kmode == 1) a = 1.0 - smoothstep(dom.x, dom.y, c.g - max(c.r, c.b));
   // remove green light spilling onto fur edges
   float m = max(c.r, c.b); if (c.g > m) c.g = mix(c.g, m, spill * (1.0 - a*0.5));
   if (spill >= 1.0) c.g = min(c.g, m); // full clean-up (fire / glow clips): no green tint left anywhere
   gl_FragColor = vec4(c*a, a);
 }`;
-async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0, withSound = false } = {}) {
+async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0, withSound = false, dominance = null } = {}) {
   const video = document.createElement("video");
   // iPhone: muted + playsinline must be set as attributes BEFORE the source, or Safari refuses to play it inline
   video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
@@ -506,6 +508,8 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   gl.uniform1i(gl.getUniformLocation(prog, "mode"), mode === "packed" ? 1 : 0);
   gl.uniform3fv(gl.getUniformLocation(prog, "key"), key || [0, 1, 0]);
   gl.uniform2fv(gl.getUniformLocation(prog, "crop"), crop);
+  gl.uniform1i(gl.getUniformLocation(prog, "kmode"), dominance ? 1 : 0);
+  gl.uniform2fv(gl.getUniformLocation(prog, "dom"), dominance || [0.08, 0.18]);
   gl.uniform1f(gl.getUniformLocation(prog, "sim"), sim); gl.uniform1f(gl.getUniformLocation(prog, "smoothv"), smooth); gl.uniform1f(gl.getUniformLocation(prog, "spill"), spill);
   gl.viewport(0, 0, can.width, can.height); gl.clearColor(0, 0, 0, 0);
   let raf = 0;
@@ -551,6 +555,26 @@ async function realEagleGift(g, to) {
   // a little further away: smaller, a bit up from the bottom, and never wider than the phone (both wings in view)
   try { await playKeyedVideo(g.video, { height: "min(54vh, 62vw)", bottom: "14vh", focusX: 0.55, maxMs: 10100, fadeMs: 600, withSound: true, key: [0.075, 0.627, 0.078], sim: 0.12, smooth: 0.1, spill: 1 }); } // the clip's green, measured (iPhone can't measure it itself)
   catch { await eagleGift(g, to); } // video missing or blocked: the drawn eagle instead
+}
+
+// 🐎 real black horse: runs in and rears up. Its studio has a dark green wall AND a light green floor,
+// so it is cut out by "greener than red/blue" instead of one key colour.
+async function realHorseGift(g, to) {
+  banner(g, to, 8400);
+  glow("rgba(255,210,120,.3)", 8400, 0.7);
+  setTimeout(() => { rays(2600); shake(700); sparks(W / 2, H * 0.6, "#ffe2a0", 60, 460); }, 4200); // as it rears up
+  try { await playKeyedVideo(g.video, { height: "min(58vh, 66vw)", bottom: "10vh", focusX: 0.5, maxMs: 8000, fadeMs: 600, withSound: true, dominance: [0.06, 0.16], spill: 1 }); }
+  catch { await horseGift(g, to); }
+}
+
+// 🐘 real elephant charging through dust
+async function realElephantGift(g, to) {
+  banner(g, to, 8400);
+  glow("rgba(210,160,90,.35)", 8400, 0.8);
+  setTimeout(() => shake(900), 1200);
+  setTimeout(() => { shake(1400); sparks(W / 2, H * 0.8, "#d9b27a", 90, 520); }, 3400); // the dust cloud
+  try { await playKeyedVideo(g.video, { height: "min(60vh, 70vw)", bottom: "8vh", focusX: 0.5, maxMs: 8000, fadeMs: 600, withSound: true, key: [0.082, 0.43, 0.067], sim: 0.12, smooth: 0.1, spill: 1 }); }
+  catch { await elephantGift(g, to); }
 }
 
 async function realLionGift(g, to) {
