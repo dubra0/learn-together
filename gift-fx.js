@@ -548,7 +548,8 @@ async function realEagleGift(g, to) {
   banner(g, to, 10200);
   glow("rgba(255,200,90,.35)", 10200, 0.8);
   setTimeout(() => { rays(3000); sparks(W / 2, H * 0.4, "#ffd76a", 70, 480); }, 600);
-  try { await playKeyedVideo(g.video, { height: "72vh", bottom: "0", focusX: 0.6, maxMs: 10100, fadeMs: 600, withSound: true, key: [0.075, 0.627, 0.078], sim: 0.12, smooth: 0.1, spill: 1 }); } // the clip's green, measured (iPhone can't measure it itself)
+  // a little further away: smaller, a bit up from the bottom, and never wider than the phone (both wings in view)
+  try { await playKeyedVideo(g.video, { height: "min(54vh, 62vw)", bottom: "14vh", focusX: 0.55, maxMs: 10100, fadeMs: 600, withSound: true, key: [0.075, 0.627, 0.078], sim: 0.12, smooth: 0.1, spill: 1 }); } // the clip's green, measured (iPhone can't measure it itself)
   catch { await eagleGift(g, to); } // video missing or blocked: the drawn eagle instead
 }
 
