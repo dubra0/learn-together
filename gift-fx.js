@@ -78,6 +78,7 @@ const GIFTS = {
     { id: "diamonds", e: "💎", run: diamondGift, s: "diamonds" },
     { id: "dragon", e: "🐉", run: dragonGift, s: "dragon" },
     { id: "crown", e: "👑", run: crownGift, s: "fanfare" },
+    { id: "volcano", e: "🌋", run: volcanoGift, s: "rocket", video: "gifts/volcano.mov.MOV" },
   ],
 };
 const BY_ID = {};
@@ -444,10 +445,12 @@ async function crownGift(g, to) {
    - green-screen video  → the green is keyed out live on the GPU (WebGL)
    - "packed alpha" MP4  → colour on the left half, transparency mask on the right half
      (the format professional gift designers export)                                   */
-const KEY_VS = `attribute vec2 p; varying vec2 uv; void main(){ uv = vec2((p.x+1.)/2., (1.-p.y)/2.); gl_Position = vec4(p,0.,1.); }`;
-const KEY_FS = `precision mediump float; varying vec2 uv; uniform sampler2D tex; uniform int mode; uniform vec3 key; uniform float sim, smoothv, spill;
+const KEY_VS = `attribute vec2 p; varying vec2 uv0; void main(){ uv0 = vec2((p.x+1.)/2., (1.-p.y)/2.); gl_Position = vec4(p,0.,1.); }`;
+const KEY_FS = `precision mediump float; varying vec2 uv0; uniform sampler2D tex; uniform int mode; uniform vec3 key; uniform float sim, smoothv, spill; uniform vec2 crop;
 vec2 cbcr(vec3 c){ return vec2(-0.1687*c.r-0.3313*c.g+0.5*c.b, 0.5*c.r-0.4187*c.g-0.0813*c.b); }
 void main(){
+  // crop = black bars to skip at the top and bottom of the clip (fractions of its height)
+  vec2 uv = vec2(uv0.x, crop.x + uv0.y * (1.0 - crop.x - crop.y));
   if (mode == 1) { // packed alpha: colour left, mask right
     vec3 col = texture2D(tex, vec2(uv.x*0.5, uv.y)).rgb; float a = texture2D(tex, vec2(0.5+uv.x*0.5, uv.y)).r;
     gl_FragColor = vec4(col*a, a); return; }
@@ -456,9 +459,10 @@ void main(){
   float a = smoothstep(sim, sim + smoothv, d);
   // remove green light spilling onto fur edges
   float m = max(c.r, c.b); if (c.g > m) c.g = mix(c.g, m, spill * (1.0 - a*0.5));
+  if (spill >= 1.0) c.g = min(c.g, m); // full clean-up (fire / glow clips): no green tint left anywhere
   gl_FragColor = vec4(c*a, a);
 }`;
-async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0 } = {}) {
+async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0] } = {}) {
   const video = document.createElement("video");
   video.src = src; video.muted = true; video.playsInline = true; video.crossOrigin = "anonymous"; video.preload = "auto";
   await new Promise((res, rej) => { video.oncanplay = res; video.onerror = () => rej(new Error("video")); });
@@ -484,6 +488,7 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   }
   gl.uniform1i(gl.getUniformLocation(prog, "mode"), mode === "packed" ? 1 : 0);
   gl.uniform3fv(gl.getUniformLocation(prog, "key"), key || [0, 1, 0]);
+  gl.uniform2fv(gl.getUniformLocation(prog, "crop"), crop);
   gl.uniform1f(gl.getUniformLocation(prog, "sim"), sim); gl.uniform1f(gl.getUniformLocation(prog, "smoothv"), smooth); gl.uniform1f(gl.getUniformLocation(prog, "spill"), spill);
   gl.viewport(0, 0, can.width, can.height); gl.clearColor(0, 0, 0, 0);
   let raf = 0;
@@ -513,6 +518,18 @@ async function realLionGift(g, to) {
   setTimeout(() => { rays(3600); play("roar"); shake(1400); rings("#ffcf4d", 3); sparks(W / 2, H * 0.55, "#ffcf4d", 90, 560); }, 3300);
   // starts small and hazy on the horizon, then comes close
   await playKeyedVideo(g.video, { height: "62vh", focusX: 0.4, maxMs: 7600, approachMs: 3200 });
+}
+
+// 🌋 volcano: real green-screen video of glowing lava light rising from the bottom of the screen
+async function volcanoGift(g, to) {
+  banner(g, to, 9800);
+  glow("rgba(255,90,20,.55)", 9800, 1);
+  play("rocket"); shake(1600);
+  setTimeout(() => { play("fireworks"); rays(3200); sparks(W / 2, H * 0.88, "#ff7a2a", 120, 640); shake(1200); }, 1800);
+  setTimeout(() => { sparks(W / 2, H * 0.9, "#ffcf4d", 80, 520); }, 5200);
+  // the clip's green is rgb(7,165,8); it has thin black bars (8 px top, 4 px bottom of 464) that are skipped
+  try { await playKeyedVideo(g.video, { height: "100vh", bottom: "0", focusX: 0.5, maxMs: 9800, key: [0.027, 0.647, 0.031], crop: [10 / 464, 6 / 464], sim: 0.14, smooth: 0.1, spill: 1 }); }
+  catch { await new Promise((r) => setTimeout(r, 3000)); } // video missing: the glow, sparks and sound still play
 }
 
 /* ================= sound (synthesised with Web Audio — no files) ================= */

@@ -752,3 +752,10 @@ const I18N_V16 = {
     shareToFriends: "Enviar a un amigo", shareOtherApps: "Compartir en otras apps", sentTo: "Enviado a {name} ✓", postGone: "Esta publicación fue eliminada." },
 };
 for (const [l, o] of Object.entries(I18N_V16)) Object.assign(I18N[l], o);
+
+/* ---------- gift names added later ---------- */
+const I18N_GIFTS2 = {
+  en: { g_volcano: "Volcano" }, ar: { g_volcano: "بركان" }, ckb: { g_volcano: "گڕکان" }, tr: { g_volcano: "Yanardağ" },
+  fa: { g_volcano: "آتشفشان" }, de: { g_volcano: "Vulkan" }, fr: { g_volcano: "Volcan" }, es: { g_volcano: "Volcán" },
+};
+for (const [l, o] of Object.entries(I18N_GIFTS2)) Object.assign(I18N[l], o);
