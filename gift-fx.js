@@ -475,7 +475,8 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   video.muted = true; video.playsInline = true; video.crossOrigin = "anonymous"; video.preload = "auto";
   // with sound: the file is downloaded ONCE and used for both picture and sound (before, it was downloaded twice
   // and the gift waited for the sound to be decoded before it started — slow on old phones)
-  const media = withSound && soundOn ? await clipMedia(src).catch(() => null) : null;
+  // every gift video is read whole (from the copy saved with the app when there is one — instant, no internet)
+  const media = await clipMedia(src, withSound && soundOn).catch(() => null);
   video.src = media?.url || src;
   // iPhone Safari does not load a video until play() is asked for, so "canplay" never came and the gift waited forever.
   // Start it now (muted is always allowed), pause right away, and give up after 8 s so other gifts are never blocked.
@@ -548,7 +549,7 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   await video.play(); draw();
   // the sound joins as soon as it is decoded, in step with the picture (the picture never waits for it)
   let src0 = null, ended = false;
-  media?.sound.then((snd) => {
+  media?.sound?.then((snd) => {
     if (!snd || ended || !audio()) return;
     try { src0 = ac.createBufferSource(); src0.buffer = snd; src0.connect(master); src0.start(0, Math.min(video.currentTime, snd.duration - 0.05)); } catch { src0 = null; }
   });
@@ -560,14 +561,19 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
 }
 // src → { url: local copy of the file, sound: promise of the decoded sound } — kept, so the second gift is instant
 const clipCache = new Map();
-async function clipMedia(src) {
-  if (clipCache.has(src)) return clipCache.get(src);
-  const buf = await (await fetch(src)).arrayBuffer();
-  const url = URL.createObjectURL(new Blob([buf], { type: /\.mov/i.test(src) ? "video/quicktime" : "video/mp4" }));
-  const sound = audio()
-    ? new Promise((res) => ac.decodeAudioData(buf.slice(0), res, () => res(null))).catch(() => null) // callback form: older iPhones
-    : Promise.resolve(null);
-  const m = { url, sound }; clipCache.set(src, m); return m;
+async function clipMedia(src, wantSound) {
+  let m = clipCache.get(src);
+  if (!m) {
+    const res = await fetch(src);
+    if (!res.ok) throw new Error("video " + res.status);
+    const buf = await res.arrayBuffer();
+    const url = URL.createObjectURL(new Blob([buf], { type: /\.mov/i.test(src) ? "video/quicktime" : "video/mp4" }));
+    m = { url, buf, sound: null }; clipCache.set(src, m);
+  }
+  if (wantSound && !m.sound && audio()) {
+    m.sound = new Promise((res) => ac.decodeAudioData(m.buf.slice(0), res, () => res(null))).catch(() => null); // callback form: older iPhones
+  }
+  return wantSound ? m : { url: m.url, sound: null };
 }
 
 // 🦅 real eagle: green-screen video with its own sound

@@ -1,7 +1,11 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v27";
+const CACHE = "talk-together-v28";
+// 🎁 gift videos + sounds come WITH the app: downloaded once when the app is installed/opened, then kept on the phone.
+// They have their own box (not emptied on app updates). A new or changed gift video → add/rename it here and bump GIFTS.
+const GIFTS = "learn-together-gifts-v1";
+const GIFT_FILES = ["gifts/volcano.mov.MOV", "gifts/eagle.mp4", "gifts/horse.mp4", "gifts/elephant.mp4", "sounds/lion-roar.mp3"];
 const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "random-call.js", "post-editor.js", "stories.js", "room-looks.js", "levels.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
   "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
@@ -13,13 +17,25 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== GIFTS).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => saveGifts()),
   );
 });
+// fetch the gift files that are not saved yet, one by one (a missing file never stops the others)
+async function saveGifts() {
+  const box = await caches.open(GIFTS);
+  for (const f of GIFT_FILES) {
+    try {
+      if (await box.match(f)) continue;
+      const res = await fetch(f, { cache: "no-store" });
+      if (res.ok) await box.put(f, res);
+    } catch {}
+  }
+}
 
 function save(req, res) {
-  if (res && (res.ok || res.type === "opaque")) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
+  if (res && res.status !== 206 && (res.ok || res.type === "opaque")) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {}); }
   return res;
 }
 
@@ -71,6 +87,21 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
+
+  // 🎁 gift videos / sounds: the saved copy first (instant, no internet), the internet only if it isn't saved yet.
+  // A video asking for just a part of the file (Range) goes straight to the internet — a saved whole file can't answer that.
+  if (/\/(gifts|sounds)\//.test(url.pathname)) {
+    if (req.headers.has("range")) return;
+    e.respondWith(caches.open(GIFTS).then(async (box) => {
+      const key = url.pathname.slice(url.pathname.indexOf(/\/gifts\//.test(url.pathname) ? "gifts/" : "sounds/"));
+      const hit = await box.match(key);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok && res.status === 200) box.put(key, res.clone()).catch(() => {});
+      return res;
+    }));
+    return;
+  }
 
   // app files: newest from the internet, but don't wait more than 2.5 s for it
   e.respondWith(new Promise((resolve) => {
