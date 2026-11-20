@@ -126,22 +126,58 @@ async function make(box) {
     <h2>🎟️ کۆدی نوێ دروست بکە</h2>
     <div class="row">
       <div><label for="m-count">ژمارەی کۆد</label><input id="m-count" type="number" min="1" max="500" value="10"></div>
-      <div><label for="m-coins">سکەی هەر کۆدێک</label>
-        <select id="m-coins"><option>1000</option><option>5000</option><option selected>10000</option><option>25000</option><option>50000</option><option>100000</option></select></div>
+      <div><label for="m-coins">سکەی هەر کۆدێک (خۆت بینووسە)</label>
+        <input id="m-coins" type="number" min="1" max="10000000" step="1" value="10000" list="m-coins-list">
+        <datalist id="m-coins-list"><option value="1000"></option><option value="5000"></option><option value="10000"></option><option value="25000"></option><option value="50000"></option><option value="100000"></option></datalist></div>
       <div><label for="m-batch">ناوی کۆمەڵە (ئارەزوومەندانە)</label><input id="m-batch" placeholder="دوکانی ئەحمەد"></div>
     </div>
     <div class="muted" id="m-calc" style="margin-top:8px"></div>
     <button class="btn main" id="m-go" style="margin-top:12px">دروستکردن</button>
     <div class="muted" style="margin-top:8px">⚠️ کۆدەکان تەنها یەک جار لێرە پیشان دەدرێن. دوای دروستکردن ڕاستەوخۆ کۆپییان بکە یان دایانبەزێنە.</div>
-  </div><div id="m-out"></div>`;
+  </div>
+  <div class="card">
+    <h2>✍️ کۆدی خۆت بنووسە</h2>
+    <div class="muted">خۆت کۆدەکە دەنووسیت. دەبێت لانیکەم <b>١٠ پیت یان ژمارە</b> بێت، بۆ ئەوەی کەس نەتوانێت بە مەزەندە بیدۆزێتەوە. بۆ نموونە <code>2026AYAD5577</code>. بۆشایی و «-» حیساب ناکرێن.</div>
+    <div class="row" style="margin-top:8px">
+      <div><label for="c-code">کۆدەکە</label><input id="c-code" maxlength="60" placeholder="2026AYAD5577" autocomplete="off" style="direction:ltr;text-transform:uppercase"></div>
+      <div><label for="c-coins">ژمارەی سکە</label><input id="c-coins" type="number" min="1" max="10000000" step="1" value="10000" list="m-coins-list"></div>
+      <div><label for="c-batch">ناوی کۆمەڵە (ئارەزوومەندانە)</label><input id="c-batch" placeholder="دوکانی ئەحمەد"></div>
+    </div>
+    <div class="muted" id="c-calc" style="margin-top:8px"></div>
+    <button class="btn main" id="c-go" style="margin-top:12px">دروستکردنی ئەم کۆدە</button>
+    <div id="c-out" style="margin-top:10px"></div>
+  </div>
+  <div id="m-out"></div>`;
+  const cNorm = () => $("#c-code").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const ccalc = () => {
+    const coins = Math.floor(Number($("#c-coins").value)) || 0, len = cNorm().length;
+    $("#c-calc").textContent = `${n(coins)} 🪙 = ${usd(priceOf(coins))} · درێژی کۆد: ${len} ${len < 10 ? "(کەمە، لانیکەم ١٠)" : "✅"}`;
+  };
+  $("#c-code").addEventListener("input", ccalc); $("#c-coins").addEventListener("input", ccalc); ccalc();
+  $("#c-go").addEventListener("click", async (e) => {
+    const code = cNorm(), coins = Math.floor(Number($("#c-coins").value)), batch = $("#c-batch").value.trim();
+    if (code.length < 10) return alert("کۆدەکە دەبێت لانیکەم ١٠ پیت یان ژمارە بێت.");
+    if (code.length > 40) return alert("کۆدەکە زۆر درێژە (زۆرترین ٤٠).");
+    if (!(coins >= 1 && coins <= 10000000)) return alert("ژمارەی سکە دەبێت لە نێوان ١ و ١٠,٠٠٠,٠٠٠ بێت.");
+    e.target.disabled = true;
+    const { data, error } = await sb.rpc("admin_create_code", { p_code: code, p_coins: coins, p_batch: batch || null });
+    e.target.disabled = false;
+    if (error) return alert(/admin_create_code|function/i.test(error.message) ? "سەرەتا SQL ـی update-25-custom-codes Run بکە." : error.message);
+    const r = (data || [])[0] || {};
+    const msg = { exists: "ئەم کۆدە پێشتر هەیە. کۆدێکی تر بنووسە.", too_short: "کۆدەکە کورتە (لانیکەم ١٠).", too_long: "کۆدەکە زۆر درێژە.", bad_coins: "ژمارەی سکە هەڵەیە." }[r.o_status];
+    if (r.o_status !== "ok") return alert(msg || ("هەڵە: " + (r.o_status || "?")));
+    $("#c-out").innerHTML = `<div class="stat money"><b style="direction:ltr;font-family:monospace">${esc(r.o_code)}</b><span>✅ دروست کرا · ${n(coins)} 🪙 = ${usd(priceOf(coins))}</span></div>`;
+    $("#c-code").value = ""; ccalc();
+  });
   const calc = () => {
     const c = Math.max(0, Number($("#m-count").value) || 0), coins = Number($("#m-coins").value);
     $("#m-calc").textContent = `هەر کۆدێک: ${n(coins)} 🪙 = ${usd(priceOf(coins))} · کۆی گشتی: ${n(c * coins)} 🪙 = ${usd(priceOf(c * coins))}`;
   };
-  $("#m-count").addEventListener("input", calc); $("#m-coins").addEventListener("change", calc); calc();
+  $("#m-count").addEventListener("input", calc); $("#m-coins").addEventListener("input", calc); calc();
   $("#m-go").addEventListener("click", async (e) => {
-    const count = Number($("#m-count").value), coins = Number($("#m-coins").value), batch = $("#m-batch").value.trim();
+    const count = Number($("#m-count").value), coins = Math.floor(Number($("#m-coins").value)), batch = $("#m-batch").value.trim();
     if (!(count >= 1 && count <= 500)) return alert("ژمارەکە دەبێت لە نێوان ١ و ٥٠٠ بێت.");
+    if (!(coins >= 1 && coins <= 10000000)) return alert("ژمارەی سکە دەبێت لە نێوان ١ و ١٠,٠٠٠,٠٠٠ بێت.");
     e.target.disabled = true;
     const { data, error } = await sb.rpc("admin_generate_codes", { p_count: count, p_coins: coins, p_batch: batch || null });
     e.target.disabled = false;
