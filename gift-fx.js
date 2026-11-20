@@ -499,6 +499,9 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
     const t = document.createElement("canvas"); t.width = video.videoWidth; t.height = video.videoHeight; const tx = t.getContext("2d"); tx.drawImage(video, 0, 0);
     const pts = [[4, 4], [t.width - 5, 4], [4, t.height * 0.4], [t.width - 5, t.height * 0.4]].map(([x, y]) => tx.getImageData(x, y, 1, 1).data);
     key = [0, 1, 2].map((i) => pts.reduce((s, d) => s + d[i], 0) / pts.length / 255);
+    // iPhone often gives a black/empty first frame here, so the "key" came out black and the green stayed.
+    // If what we measured isn't clearly green, use a normal green-screen colour instead.
+    if (!(key[1] > 0.3 && key[1] > key[0] + 0.15 && key[1] > key[2] + 0.15)) key = [0.08, 0.63, 0.08];
   }
   gl.uniform1i(gl.getUniformLocation(prog, "mode"), mode === "packed" ? 1 : 0);
   gl.uniform3fv(gl.getUniformLocation(prog, "key"), key || [0, 1, 0]);
@@ -545,7 +548,7 @@ async function realEagleGift(g, to) {
   banner(g, to, 10200);
   glow("rgba(255,200,90,.35)", 10200, 0.8);
   setTimeout(() => { rays(3000); sparks(W / 2, H * 0.4, "#ffd76a", 70, 480); }, 600);
-  try { await playKeyedVideo(g.video, { height: "72vh", bottom: "0", focusX: 0.6, maxMs: 10100, fadeMs: 600, withSound: true, sim: 0.1, smooth: 0.1, spill: 0.9 }); }
+  try { await playKeyedVideo(g.video, { height: "72vh", bottom: "0", focusX: 0.6, maxMs: 10100, fadeMs: 600, withSound: true, key: [0.075, 0.627, 0.078], sim: 0.12, smooth: 0.1, spill: 1 }); } // the clip's green, measured (iPhone can't measure it itself)
   catch { await eagleGift(g, to); } // video missing or blocked: the drawn eagle instead
 }
 
