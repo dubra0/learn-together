@@ -65,7 +65,7 @@ const GIFTS = {
     { id: "dog", e: "🐕", run: dogGift, s: "bark" },
     { id: "rooster", e: "🐓", run: roosterGift, s: "crow" },
     { id: "dolphin", e: "🐬", run: dolphinGift, s: "dolphin" },
-    { id: "eagle", e: "🦅", run: eagleGift, s: "screech" },
+    { id: "eagle", e: "🦅", run: realEagleGift, s: "screech", video: "gifts/eagle.mp4" },
     { id: "horse", e: "🐎", run: horseGift, s: "neigh" },
     { id: "elephant", e: "🐘", run: elephantGift, s: "trumpet" },
     { id: "lion", e: "🦁", run: lionGift, s: "roar" },
@@ -462,7 +462,7 @@ void main(){
   if (spill >= 1.0) c.g = min(c.g, m); // full clean-up (fire / glow clips): no green tint left anywhere
   gl_FragColor = vec4(c*a, a);
 }`;
-async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0 } = {}) {
+async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0, withSound = false } = {}) {
   const video = document.createElement("video");
   // iPhone: muted + playsinline must be set as attributes BEFORE the source, or Safari refuses to play it inline
   video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
@@ -519,10 +519,34 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   } else {
     cvs.animate([{ opacity: 0, transform: `${tx} translateY(12%) scale(.92)` }, { opacity: 1, transform: `${tx} translateY(0) scale(1)` }], { duration: fadeMs, easing: "ease-out", fill: "forwards" });
   }
+  // the clip's own sound: decoded once and played through our audio (works on iPhone too, where an
+  // un-muted video would be blocked); the video itself always plays muted
+  let snd = null;
+  if (withSound && soundOn) snd = await clipSound(src).catch(() => null);
   await video.play(); draw();
+  let src0 = null;
+  if (snd && audio()) { try { src0 = ac.createBufferSource(); src0.buffer = snd; const gn = ac.createGain(); gn.gain.value = 1; src0.connect(gn); gn.connect(master); src0.start(); } catch { src0 = null; } }
   await new Promise((res) => { video.onended = res; if (maxMs) setTimeout(res, maxMs); });
   await cvs.animate([{ opacity: 1 }, { opacity: 0 }], { duration: fadeMs, fill: "forwards" }).finished;
+  try { src0?.stop(); } catch {}
   cancelAnimationFrame(raf); video.pause(); video.removeAttribute("src"); video.load(); cvs.remove();
+}
+const clipSounds = new Map(); // src → decoded sound (kept, so the second time is instant)
+async function clipSound(src) {
+  if (clipSounds.has(src)) return clipSounds.get(src);
+  if (!audio()) return null;
+  const buf = await (await fetch(src)).arrayBuffer();
+  const s = await new Promise((res, rej) => ac.decodeAudioData(buf, res, rej)); // callback form: older iPhones
+  clipSounds.set(src, s); return s;
+}
+
+// 🦅 real eagle: green-screen video with its own sound
+async function realEagleGift(g, to) {
+  banner(g, to, 10200);
+  glow("rgba(255,200,90,.35)", 10200, 0.8);
+  setTimeout(() => { rays(3000); sparks(W / 2, H * 0.4, "#ffd76a", 70, 480); }, 600);
+  try { await playKeyedVideo(g.video, { height: "72vh", bottom: "0", focusX: 0.6, maxMs: 10100, fadeMs: 600, withSound: true, sim: 0.1, smooth: 0.1, spill: 0.9 }); }
+  catch { await eagleGift(g, to); } // video missing or blocked: the drawn eagle instead
 }
 
 async function realLionGift(g, to) {
