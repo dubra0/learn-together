@@ -8,6 +8,8 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// 🐢 older / weaker phones: fewer particles, no screen shake, no big shadow, smaller video canvas
+const LOW = (navigator.deviceMemory && navigator.deviceMemory <= 3) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || false;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -108,6 +110,7 @@ function confetti(n = 120) {
   for (let i = 0; i < n; i++) spawn({ kind: "rect", x: rnd(0, W), y: rnd(-H * 0.3, -10), vx: rnd(-60, 60), vy: rnd(80, 240), g: 120, color: pick(cols), size: rnd(6, 12), vr: rnd(-10, 10), max: rnd(2.5, 4), drag: 0.99 });
 }
 function sparks(x, y, color, n = 70, speed = 380) {
+  if (LOW) n = Math.ceil(n / 3);
   for (let i = 0; i < n; i++) {
     const a = rnd(0, Math.PI * 2), v = rnd(speed * 0.4, speed);
     spawn({ kind: "dot", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 140, color, size: rnd(2, 4), max: rnd(1, 1.8), drag: 0.975 });
@@ -152,7 +155,8 @@ function glow(color, ms, peak = 1) {
   const g = $("#tgfx-glow"); g.style.background = `radial-gradient(circle at 50% 50%, ${color} 0%, rgba(10,4,30,.82) 70%)`;
   return g.animate([{ opacity: 0 }, { opacity: peak, offset: 0.12 }, { opacity: peak, offset: 0.85 }, { opacity: 0 }], { duration: ms, fill: "forwards" }).finished;
 }
-function shake(ms = 600) { if (reduce) return; (document.getElementById("screen-room") || document.body).animate([{ transform: "translate(0,0)" }, { transform: "translate(-8px,4px)" }, { transform: "translate(8px,-4px)" }, { transform: "translate(-6px,-3px)" }, { transform: "translate(6px,3px)" }, { transform: "translate(0,0)" }], { duration: 120, iterations: Math.ceil(ms / 120) }); }
+// (old phones: no shaking — moving the whole live screen is heavy for them)
+function shake(ms = 600) { if (reduce || LOW) return; (document.getElementById("screen-room") || document.body).animate([{ transform: "translate(0,0)" }, { transform: "translate(-8px,4px)" }, { transform: "translate(8px,-4px)" }, { transform: "translate(-6px,-3px)" }, { transform: "translate(6px,3px)" }, { transform: "translate(0,0)" }], { duration: 120, iterations: Math.ceil(ms / 120) }); }
 function rings(color = "#ffcf4d", n = 3) {
   for (let i = 0; i < n; i++) {
     const r = el("tg-ring", null, { borderColor: color });
@@ -469,7 +473,10 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   // iPhone: muted + playsinline must be set as attributes BEFORE the source, or Safari refuses to play it inline
   video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
   video.muted = true; video.playsInline = true; video.crossOrigin = "anonymous"; video.preload = "auto";
-  video.src = src;
+  // with sound: the file is downloaded ONCE and used for both picture and sound (before, it was downloaded twice
+  // and the gift waited for the sound to be decoded before it started — slow on old phones)
+  const media = withSound && soundOn ? await clipMedia(src).catch(() => null) : null;
+  video.src = media?.url || src;
   // iPhone Safari does not load a video until play() is asked for, so "canplay" never came and the gift waited forever.
   // Start it now (muted is always allowed), pause right away, and give up after 8 s so other gifts are never blocked.
   await new Promise((res, rej) => {
@@ -483,11 +490,13 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   // keep the clip's real proportions at the asked height; the animal (at focusX across the frame) is centred on screen
   const ar = (mode === "packed" ? video.videoWidth / 2 : video.videoWidth) / video.videoHeight;
   const cvs = el("tg-keyed", null, { position: "absolute", left: "50%", bottom, width: `calc(${height} * ${ar.toFixed(4)})`, aspectRatio: `${ar.toFixed(4)}`,
-    transform: `translateX(-${(focusX * 100).toFixed(1)}%)`, filter: "drop-shadow(0 20px 40px rgba(0,0,0,.6))" });
+    transform: `translateX(-${(focusX * 100).toFixed(1)}%)`, filter: LOW ? "none" : "drop-shadow(0 20px 40px rgba(0,0,0,.6))" }); // a moving shadow is costly
   const can = document.createElement("canvas"); can.style.cssText = "width:100%;height:100%;display:block"; cvs.appendChild(can);
   // soften the clip's top edge (smoke that reaches the top of the frame would otherwise end in a straight line)
   if (fadeTop) { const m = `linear-gradient(to bottom, transparent 0, #000 ${fadeTop}%)`; can.style.webkitMaskImage = m; can.style.maskImage = m; }
-  can.width = mode === "packed" ? video.videoWidth / 2 : video.videoWidth; can.height = video.videoHeight;
+  // draw at most 1280 px wide (854 on old phones) — a phone screen doesn't need full-HD, and it's much lighter
+  const vw = mode === "packed" ? video.videoWidth / 2 : video.videoWidth, maxW = LOW ? 854 : 1280, sc = Math.min(1, maxW / vw);
+  can.width = Math.round(vw * sc); can.height = Math.round(video.videoHeight * sc);
   const gl = can.getContext("webgl", { premultipliedAlpha: true, alpha: true });
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; };
   const prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, KEY_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, KEY_FS)); gl.linkProgram(prog); gl.useProgram(prog);
@@ -512,8 +521,16 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   gl.uniform2fv(gl.getUniformLocation(prog, "dom"), dominance || [0.08, 0.18]);
   gl.uniform1f(gl.getUniformLocation(prog, "sim"), sim); gl.uniform1f(gl.getUniformLocation(prog, "smoothv"), smooth); gl.uniform1f(gl.getUniformLocation(prog, "spill"), spill);
   gl.viewport(0, 0, can.width, can.height); gl.clearColor(0, 0, 0, 0);
-  let raf = 0;
-  const draw = () => { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); raf = requestAnimationFrame(draw); };
+  // redraw only when the video has a NEW picture (25–30 a second), not on every screen refresh (60–120)
+  let raf = 0, vfc = 0, stopped = false, lastT = -1;
+  const paint = () => { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
+  const hasVFC = typeof video.requestVideoFrameCallback === "function";
+  const draw = () => {
+    if (stopped) return;
+    if (hasVFC) { paint(); vfc = video.requestVideoFrameCallback(draw); return; }
+    if (video.currentTime !== lastT) { lastT = video.currentTime; paint(); }
+    raf = requestAnimationFrame(draw);
+  };
   const tx = `translateX(-${(focusX * 100).toFixed(1)}%)`;
   cvs.style.transformOrigin = `${(focusX * 100).toFixed(1)}% 100%`;
   if (approachMs) { // from far away: tiny and hazy near the horizon, growing as it comes closer
@@ -528,23 +545,29 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
   }
   // the clip's own sound: decoded once and played through our audio (works on iPhone too, where an
   // un-muted video would be blocked); the video itself always plays muted
-  let snd = null;
-  if (withSound && soundOn) snd = await clipSound(src).catch(() => null);
   await video.play(); draw();
-  let src0 = null;
-  if (snd && audio()) { try { src0 = ac.createBufferSource(); src0.buffer = snd; const gn = ac.createGain(); gn.gain.value = 1; src0.connect(gn); gn.connect(master); src0.start(); } catch { src0 = null; } }
+  // the sound joins as soon as it is decoded, in step with the picture (the picture never waits for it)
+  let src0 = null, ended = false;
+  media?.sound.then((snd) => {
+    if (!snd || ended || !audio()) return;
+    try { src0 = ac.createBufferSource(); src0.buffer = snd; src0.connect(master); src0.start(0, Math.min(video.currentTime, snd.duration - 0.05)); } catch { src0 = null; }
+  });
   await new Promise((res) => { video.onended = res; if (maxMs) setTimeout(res, maxMs); });
   await cvs.animate([{ opacity: 1 }, { opacity: 0 }], { duration: fadeMs, fill: "forwards" }).finished;
-  try { src0?.stop(); } catch {}
-  cancelAnimationFrame(raf); video.pause(); video.removeAttribute("src"); video.load(); cvs.remove();
+  ended = true; try { src0?.stop(); } catch {}
+  stopped = true; cancelAnimationFrame(raf); if (vfc && video.cancelVideoFrameCallback) video.cancelVideoFrameCallback(vfc);
+  video.pause(); video.removeAttribute("src"); video.load(); cvs.remove();
 }
-const clipSounds = new Map(); // src → decoded sound (kept, so the second time is instant)
-async function clipSound(src) {
-  if (clipSounds.has(src)) return clipSounds.get(src);
-  if (!audio()) return null;
+// src → { url: local copy of the file, sound: promise of the decoded sound } — kept, so the second gift is instant
+const clipCache = new Map();
+async function clipMedia(src) {
+  if (clipCache.has(src)) return clipCache.get(src);
   const buf = await (await fetch(src)).arrayBuffer();
-  const s = await new Promise((res, rej) => ac.decodeAudioData(buf, res, rej)); // callback form: older iPhones
-  clipSounds.set(src, s); return s;
+  const url = URL.createObjectURL(new Blob([buf], { type: /\.mov/i.test(src) ? "video/quicktime" : "video/mp4" }));
+  const sound = audio()
+    ? new Promise((res) => ac.decodeAudioData(buf.slice(0), res, () => res(null))).catch(() => null) // callback form: older iPhones
+    : Promise.resolve(null);
+  const m = { url, sound }; clipCache.set(src, m); return m;
 }
 
 // 🦅 real eagle: green-screen video with its own sound
