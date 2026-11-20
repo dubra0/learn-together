@@ -71,6 +71,7 @@ const GIFTS = {
     { id: "horse", e: "🐎", run: realHorseGift, s: "neigh", video: "gifts/horse.mp4" },
     { id: "elephant", e: "🐘", run: realElephantGift, s: "trumpet", video: "gifts/elephant.mp4" },
     { id: "lion", e: "🦁", run: lionGift, s: "roar" },
+    { id: "wolf", e: "🐺", run: realWolfGift, s: "roarFar", video: "gifts/wolf.MOV" },
   ],
   special: [
     { id: "unicorn", e: "🦄", run: unicornGift, s: "magic" },
@@ -81,6 +82,7 @@ const GIFTS = {
     { id: "dragon", e: "🐉", run: dragonGift, s: "dragon" },
     { id: "crown", e: "👑", run: crownGift, s: "fanfare" },
     { id: "volcano", e: "🌋", run: volcanoGift, s: "rocket", video: "gifts/volcano.mov.MOV" },
+    { id: "storm", e: "⛈️", run: stormGift, s: "rocket", video: "gifts/lightning%20storm.mp4" },
   ],
 };
 const BY_ID = {};
@@ -594,6 +596,25 @@ async function realHorseGift(g, to) {
   setTimeout(() => { rays(2600); shake(700); sparks(W / 2, H * 0.6, "#ffe2a0", 60, 460); }, 4200); // as it rears up
   try { await playKeyedVideo(g.video, { height: "min(58vh, 66vw)", bottom: "10vh", focusX: 0.5, maxMs: 8000, fadeMs: 600, withSound: true, dominance: [0.06, 0.16], spill: 1 }); }
   catch { await horseGift(g, to); }
+}
+
+// 🐺 real wolf standing in the rain, then looking straight at you
+async function realWolfGift(g, to) {
+  banner(g, to, 7800);
+  glow("rgba(140,170,220,.3)", 7800, 0.7);
+  setTimeout(() => { rays(2400); sparks(W / 2, H * 0.5, "#cfe0ff", 50, 420); }, 5600); // when it looks at the camera
+  try { await playKeyedVideo(g.video, { height: "min(52vh, 60vw)", bottom: "10vh", focusX: 0.45, maxMs: 7400, fadeMs: 600, withSound: true, key: [0.005, 0.675, 0.008], sim: 0.12, smooth: 0.1, spill: 1 }); }
+  catch { await new Promise((r) => setTimeout(r, 2500)); }
+}
+
+// ⛈️ lightning storm across the whole screen, with its thunder. Bright light on a dark green
+// that glows, so it is cut out by "greener than red/blue" (keeps the blue-white glow).
+async function stormGift(g, to) {
+  banner(g, to, 8400);
+  const flash = (d) => setTimeout(() => { glow("rgba(220,235,255,.55)", 380, 1); shake(500); }, d);
+  [1000, 1900, 5500, 6400].forEach(flash);
+  try { await playKeyedVideo(g.video, { height: "100vh", bottom: "0", focusX: 0.5, maxMs: 8000, fadeMs: 500, withSound: true, dominance: [0.06, 0.2], spill: 1, fadeTop: 18 }); }
+  catch { await new Promise((r) => setTimeout(r, 2500)); }
 }
 
 // 🐘 real elephant charging through dust

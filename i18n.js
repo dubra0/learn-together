@@ -755,7 +755,9 @@ for (const [l, o] of Object.entries(I18N_V16)) Object.assign(I18N[l], o);
 
 /* ---------- gift names added later ---------- */
 const I18N_GIFTS2 = {
-  en: { g_volcano: "Volcano" }, ar: { g_volcano: "بركان" }, ckb: { g_volcano: "گڕکان" }, tr: { g_volcano: "Yanardağ" },
-  fa: { g_volcano: "آتشفشان" }, de: { g_volcano: "Vulkan" }, fr: { g_volcano: "Volcan" }, es: { g_volcano: "Volcán" },
+  en: { g_volcano: "Volcano", g_wolf: "Wolf", g_storm: "Lightning storm" }, ar: { g_volcano: "بركان", g_wolf: "ذئب", g_storm: "عاصفة رعدية" },
+  ckb: { g_volcano: "گڕکان", g_wolf: "گورگ", g_storm: "هەورەتریشقە" }, tr: { g_volcano: "Yanardağ", g_wolf: "Kurt", g_storm: "Şimşek fırtınası" },
+  fa: { g_volcano: "آتشفشان", g_wolf: "گرگ", g_storm: "طوفان رعد و برق" }, de: { g_volcano: "Vulkan", g_wolf: "Wolf", g_storm: "Gewitter" },
+  fr: { g_volcano: "Volcan", g_wolf: "Loup", g_storm: "Orage" }, es: { g_volcano: "Volcán", g_wolf: "Lobo", g_storm: "Tormenta eléctrica" },
 };
 for (const [l, o] of Object.entries(I18N_GIFTS2)) Object.assign(I18N[l], o);
