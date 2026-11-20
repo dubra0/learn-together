@@ -1,4 +1,4 @@
-/* Talk Together — interface translations (8 languages). Generated from v2; v3 strings are in I18N_V3 below. */
+/* Learn Together — interface translations (8 languages). Generated from v2; v3 strings are in I18N_V3 below. */
 const UI_LANGS = {
   en: "English", ar: "العربية", ckb: "کوردی", tr: "Türkçe", fa: "فارسی", de: "Deutsch", fr: "Français", es: "Español",
 };
@@ -207,7 +207,7 @@ const I18N_V3 = {
     hello: "Hi, {name} 👋", liveNow: "🔴 Live now", upcoming: "📅 Upcoming", startsAt: "Starts {time}", startNow: "Start now", privateTag: "🔒 Private", seats: "max {n}",
     roomType: "Who can join?", publicRoom: "🌍 Everyone", privateRoom: "🔒 Only with link", when: "When?", now: "Now", later: "Later", startTime: "Start time", maxPeople: "Max people",
     scheduled: "Room scheduled! Share the link with your friends.", timeInPast: "Choose a time in the future.",
-    share: "Share", linkCopied: "Link copied!", shareText: "Join my {lang} practice room on Talk Together: “{title}”",
+    share: "Share", linkCopied: "Link copied!", shareText: "Join my {lang} practice room on Learn Together: “{title}”",
     topicNew: "🃏 New topic", topicTitle: "Topic", translate: "Translate", saveWord: "Save", savedOk: "Saved to your notebook ⭐",
     removeFromRoom: "Remove from room", removeConfirm: "Remove {name} from this room? They can't come back.", removedFromRoom: "You were removed from this room.", reportRoom: "Report room",
     e_room_full: "This room is full.", e_not_started: "This room hasn't started yet.", e_banned: "Your account is blocked.", e_kicked: "You can't join this room.",
@@ -233,7 +233,7 @@ const I18N_V3 = {
     hello: "مرحباً {name} 👋", liveNow: "🔴 مباشر الآن", upcoming: "📅 قادمة", startsAt: "تبدأ {time}", startNow: "ابدأ الآن", privateTag: "🔒 خاصة", seats: "حتى {n}",
     roomType: "من يمكنه الانضمام؟", publicRoom: "🌍 الجميع", privateRoom: "🔒 بالرابط فقط", when: "متى؟", now: "الآن", later: "لاحقاً", startTime: "وقت البدء", maxPeople: "الحد الأقصى للأشخاص",
     scheduled: "تمت جدولة الغرفة! شارك الرابط مع أصدقائك.", timeInPast: "اختر وقتاً في المستقبل.",
-    share: "مشاركة", linkCopied: "تم نسخ الرابط!", shareText: "انضم إلى غرفتي لتدريب {lang} على Talk Together: «{title}»",
+    share: "مشاركة", linkCopied: "تم نسخ الرابط!", shareText: "انضم إلى غرفتي لتدريب {lang} على Learn Together: «{title}»",
     topicNew: "🃏 موضوع جديد", topicTitle: "الموضوع", translate: "ترجمة", saveWord: "حفظ", savedOk: "حُفظ في دفترك ⭐",
     removeFromRoom: "إخراج من الغرفة", removeConfirm: "إخراج {name} من هذه الغرفة؟ لن يتمكن من العودة.", removedFromRoom: "تم إخراجك من هذه الغرفة.", reportRoom: "الإبلاغ عن الغرفة",
     e_room_full: "هذه الغرفة ممتلئة.", e_not_started: "لم تبدأ هذه الغرفة بعد.", e_banned: "حسابك محظور.", e_kicked: "لا يمكنك الانضمام إلى هذه الغرفة.",
@@ -259,7 +259,7 @@ const I18N_V3 = {
     hello: "سڵاو {name} 👋", liveNow: "🔴 ئێستا ڕاستەوخۆ", upcoming: "📅 داهاتوو", startsAt: "دەست پێدەکات {time}", startNow: "ئێستا دەست پێبکە", privateTag: "🔒 تایبەت", seats: "تا {n}",
     roomType: "کێ دەتوانێت بێتە ژوورەوە؟", publicRoom: "🌍 هەمووان", privateRoom: "🔒 تەنها بە لینک", when: "کەی؟", now: "ئێستا", later: "دواتر", startTime: "کاتی دەستپێکردن", maxPeople: "زۆرترین ژمارەی کەس",
     scheduled: "ژوورەکە دیاری کرا! لینکەکە بۆ هاوڕێکانت بنێرە.", timeInPast: "کاتێکی داهاتوو هەڵبژێرە.",
-    share: "ناردن", linkCopied: "لینکەکە کۆپی کرا!", shareText: "وەرە ناو ژووری ڕاهێنانی {lang} ـم لە Talk Together: «{title}»",
+    share: "ناردن", linkCopied: "لینکەکە کۆپی کرا!", shareText: "وەرە ناو ژووری ڕاهێنانی {lang} ـم لە Learn Together: «{title}»",
     topicNew: "🃏 بابەتی نوێ", topicTitle: "بابەت", translate: "وەرگێڕان", saveWord: "پاشەکەوت", savedOk: "لە دەفتەرەکەت پاشەکەوت کرا ⭐",
     removeFromRoom: "دەرکردن لە ژوور", removeConfirm: "{name} لەم ژوورە دەربکرێت؟ ناتوانێت بگەڕێتەوە.", removedFromRoom: "لەم ژوورە دەرکرایت.", reportRoom: "ڕاپۆرتدان لە ژوور",
     e_room_full: "ئەم ژوورە پڕە.", e_not_started: "ئەم ژوورە هێشتا دەستی پێنەکردووە.", e_banned: "هەژمارەکەت ڕاگیراوە.", e_kicked: "ناتوانیت بچیتە ناو ئەم ژوورە.",
@@ -285,7 +285,7 @@ const I18N_V3 = {
     hello: "Merhaba {name} 👋", liveNow: "🔴 Şu an canlı", upcoming: "📅 Yaklaşan", startsAt: "Başlangıç {time}", startNow: "Şimdi başlat", privateTag: "🔒 Özel", seats: "en fazla {n}",
     roomType: "Kimler katılabilir?", publicRoom: "🌍 Herkes", privateRoom: "🔒 Sadece bağlantıyla", when: "Ne zaman?", now: "Şimdi", later: "Daha sonra", startTime: "Başlangıç saati", maxPeople: "En fazla kişi",
     scheduled: "Oda planlandı! Bağlantıyı arkadaşlarınla paylaş.", timeInPast: "Gelecekte bir zaman seç.",
-    share: "Paylaş", linkCopied: "Bağlantı kopyalandı!", shareText: "Talk Together'daki {lang} pratik odama katıl: “{title}”",
+    share: "Paylaş", linkCopied: "Bağlantı kopyalandı!", shareText: "Learn Together'daki {lang} pratik odama katıl: “{title}”",
     topicNew: "🃏 Yeni konu", topicTitle: "Konu", translate: "Çevir", saveWord: "Kaydet", savedOk: "Defterine kaydedildi ⭐",
     removeFromRoom: "Odadan çıkar", removeConfirm: "{name} bu odadan çıkarılsın mı? Geri dönemez.", removedFromRoom: "Bu odadan çıkarıldın.", reportRoom: "Odayı bildir",
     e_room_full: "Bu oda dolu.", e_not_started: "Bu oda henüz başlamadı.", e_banned: "Hesabın engellendi.", e_kicked: "Bu odaya katılamazsın.",
@@ -311,7 +311,7 @@ const I18N_V3 = {
     hello: "سلام {name} 👋", liveNow: "🔴 اکنون زنده", upcoming: "📅 آینده", startsAt: "شروع {time}", startNow: "اکنون شروع کن", privateTag: "🔒 خصوصی", seats: "حداکثر {n}",
     roomType: "چه کسی می‌تواند بپیوندد؟", publicRoom: "🌍 همه", privateRoom: "🔒 فقط با لینک", when: "چه زمانی؟", now: "اکنون", later: "بعداً", startTime: "زمان شروع", maxPeople: "حداکثر افراد",
     scheduled: "اتاق زمان‌بندی شد! لینک را با دوستانتان به اشتراک بگذارید.", timeInPast: "زمانی در آینده انتخاب کنید.",
-    share: "اشتراک‌گذاری", linkCopied: "لینک کپی شد!", shareText: "به اتاق تمرین {lang} من در Talk Together بپیوندید: «{title}»",
+    share: "اشتراک‌گذاری", linkCopied: "لینک کپی شد!", shareText: "به اتاق تمرین {lang} من در Learn Together بپیوندید: «{title}»",
     topicNew: "🃏 موضوع جدید", topicTitle: "موضوع", translate: "ترجمه", saveWord: "ذخیره", savedOk: "در دفترچه‌تان ذخیره شد ⭐",
     removeFromRoom: "بیرون کردن از اتاق", removeConfirm: "{name} از این اتاق بیرون شود؟ نمی‌تواند برگردد.", removedFromRoom: "شما از این اتاق بیرون شدید.", reportRoom: "گزارش اتاق",
     e_room_full: "این اتاق پر است.", e_not_started: "این اتاق هنوز شروع نشده است.", e_banned: "حساب شما مسدود شده است.", e_kicked: "نمی‌توانید به این اتاق بپیوندید.",
@@ -337,7 +337,7 @@ const I18N_V3 = {
     hello: "Hallo {name} 👋", liveNow: "🔴 Jetzt live", upcoming: "📅 Demnächst", startsAt: "Beginnt {time}", startNow: "Jetzt starten", privateTag: "🔒 Privat", seats: "max. {n}",
     roomType: "Wer darf beitreten?", publicRoom: "🌍 Alle", privateRoom: "🔒 Nur mit Link", when: "Wann?", now: "Jetzt", later: "Später", startTime: "Startzeit", maxPeople: "Max. Personen",
     scheduled: "Raum geplant! Teile den Link mit deinen Freunden.", timeInPast: "Wähle eine Zeit in der Zukunft.",
-    share: "Teilen", linkCopied: "Link kopiert!", shareText: "Komm in meinen {lang}-Übungsraum auf Talk Together: „{title}“",
+    share: "Teilen", linkCopied: "Link kopiert!", shareText: "Komm in meinen {lang}-Übungsraum auf Learn Together: „{title}“",
     topicNew: "🃏 Neues Thema", topicTitle: "Thema", translate: "Übersetzen", saveWord: "Speichern", savedOk: "In dein Heft gespeichert ⭐",
     removeFromRoom: "Aus dem Raum entfernen", removeConfirm: "{name} aus diesem Raum entfernen? Die Person kann nicht zurückkommen.", removedFromRoom: "Du wurdest aus diesem Raum entfernt.", reportRoom: "Raum melden",
     e_room_full: "Dieser Raum ist voll.", e_not_started: "Dieser Raum hat noch nicht begonnen.", e_banned: "Dein Konto ist gesperrt.", e_kicked: "Du kannst diesem Raum nicht beitreten.",
@@ -363,7 +363,7 @@ const I18N_V3 = {
     hello: "Salut {name} 👋", liveNow: "🔴 En direct", upcoming: "📅 À venir", startsAt: "Débute {time}", startNow: "Démarrer", privateTag: "🔒 Privé", seats: "max {n}",
     roomType: "Qui peut rejoindre ?", publicRoom: "🌍 Tout le monde", privateRoom: "🔒 Seulement avec le lien", when: "Quand ?", now: "Maintenant", later: "Plus tard", startTime: "Heure de début", maxPeople: "Nombre max.",
     scheduled: "Salon programmé ! Partage le lien avec tes amis.", timeInPast: "Choisis une heure dans le futur.",
-    share: "Partager", linkCopied: "Lien copié !", shareText: "Rejoins mon salon de pratique {lang} sur Talk Together : « {title} »",
+    share: "Partager", linkCopied: "Lien copié !", shareText: "Rejoins mon salon de pratique {lang} sur Learn Together : « {title} »",
     topicNew: "🃏 Nouveau sujet", topicTitle: "Sujet", translate: "Traduire", saveWord: "Enregistrer", savedOk: "Enregistré dans ton carnet ⭐",
     removeFromRoom: "Retirer du salon", removeConfirm: "Retirer {name} de ce salon ? Cette personne ne pourra pas revenir.", removedFromRoom: "Tu as été retiré de ce salon.", reportRoom: "Signaler le salon",
     e_room_full: "Ce salon est complet.", e_not_started: "Ce salon n'a pas encore commencé.", e_banned: "Ton compte est bloqué.", e_kicked: "Tu ne peux pas rejoindre ce salon.",
@@ -389,7 +389,7 @@ const I18N_V3 = {
     hello: "Hola {name} 👋", liveNow: "🔴 En vivo", upcoming: "📅 Próximas", startsAt: "Empieza {time}", startNow: "Empezar ahora", privateTag: "🔒 Privada", seats: "máx. {n}",
     roomType: "¿Quién puede unirse?", publicRoom: "🌍 Todos", privateRoom: "🔒 Solo con enlace", when: "¿Cuándo?", now: "Ahora", later: "Más tarde", startTime: "Hora de inicio", maxPeople: "Máx. personas",
     scheduled: "¡Sala programada! Comparte el enlace con tus amigos.", timeInPast: "Elige una hora en el futuro.",
-    share: "Compartir", linkCopied: "¡Enlace copiado!", shareText: "Únete a mi sala de práctica de {lang} en Talk Together: «{title}»",
+    share: "Compartir", linkCopied: "¡Enlace copiado!", shareText: "Únete a mi sala de práctica de {lang} en Learn Together: «{title}»",
     topicNew: "🃏 Nuevo tema", topicTitle: "Tema", translate: "Traducir", saveWord: "Guardar", savedOk: "Guardado en tu cuaderno ⭐",
     removeFromRoom: "Sacar de la sala", removeConfirm: "¿Sacar a {name} de esta sala? No podrá volver.", removedFromRoom: "Te sacaron de esta sala.", reportRoom: "Denunciar sala",
     e_room_full: "Esta sala está llena.", e_not_started: "Esta sala aún no ha empezado.", e_banned: "Tu cuenta está bloqueada.", e_kicked: "No puedes unirte a esta sala.",
@@ -671,14 +671,14 @@ for (const [l, o] of Object.entries(I18N_V12)) Object.assign(I18N[l], o);
 
 /* ---------- v13 strings: full-screen feed and LIVE ---------- */
 const I18N_V13 = {
-  en: { noLives: "No one is live right now.", startLive: "Go live", swipeHint: "Swipe up for the next live", noMoreLives: "No more lives right now", sharePostText: "Look at this post on Talk Together" },
-  ar: { noLives: "لا يوجد أحد في بث مباشر الآن.", startLive: "ابدأ بثاً", swipeHint: "اسحب للأعلى للبث التالي", noMoreLives: "لا توجد بثوث أخرى الآن", sharePostText: "شاهد هذا المنشور على Talk Together" },
-  ckb: { noLives: "ئێستا کەس Live ـی نییە.", startLive: "Live بکەرەوە", swipeHint: "بۆ Live ی دواتر بۆ سەرەوە ڕایبکێشە", noMoreLives: "ئێستا Live ی تر نییە", sharePostText: "سەیری ئەم پۆستە بکە لە Talk Together" },
-  tr: { noLives: "Şu an kimse canlı yayında değil.", startLive: "Canlı yayın aç", swipeHint: "Sonraki canlı için yukarı kaydır", noMoreLives: "Şu an başka canlı yok", sharePostText: "Talk Together'daki bu gönderiye bak" },
-  fa: { noLives: "اکنون کسی لایو نیست.", startLive: "لایو شروع کن", swipeHint: "برای لایو بعدی به بالا بکشید", noMoreLives: "فعلاً لایو دیگری نیست", sharePostText: "این پست را در Talk Together ببین" },
-  de: { noLives: "Gerade ist niemand live.", startLive: "Live gehen", swipeHint: "Nach oben wischen für das nächste Live", noMoreLives: "Gerade keine weiteren Lives", sharePostText: "Schau dir diesen Beitrag auf Talk Together an" },
-  fr: { noLives: "Personne n'est en direct pour l'instant.", startLive: "Lancer un live", swipeHint: "Glisse vers le haut pour le live suivant", noMoreLives: "Pas d'autres lives pour l'instant", sharePostText: "Regarde cette publication sur Talk Together" },
-  es: { noLives: "Nadie está en directo ahora.", startLive: "Hacer directo", swipeHint: "Desliza hacia arriba para el siguiente directo", noMoreLives: "No hay más directos ahora", sharePostText: "Mira esta publicación en Talk Together" },
+  en: { noLives: "No one is live right now.", startLive: "Go live", swipeHint: "Swipe up for the next live", noMoreLives: "No more lives right now", sharePostText: "Look at this post on Learn Together" },
+  ar: { noLives: "لا يوجد أحد في بث مباشر الآن.", startLive: "ابدأ بثاً", swipeHint: "اسحب للأعلى للبث التالي", noMoreLives: "لا توجد بثوث أخرى الآن", sharePostText: "شاهد هذا المنشور على Learn Together" },
+  ckb: { noLives: "ئێستا کەس Live ـی نییە.", startLive: "Live بکەرەوە", swipeHint: "بۆ Live ی دواتر بۆ سەرەوە ڕایبکێشە", noMoreLives: "ئێستا Live ی تر نییە", sharePostText: "سەیری ئەم پۆستە بکە لە Learn Together" },
+  tr: { noLives: "Şu an kimse canlı yayında değil.", startLive: "Canlı yayın aç", swipeHint: "Sonraki canlı için yukarı kaydır", noMoreLives: "Şu an başka canlı yok", sharePostText: "Learn Together'daki bu gönderiye bak" },
+  fa: { noLives: "اکنون کسی لایو نیست.", startLive: "لایو شروع کن", swipeHint: "برای لایو بعدی به بالا بکشید", noMoreLives: "فعلاً لایو دیگری نیست", sharePostText: "این پست را در Learn Together ببین" },
+  de: { noLives: "Gerade ist niemand live.", startLive: "Live gehen", swipeHint: "Nach oben wischen für das nächste Live", noMoreLives: "Gerade keine weiteren Lives", sharePostText: "Schau dir diesen Beitrag auf Learn Together an" },
+  fr: { noLives: "Personne n'est en direct pour l'instant.", startLive: "Lancer un live", swipeHint: "Glisse vers le haut pour le live suivant", noMoreLives: "Pas d'autres lives pour l'instant", sharePostText: "Regarde cette publication sur Learn Together" },
+  es: { noLives: "Nadie está en directo ahora.", startLive: "Hacer directo", swipeHint: "Desliza hacia arriba para el siguiente directo", noMoreLives: "No hay más directos ahora", sharePostText: "Mira esta publicación en Learn Together" },
 };
 for (const [l, o] of Object.entries(I18N_V13)) Object.assign(I18N[l], o);
 

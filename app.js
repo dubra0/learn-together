@@ -1,5 +1,5 @@
 /* =====================================================================
-   Talk Together — app logic (v3 "Pro")
+   Learn Together — app logic (v3 "Pro")
    ⚙️ Only CONFIG needs changing. Publishable/anon key ONLY — never a secret key.
    ===================================================================== */
 "use strict";
@@ -580,7 +580,7 @@ async function shareRoom(r) {
   if (!r) return;
   const url = roomLink(r);
   const text = t("shareText", { lang: (LANGS[r.language] || r.language).replace(/^\S+\s/, ""), title: r.title });
-  if (navigator.share) { try { await navigator.share({ title: "Talk Together", text, url }); return; } catch (e) { if (e?.name === "AbortError") return; } }
+  if (navigator.share) { try { await navigator.share({ title: "Learn Together", text, url }); return; } catch (e) { if (e?.name === "AbortError") return; } }
   try { await navigator.clipboard.writeText(`${text}\n${url}`); toast(t("linkCopied")); }
   catch { prompt(t("share"), url); }
 }
@@ -2764,7 +2764,7 @@ async function sharePost(id) {
 async function shareOutside(post) {
   const url = postLink(post.id);
   const text = `${t("sharePostText")}${post.body ? `: “${post.body.slice(0, 120)}”` : ""}`;
-  if (navigator.share) { try { await navigator.share({ title: "Talk Together", text, url }); return; } catch (e) { if (e?.name === "AbortError") return; } }
+  if (navigator.share) { try { await navigator.share({ title: "Learn Together", text, url }); return; } catch (e) { if (e?.name === "AbortError") return; } }
   try { await navigator.clipboard.writeText(`${text}\n${url}`); toast(t("linkCopied")); } catch { prompt(t("share"), url); }
 }
 async function fetchPost(id) {

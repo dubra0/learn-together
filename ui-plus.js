@@ -1,5 +1,5 @@
 /* =====================================================================
-   Talk Together — new design extras
+   Learn Together — new design extras
    - 🪙 level page (levels 1–100 from coins sent as gifts) and the 2-second "came in" banner in lives (Lv 25+)
    - 📷 profile photo + background (cover) photo straight from the profile
    - posts open full screen from a profile, like the feed
@@ -207,7 +207,7 @@ function partnerCard(p) {
    Installed, the app opens full screen like a normal app: no browser bar and no web address on top. */
 (() => {
   const W = {
-    en: { inst_t: "Install Talk Together", inst_s: "Opens like a real app: full screen, faster.", inst_b: "Install", inst_ios: "Tap ⎙ Share, then “Add to Home Screen”.", inst_later: "Later" },
+    en: { inst_t: "Install Learn Together", inst_s: "Opens like a real app: full screen, faster.", inst_b: "Install", inst_ios: "Tap ⎙ Share, then “Add to Home Screen”.", inst_later: "Later" },
     ckb: { inst_t: "ئەپەکە دابەزێنە", inst_s: "وەک ئەپێکی ڕاستەقینە دەکرێتەوە: شاشەی تەواو و خێراتر.", inst_b: "دابەزاندن", inst_ios: "⎙ Share دابگرە، پاشان «Add to Home Screen».", inst_later: "دواتر" },
     ar: { inst_t: "ثبّت التطبيق", inst_s: "يفتح كتطبيق حقيقي: شاشة كاملة وأسرع.", inst_b: "تثبيت", inst_ios: "اضغط ⎙ مشاركة ثم «إضافة إلى الشاشة الرئيسية».", inst_later: "لاحقاً" },
   };

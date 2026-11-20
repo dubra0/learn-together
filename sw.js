@@ -1,7 +1,7 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v19";
+const CACHE = "talk-together-v20";
 const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "random-call.js", "post-editor.js", "stories.js", "room-looks.js", "levels.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
   "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
@@ -28,7 +28,7 @@ self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
   const scope = self.registration.scope;
-  e.waitUntil(self.registration.showNotification(d.title || "Talk Together", {
+  e.waitUntil(self.registration.showNotification(d.title || "Learn Together", {
     body: d.body || "",
     icon: d.icon || scope + "icons/icon-192.png",
     badge: scope + "icons/icon-192.png",
