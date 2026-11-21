@@ -70,7 +70,7 @@ const GIFTS = {
     { id: "eagle", e: "🦅", run: realEagleGift, s: "screech", video: "gifts/eagle.mp4" },
     { id: "horse", e: "🐎", run: realHorseGift, s: "neigh", video: "gifts/horse.mp4" },
     { id: "elephant", e: "🐘", run: realElephantGift, s: "trumpet", video: "gifts/elephant.mp4" },
-    { id: "lion", e: "🦁", run: lionGift, s: "roar" },
+    { id: "lion", e: "🦁", run: realLionVideoGift, s: "roar", video: "gifts/lion.MP4" },
     { id: "wolf", e: "🐺", run: realWolfGift, s: "roarFar", video: "gifts/wolf.MOV" },
   ],
   special: [
@@ -79,7 +79,7 @@ const GIFTS = {
     { id: "car", e: "🏎️", run: carGift, s: "engine" },
     { id: "fireworks", e: "🎆", run: fireworksGift, s: "fireworks" },
     { id: "diamonds", e: "💎", run: diamondGift, s: "diamonds" },
-    { id: "dragon", e: "🐉", run: dragonGift, s: "dragon" },
+    { id: "dragon", e: "🐉", run: realDragonGift, s: "dragon", video: "gifts/dragon.MP4" },
     { id: "crown", e: "👑", run: crownGift, s: "fanfare" },
     { id: "volcano", e: "🌋", run: volcanoGift, s: "rocket", video: "gifts/volcano.mov.MOV" },
     { id: "storm", e: "⛈️", run: stormGift, s: "rocket", video: "gifts/lightning%20storm.mp4" },
@@ -470,7 +470,7 @@ void main(){
   if (spill >= 1.0) c.g = min(c.g, m); // full clean-up (fire / glow clips): no green tint left anywhere
   gl_FragColor = vec4(c*a, a);
 }`;
-async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0, withSound = false, dominance = null } = {}) {
+async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0, fadeSides = 0, withSound = false, dominance = null } = {}) {
   const video = document.createElement("video");
   // iPhone: muted + playsinline must be set as attributes BEFORE the source, or Safari refuses to play it inline
   video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
@@ -496,7 +496,14 @@ async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "
     transform: `translateX(-${(focusX * 100).toFixed(1)}%)`, filter: LOW ? "none" : "drop-shadow(0 20px 40px rgba(0,0,0,.6))" }); // a moving shadow is costly
   const can = document.createElement("canvas"); can.style.cssText = "width:100%;height:100%;display:block"; cvs.appendChild(can);
   // soften the clip's top edge (smoke that reaches the top of the frame would otherwise end in a straight line)
-  if (fadeTop) { const m = `linear-gradient(to bottom, transparent 0, #000 ${fadeTop}%)`; can.style.webkitMaskImage = m; can.style.maskImage = m; }
+  if (fadeTop || fadeSides) {
+    const masks = [];
+    if (fadeTop) masks.push(`linear-gradient(to bottom, transparent 0, #000 ${fadeTop}%)`);
+    if (fadeSides) masks.push(`linear-gradient(to right, transparent 0, #000 ${fadeSides}%, #000 ${100 - fadeSides}%, transparent 100%)`);
+    const m = masks.join(", ");
+    can.style.webkitMaskImage = m; can.style.maskImage = m;
+    if (masks.length > 1) { can.style.webkitMaskComposite = "source-in"; can.style.maskComposite = "intersect"; }
+  }
   // draw at most 1280 px wide (854 on old phones) — a phone screen doesn't need full-HD, and it's much lighter
   const vw = mode === "packed" ? video.videoWidth / 2 : video.videoWidth, maxW = LOW ? 854 : 1280, sc = Math.min(1, maxW / vw);
   can.width = Math.round(vw * sc); can.height = Math.round(video.videoHeight * sc);
@@ -615,6 +622,28 @@ async function stormGift(g, to) {
   [1000, 1900, 5500, 6400].forEach(flash);
   try { await playKeyedVideo(g.video, { height: "100vh", bottom: "0", focusX: 0.5, maxMs: 8000, fadeMs: 500, withSound: true, dominance: [0.06, 0.2], spill: 1, fadeTop: 18 }); }
   catch { await new Promise((r) => setTimeout(r, 2500)); }
+}
+
+// 🦁 real lion: charges in, roars, swipes its paw, then fills the screen face to face
+async function realLionVideoGift(g, to) {
+  banner(g, to, 10000);
+  glow("rgba(255,170,60,.35)", 10000, 0.8);
+  setTimeout(() => { rays(2600); shake(900); sparks(W / 2, H * 0.55, "#ffcf4d", 70, 520); }, 3400); // first roar
+  setTimeout(() => { shake(1200); rings("#ffcf4d", 2); }, 8600);                                    // face to face
+  try { await playKeyedVideo(g.video, { height: "min(62vh, 72vw)", bottom: "0", focusX: 0.5, maxMs: 9700, fadeMs: 600, withSound: true, key: [0.063, 0.643, 0.161], sim: 0.13, smooth: 0.1, spill: 1 }); }
+  catch { await lionGift(g, to); }
+}
+
+// 🐉 real dragons (15 s): a red one breathing smoke, then a black one taking off.
+// Uneven green light and a lighter floor → "greener than red/blue"; wings leave the top of the frame → soft top edge.
+async function realDragonGift(g, to) {
+  banner(g, to, 15800);
+  glow("rgba(255,80,40,.35)", 15800, 0.9);
+  setTimeout(() => { rays(3000); shake(1000); }, 1600);
+  setTimeout(() => { shake(1400); sparks(W / 2, H * 0.6, "#ff7a2a", 90, 600); }, 8600);
+  setTimeout(() => { rings("#ff7a2a", 3); }, 12200);
+  try { await playKeyedVideo(g.video, { height: "min(62vh, 72vw)", bottom: "4vh", focusX: 0.5, maxMs: 15600, fadeMs: 700, withSound: true, dominance: [0.06, 0.16], spill: 1, fadeTop: 12, fadeSides: 9 }); }
+  catch { await dragonGift(g, to); }
 }
 
 // 🐘 real elephant charging through dust
