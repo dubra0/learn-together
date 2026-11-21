@@ -1,7 +1,7 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v31";
+const CACHE = "talk-together-v32";
 // 🎁 gift videos + sounds come WITH the app: downloaded once when the app is installed/opened, then kept on the phone.
 // They have their own box (not emptied on app updates). A new or changed gift video → add/rename it here and bump GIFTS.
 const GIFTS = "learn-together-gifts-v1";
@@ -12,7 +12,8 @@ const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // "reload" = take the files fresh from the internet, never an older copy the browser still remembers
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -109,7 +110,9 @@ self.addEventListener("fetch", (e) => {
     let done = false;
     const fallback = () => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match("index.html"));
     const timer = setTimeout(() => fallback().then((r) => { if (r && !done) { done = true; resolve(r); } }), 2500);
-    fetch(req).then((res) => {
+    // "no-cache" = always ask the server if the file changed (a tiny check), so an update shows at once
+    // (a page opening can't carry extra options, so for pages we ask by address)
+    fetch(req.mode === "navigate" ? new Request(req.url, { cache: "no-cache", credentials: "same-origin" }) : new Request(req, { cache: "no-cache" })).then((res) => {
       save(req, res);
       if (!done) { done = true; clearTimeout(timer); resolve(res); }
     }).catch(() => {
