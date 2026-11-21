@@ -51,6 +51,7 @@ code{direction:ltr;display:inline-block}
     <button data-t="settings">⚙️ ڕێکخستن</button>
     <button data-t="prices">🎁 نرخی دیاری</button>
     <button data-t="newgift">🎬 دیاری نوێ (ڤیدیۆ)</button>
+    <button data-t="admins">👑 بەڕێوەبەرەکان</button>
   </div>
   <div id="box"><div class="empty">…</div></div>
 </div>
@@ -95,7 +96,7 @@ const priceOf = (coins) => coins / 1000 * Number(settings?.usd_per_1000 || 0.99)
 
 async function load() {
   const box = $("#box"); box.innerHTML = `<div class="empty">…</div>`;
-  try { await ({ stats, make, codes, payouts, settingsTab, prices, newgift })[tab === "settings" ? "settingsTab" : tab](box); }
+  try { await ({ stats, make, codes, payouts, settingsTab, prices, newgift, admins })[tab === "settings" ? "settingsTab" : tab](box); }
   catch (err) { box.innerHTML = `<div class="card">⚠️ ${esc(err.message || err)}</div>`; }
 }
 
@@ -197,6 +198,57 @@ async function make(box) {
       a.download = `talk-together-codes-${coins}-${new Date().toISOString().slice(0, 10)}.txt`; a.click();
     });
   });
+}
+
+/* 👑 admins: every admin has the same powers; only the owner adds or removes admins */
+async function admins(box) {
+  const [list, own] = await Promise.all([sb.rpc("admin_list_admins"), sb.rpc("is_owner")]);
+  if (list.error) { box.innerHTML = `<div class="card">${/admin_list_admins|function/i.test(list.error.message) ? "سەرەتا SQL ـی update-29-more-admins Run بکە." : esc(list.error.message)}</div>`; return; }
+  const isOwner = own.data === true;
+  const me = (await sb.auth.getUser()).data.user?.id;
+  box.innerHTML = `<div class="card">
+    <h2>👑 بەڕێوەبەرەکان</h2>
+    <div class="muted">هەموو بەڕێوەبەرێک هەمان دەسەڵاتی هەیە: پارە، کۆد، ڕاکێشان، نرخ، دیاری، ڕاپۆرت و بلۆک. ${isOwner ? "تەنها تۆ (خاوەن) دەتوانیت بەڕێوەبەر زیاد بکەیت یان لاببەیت." : "تەنها خاوەنی ئەپەکە دەتوانێت بەڕێوەبەر زیاد بکات یان لاببات."}</div>
+    <div class="scroll" style="margin-top:10px"><table><tr><th>ناو</th><th>ID</th><th>لە</th><th></th></tr>
+    ${(list.data || []).map((a) => `<tr><td>${a.is_owner ? "👑 " : "🛡️ "}${esc(a.name || "—")}${a.user_id === me ? " <span class='muted'>(تۆ)</span>" : ""}</td>
+      <td><code style="font-size:.72rem">${esc(a.user_id)}</code></td><td class="num">${day(a.added_at)}</td>
+      <td>${isOwner && !a.is_owner ? `<button class="btn danger" data-rm="${esc(a.user_id)}" data-nm="${esc(a.name || "")}">لابردن</button>` : a.is_owner ? "<span class='muted'>خاوەن</span>" : ""}</td></tr>`).join("")}
+    </table></div>
+  </div>
+  ${isOwner ? `<div class="card">
+    <h2>➕ بەڕێوەبەری نوێ</h2>
+    <div class="muted">ئەو کەسە لە ئەپەکەدا بڕوات بۆ <b>💰 جزدان</b> و دوگمەی <b>📋 کۆپیکردنی ID</b> دابگرێت و ID ـەکەی بۆ تۆ بنێرێت. پاشان لێرە دایبنێ.</div>
+    <label for="ad-id">ID ـی ئەو کەسە</label><input id="ad-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="direction:ltr" autocomplete="off">
+    <div id="ad-who" class="muted" style="margin-top:6px"></div>
+    <button class="btn main" id="ad-go" style="margin-top:10px">👑 بیکە بە بەڕێوەبەر</button>
+    <div class="muted" style="margin-top:8px">⚠️ تەنها کەسێک زیاد بکە کە زۆر متمانەت پێیەتی، چونکە دەتوانێت دەست لە پارە و کۆدەکان بدات.</div>
+  </div>` : ""}`;
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  $("#ad-id")?.addEventListener("input", async () => {
+    const id = $("#ad-id").value.trim(); $("#ad-who").textContent = "";
+    if (!UUID.test(id)) return;
+    const { data } = await sb.from("profiles").select("name").eq("id", id).maybeSingle();
+    $("#ad-who").textContent = data ? `👤 ${data.name}` : "⚠️ ئەم ID ـیە نەدۆزرایەوە.";
+  });
+  $("#ad-go")?.addEventListener("click", async (e) => {
+    const id = $("#ad-id").value.trim();
+    if (!UUID.test(id)) return alert("ID ـەکە هەڵەیە. دەبێت وەک ئەمە بێت: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+    const who = $("#ad-who").textContent.replace("👤 ", "");
+    if (!confirm(`دڵنیایت دەتەوێت «${who || id}» بکەیت بە بەڕێوەبەر؟ هەمان دەسەڵاتی تۆی دەبێت.`)) return;
+    e.target.disabled = true;
+    const { data, error } = await sb.rpc("admin_add", { p_user: id });
+    e.target.disabled = false;
+    if (error) return alert(error.message);
+    if (data !== "ok") return alert({ not_owner: "تەنها خاوەن دەتوانێت ئەمە بکات.", no_user: "ئەم ID ـیە نەدۆزرایەوە." }[data] || data);
+    admins(box);
+  });
+  box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm(`«${b.dataset.nm || b.dataset.rm}» لە بەڕێوەبەری لاببەیت؟`)) return;
+    const { data, error } = await sb.rpc("admin_remove", { p_user: b.dataset.rm });
+    if (error) return alert(error.message);
+    if (data !== "ok") return alert({ not_owner: "تەنها خاوەن دەتوانێت ئەمە بکات.", is_owner: "خاوەن لاناچێت." }[data] || data);
+    admins(box);
+  }));
 }
 
 /* 🎬 add a gift from a green-screen video (preview it first, then save) */
