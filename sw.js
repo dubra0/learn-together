@@ -1,7 +1,7 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v32";
+const CACHE = "talk-together-v33";
 // 🎁 gift videos + sounds come WITH the app: downloaded once when the app is installed/opened, then kept on the phone.
 // They have their own box (not emptied on app updates). A new or changed gift video → add/rename it here and bump GIFTS.
 const GIFTS = "learn-together-gifts-v1";
@@ -86,6 +86,19 @@ self.addEventListener("fetch", (e) => {
   // fixed-version libraries + fonts: saved copy first (instant), internet only the first time
   if (FOREVER.includes(url.hostname) && !url.pathname.endsWith(".task")) {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => save(req, res))));
+    return;
+  }
+  // 🎬 gift videos the admin added (stored on Supabase): saved on the phone after the first time,
+  // so each phone downloads each video only once (saves internet and the Supabase free quota)
+  if (url.pathname.includes("/storage/v1/object/public/gift-videos/")) {
+    if (req.headers.has("range")) return;
+    e.respondWith(caches.open(GIFTS).then(async (box) => {
+      const hit = await box.match(url.href);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok && res.status === 200) box.put(url.href, res.clone()).catch(() => {});
+      return res;
+    }));
     return;
   }
   if (url.origin !== location.origin) return;

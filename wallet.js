@@ -153,8 +153,13 @@ async function loadWallet() {
 }
 async function loadCatalog() {
   if (W.catalog.length) return W.catalog;
-  const { data } = await sb.from("gift_catalog").select("id,emoji,price,sort").eq("active", true).order("sort");
-  W.catalog = (data || []).filter((g) => window.GiftFX?.has(g.id));
+  // with the admin's own video gifts (update-28). Older database: fall back to the basic list.
+  let r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name").order("sort");
+  if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active").order("sort");
+  const rows = r.data || [];
+  // every video gift is made playable (even hidden ones), so a gift someone just sent still shows for everyone
+  rows.forEach((g) => { if (g.video_url) window.GiftFX?.register?.(g); });
+  W.catalog = rows.filter((g) => g.active !== false && window.GiftFX?.has(g.id));
   return W.catalog;
 }
 const statusMsg = (st) => ({ no_coins: t("w_noCoins"), blocked: t("w_e_blocked"), bad_target: t("w_e_bad_target"), banned: t("e_banned"),
@@ -178,12 +183,14 @@ async function openPaidGifts(given) {
 }
 function renderPaid(targets) {
   const coins = W.wallet?.coins || 0;
+  // only tabs that have gifts in them (when the shop has just a few gifts, no empty tabs)
+  const tabs = [["small", "💝"], ["animals", "🦁"], ["special", "✨"]].filter(([k]) => W.catalog.some((g) => TIER_OF(g.id) === k));
+  if (tabs.length && !tabs.some(([k]) => k === W.tab)) { W.tab = tabs[0][0]; W.chosen = W.catalog.find((g) => TIER_OF(g.id) === W.tab)?.id || null; }
   const list = W.catalog.filter((g) => TIER_OF(g.id) === W.tab);
-  const tabs = [["small", "💝"], ["animals", "🦁"], ["special", "✨"]];
   openSheet(`<div class="pg-head"><h1 style="margin:0">🪙 ${esc(t("w_paidGifts"))}</h1><span class="pg-coins">🪙 ${fmtN(coins)}</span></div>
     <div class="muted small" style="margin-top:8px">${esc(t("sendTo"))}</div>
     <div class="gift-targets">${targets.map((x) => `<button type="button" class="btn sm ${x.id === W.target ? "" : "ghost"}" data-pt="${esc(x.id)}">${x.side === "a" ? "❤️ " : x.side === "b" ? "💙 " : ""}${esc(x.name)}</button>`).join("")}</div>
-    <div class="pg-tabs">${tabs.map(([k, ic]) => `<button type="button" data-tab="${k}" class="${W.tab === k ? "on" : ""}">${ic}</button>`).join("")}</div>
+    <div class="pg-tabs" ${tabs.length < 2 ? "hidden" : ""}>${tabs.map(([k, ic]) => `<button type="button" data-tab="${k}" class="${W.tab === k ? "on" : ""}">${ic}</button>`).join("")}</div>
     <div class="pg-grid">${list.map((g) => `<button type="button" class="pg-item ${g.id === W.chosen ? "on" : ""} ${g.price > coins ? "poor" : ""}" data-pg="${esc(g.id)}">
       <span class="e">${g.emoji}</span><span class="p">🪙 ${fmtN(g.price)}</span></button>`).join("") || `<div class="muted">${esc(t("w_empty"))}</div>`}</div>
     <button type="button" class="btn block" id="pg-send" style="margin-top:12px" ${W.sending ? "disabled" : ""}>${esc(t("w_send"))} ${W.catalog.find((g) => g.id === W.chosen)?.emoji || "🎁"}</button>`);
@@ -345,7 +352,9 @@ function syncRoomGifts() {
     .subscribe();
 }
 // start once the app has signed in
-const wWait = setInterval(() => { if (typeof sb !== "undefined" && sb && typeof me !== "undefined" && me) { clearInterval(wWait); subscribePaidGifts(); setInterval(syncRoomGifts, 1000); } }, 1000);
+const wWait = setInterval(() => { if (typeof sb !== "undefined" && sb && typeof me !== "undefined" && me) { clearInterval(wWait); subscribePaidGifts(); setInterval(syncRoomGifts, 1000);
+  loadCatalog().catch(() => {}); // learn the admin's video gifts right away, so they play when someone sends one
+} }, 1000);
 
 /* =====================================================================
    💰 Wallet screen

@@ -50,10 +50,13 @@ code{direction:ltr;display:inline-block}
     <button data-t="payouts">💵 ڕاکێشانەکان</button>
     <button data-t="settings">⚙️ ڕێکخستن</button>
     <button data-t="prices">🎁 نرخی دیاری</button>
+    <button data-t="newgift">🎬 دیاری نوێ (ڤیدیۆ)</button>
   </div>
   <div id="box"><div class="empty">…</div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="gift-fx.js"></script> <!-- for the 🎬 new-gift preview -->
+
 <script>
 "use strict";
 const SUPABASE_URL = "https://vjuqtzhefxpiqsmasfkb.supabase.co";
@@ -92,7 +95,7 @@ const priceOf = (coins) => coins / 1000 * Number(settings?.usd_per_1000 || 0.99)
 
 async function load() {
   const box = $("#box"); box.innerHTML = `<div class="empty">…</div>`;
-  try { await ({ stats, make, codes, payouts, settingsTab, prices })[tab === "settings" ? "settingsTab" : tab](box); }
+  try { await ({ stats, make, codes, payouts, settingsTab, prices, newgift })[tab === "settings" ? "settingsTab" : tab](box); }
   catch (err) { box.innerHTML = `<div class="card">⚠️ ${esc(err.message || err)}</div>`; }
 }
 
@@ -194,6 +197,93 @@ async function make(box) {
       a.download = `talk-together-codes-${coins}-${new Date().toISOString().slice(0, 10)}.txt`; a.click();
     });
   });
+}
+
+/* 🎬 add a gift from a green-screen video (preview it first, then save) */
+const TIER_NAMES = { small: "💝 بچووک", animals: "🦁 ئاژەڵ", special: "✨ تایبەت" };
+const videoOpts = (size, keying) => ({ height: `min(${size}vh, ${Math.round(size * 1.15)}vw)`, bottom: "4vh", focusX: 0.5, maxMs: 20000, fadeMs: 600,
+  withSound: true, dominance: keying === "auto" ? null : [0.06, 0.16], sim: 0.12, smooth: 0.1, spill: 1, fadeTop: 8, fadeSides: 6 });
+async function newgift(box) {
+  box.innerHTML = `<div class="card">
+    <h2>🎬 دیاری نوێ لە ڤیدیۆیەکی باکگراوند سەوز</h2>
+    <div class="muted">ڤیدیۆکە هەڵبژێرە، سەرەتا <b>پێشبینین</b> دابگرە بۆ ئەوەی ببینیت سەوزەکە چۆن لادەچێت، پاشان <b>پاشەکەوتکردن</b>. باشترە ڤیدیۆکە کەمتر لە <b>8 MB</b> و کەمتر لە <b>15 چرکە</b> بێت.</div>
+    <label for="ng-file">📹 ڤیدیۆ (MP4 یان MOV)</label><input id="ng-file" type="file" accept="video/mp4,video/quicktime,video/webm">
+    <div class="row">
+      <div><label for="ng-name">ناوی دیاری (بە کوردی)</label><input id="ng-name" maxlength="40" placeholder="پڵنگ"></div>
+      <div><label for="ng-id">ناوی ئینگلیزی (تەنها پیتی بچووک)</label><input id="ng-id" maxlength="30" placeholder="tiger" style="direction:ltr"></div>
+      <div><label for="ng-emoji">ئیمۆجی</label><input id="ng-emoji" maxlength="4" placeholder="🐯" style="text-align:center"></div>
+    </div>
+    <div class="row">
+      <div><label for="ng-price">نرخ (کۆین)</label><input id="ng-price" type="number" min="1" max="10000000" value="9999"></div>
+      <div><label for="ng-tier">بەش</label><select id="ng-tier">${Object.entries(TIER_NAMES).map(([k, v]) => `<option value="${k}" ${k === "special" ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+      <div><label for="ng-keying">لابردنی سەوز</label><select id="ng-keying"><option value="dominance" selected>خۆکار (هەموو جۆرە سەوزێک) ✅</option><option value="auto">سەوزی یەک ڕەنگ</option></select></div>
+    </div>
+    <label for="ng-size">قەبارە لەسەر شاشە: <b id="ng-size-v">62</b>٪ (کەمتر = دوورتر)</label><input id="ng-size" type="range" min="30" max="100" value="62">
+    <div class="muted" id="ng-calc" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="ng-preview" type="button">👁️ پێشبینین</button><button class="btn main" id="ng-save" type="button">💾 پاشەکەوتکردن</button></div>
+    <div id="ng-status" class="muted" style="margin-top:8px"></div>
+  </div>
+  <div class="card"><h2>🎬 دیارییە ڤیدیۆییەکانی تۆ</h2><div id="ng-list"><div class="empty">…</div></div></div>`;
+  const calc = () => { const p = Number($("#ng-price").value) || 0; $("#ng-calc").textContent = `${n(p)} 🪙 = ${usd(priceOf(p))}`; $("#ng-size-v").textContent = $("#ng-size").value; };
+  ["#ng-price", "#ng-size"].forEach((s) => $(s).addEventListener("input", calc)); calc();
+  $("#ng-name").addEventListener("input", () => { if (!$("#ng-id").dataset.touched && /^[a-z0-9 ]+$/i.test($("#ng-name").value)) $("#ng-id").value = $("#ng-name").value.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 30); });
+  $("#ng-id").addEventListener("input", () => { $("#ng-id").dataset.touched = "1"; });
+  let localUrl = null;
+  $("#ng-file").addEventListener("change", () => {
+    const f = $("#ng-file").files[0]; if (!f) return;
+    if (localUrl) URL.revokeObjectURL(localUrl); localUrl = URL.createObjectURL(f);
+    $("#ng-status").textContent = `📹 ${f.name} · ${(f.size / 1048576).toFixed(1)} MB${f.size > 8 * 1048576 ? " ⚠️ گەورەیە — مۆبایلی کۆن خاو دەبێت" : " ✅"}`;
+  });
+  // preview: the real gift effect on a dark screen (tap anywhere to close)
+  $("#ng-preview").addEventListener("click", async () => {
+    if (!localUrl) return alert("سەرەتا ڤیدیۆیەک هەڵبژێرە.");
+    if (!window.GiftFX) return alert("gift-fx.js بار نەبوو.");
+    const bg = document.createElement("div");
+    bg.style.cssText = "position:fixed;inset:0;z-index:94;background:radial-gradient(circle at 50% 40%,#3a2f6b,#0b0a14);display:grid;place-items:start center;padding-top:16px;color:#fff;font-weight:700";
+    bg.textContent = "پێشبینین — بۆ داخستن دەستی لێ بدە"; document.body.appendChild(bg);
+    bg.addEventListener("click", () => bg.remove());
+    try { await window.GiftFX.playVideo(localUrl, videoOpts(Number($("#ng-size").value), $("#ng-keying").value)); } catch (e) { alert("ڤیدیۆکە نەکرایەوە: " + (e.message || e)); }
+    bg.remove();
+  });
+  $("#ng-save").addEventListener("click", async (e) => {
+    const f = $("#ng-file").files[0];
+    const id = $("#ng-id").value.trim().toLowerCase(), name = $("#ng-name").value.trim(), emoji = $("#ng-emoji").value.trim() || "🎁";
+    const price = Math.floor(Number($("#ng-price").value)), size = Number($("#ng-size").value), tier = $("#ng-tier").value, keying = $("#ng-keying").value;
+    if (!f) return alert("ڤیدیۆیەک هەڵبژێرە.");
+    if (f.size > 30 * 1048576) return alert("ڤیدیۆکە زۆر گەورەیە (زۆرترین 30 MB).");
+    if (!/^[a-z0-9_]{2,30}$/.test(id)) return alert("ناوی ئینگلیزی دەبێت تەنها پیتی بچووکی ئینگلیزی، ژمارە یان _ بێت (٢ بۆ ٣٠ پیت). بۆ نموونە: tiger");
+    if (!(price >= 1 && price <= 10000000)) return alert("نرخەکە هەڵەیە.");
+    e.target.disabled = true; $("#ng-status").textContent = "⏳ ڤیدیۆکە بار دەکرێت…";
+    try {
+      const exists = await sb.from("gift_catalog").select("id").eq("id", id).maybeSingle();
+      if (exists.data) throw new Error("ئەم ناوە ئینگلیزییە پێشتر هەیە. ناوێکی تر بنووسە.");
+      const ext = (f.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
+      const path = `${id}-${Date.now()}.${ext}`;
+      const up = await sb.storage.from("gift-videos").upload(path, f, { contentType: f.type || "video/mp4", upsert: false });
+      if (up.error) throw new Error(/bucket|not found/i.test(up.error.message) ? "سەرەتا SQL ـی update-28-custom-gifts Run بکە." : up.error.message);
+      const video_url = sb.storage.from("gift-videos").getPublicUrl(path).data.publicUrl;
+      const ins = await sb.from("gift_catalog").insert({ id, emoji, price, sort: 60, active: true, video_url, name: name || null, tier, keying, size });
+      if (ins.error) { await sb.storage.from("gift-videos").remove([path]); throw new Error(ins.error.message); }
+      $("#ng-status").innerHTML = `✅ <b>${esc(emoji)} ${esc(name || id)}</b> زیاد کرا بە ${n(price)} 🪙. لە ئەپەکەدا دەردەکەوێت (ئەپەکە دابخە و بیکەرەوە).`;
+      $("#ng-file").value = ""; listMine();
+    } catch (err) { $("#ng-status").textContent = "⚠️ " + (err.message || err); }
+    e.target.disabled = false;
+  });
+  async function listMine() {
+    const { data, error } = await sb.from("gift_catalog").select("id,emoji,name,price,active,video_url,tier").like("video_url", "%gift-videos%").order("sort");
+    const el = $("#ng-list"); if (!el) return;
+    if (error) { el.innerHTML = `<div class="muted">${/video_url|does not exist|column/i.test(error.message) ? "سەرەتا SQL ـی update-28-custom-gifts Run بکە." : esc(error.message)}</div>`; return; }
+    el.innerHTML = (data || []).length ? `<div class="scroll"><table><tr><th></th><th>ناو</th><th>نرخ</th><th>بەش</th><th>دۆخ</th><th></th></tr>
+      ${data.map((g) => `<tr><td style="font-size:1.4rem">${esc(g.emoji)}</td><td>${esc(g.name || g.id)}<div class="muted" style="font-size:.75rem;direction:ltr">${esc(g.id)}</div></td>
+        <td class="num">${n(g.price)}</td><td>${TIER_NAMES[g.tier] || ""}</td><td>${g.active ? "✅ دیارە" : "🙈 شاراوە"}</td>
+        <td><button class="btn" data-tog="${esc(g.id)}" data-on="${g.active ? 1 : 0}">${g.active ? "شاردنەوە" : "پیشاندان"}</button></td></tr>`).join("")}</table></div>`
+      : `<div class="empty">هێشتا هیچ دیارییەکی ڤیدیۆیی زیاد نەکراوە.</div>`;
+    el.querySelectorAll("[data-tog]").forEach((b) => b.addEventListener("click", async () => {
+      const { error } = await sb.from("gift_catalog").update({ active: b.dataset.on !== "1" }).eq("id", b.dataset.tog);
+      if (error) return alert(error.message); listMine();
+    }));
+  }
+  listMine();
 }
 
 /* 🗂️ code list */

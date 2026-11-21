@@ -676,6 +676,18 @@ async function fireDragonGift(g, to) {
   catch { await new Promise((r) => setTimeout(r, 2500)); }
 }
 
+// 🎬 a gift the admin added from the admin panel (any green-screen video). Same treatment for all of them.
+function customSizes(size) { const s = Math.max(30, Math.min(100, Number(size) || 62)); return `min(${s}vh, ${Math.round(s * 1.15)}vw)`; }
+async function customGift(g, to) {
+  banner(g, to, 9000);
+  glow("rgba(255,200,120,.3)", 9000, 0.7);
+  setTimeout(() => { rays(2400); sparks(W / 2, H * 0.55, "#ffd76a", 60, 480); }, 900);
+  try {
+    await playKeyedVideo(g.video, { height: customSizes(g.size), bottom: "4vh", focusX: 0.5, maxMs: 20000, fadeMs: 600, withSound: true,
+      dominance: g.keying === "auto" ? null : [0.06, 0.16], sim: 0.12, smooth: 0.1, spill: 1, fadeTop: 8, fadeSides: 6 });
+  } catch { await new Promise((r) => setTimeout(r, 2500)); }
+}
+
 // 🐘 real elephant charging through dust
 async function realElephantGift(g, to) {
   banner(g, to, 8400);
@@ -1033,5 +1045,12 @@ window.GiftFX = {
   emoji: (id) => BY_ID[id]?.e || "🎁",
   setSound: (on) => { soundOn = !!on; },
   playVideo: playKeyedVideo, // for realistic gift videos later (green screen or packed alpha MP4)
+  // gifts added from the admin panel: { id, emoji, video_url, tier, keying, size }. Built-in gifts are never replaced.
+  register: (row) => {
+    if (!row || !row.id || !row.video_url || BY_ID[row.id]) return false;
+    const tier = ["small", "animals", "special"].includes(row.tier) ? row.tier : "special";
+    BY_ID[row.id] = { id: row.id, e: row.emoji || "🎁", run: customGift, s: "sparkle", video: row.video_url, tier, keying: row.keying, size: row.size };
+    return true;
+  },
 };
 })();
