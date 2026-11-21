@@ -761,3 +761,10 @@ const I18N_GIFTS2 = {
   fr: { g_volcano: "Volcan", g_wolf: "Loup", g_storm: "Orage" }, es: { g_volcano: "Volcán", g_wolf: "Lobo", g_storm: "Tormenta eléctrica" },
 };
 for (const [l, o] of Object.entries(I18N_GIFTS2)) Object.assign(I18N[l], o);
+const I18N_GIFTS3 = {
+  en: { g_splash: "Splash", g_plane: "Jet", g_firedragon: "Fire dragon" }, ar: { g_splash: "موجة ماء", g_plane: "طائرة", g_firedragon: "تنين النار" },
+  ckb: { g_splash: "شەپۆلی ئاو", g_plane: "فڕۆکە", g_firedragon: "ئەژدیهای ئاگر" }, tr: { g_splash: "Su sıçraması", g_plane: "Jet", g_firedragon: "Ateş ejderhası" },
+  fa: { g_splash: "موج آب", g_plane: "جت", g_firedragon: "اژدهای آتش" }, de: { g_splash: "Wasserfontäne", g_plane: "Jet", g_firedragon: "Feuerdrache" },
+  fr: { g_splash: "Éclaboussure", g_plane: "Jet", g_firedragon: "Dragon de feu" }, es: { g_splash: "Salpicadura", g_plane: "Jet", g_firedragon: "Dragón de fuego" },
+};
+for (const [l, o] of Object.entries(I18N_GIFTS3)) Object.assign(I18N[l], o);

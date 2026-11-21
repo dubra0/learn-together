@@ -83,6 +83,9 @@ const GIFTS = {
     { id: "crown", e: "👑", run: crownGift, s: "fanfare" },
     { id: "volcano", e: "🌋", run: volcanoGift, s: "rocket", video: "gifts/volcano.mov.MOV" },
     { id: "storm", e: "⛈️", run: stormGift, s: "rocket", video: "gifts/lightning%20storm.mp4" },
+    { id: "splash", e: "🌊", run: splashGift, s: "chime", video: "gifts/water.mp4" },
+    { id: "plane", e: "✈️", run: planeGift, s: "rocket", video: "gifts/plain.mp4" },
+    { id: "firedragon", e: "🔥", run: fireDragonGift, s: "dragon", video: "gifts/fire%20dragon.MP4" },
   ],
 };
 const BY_ID = {};
@@ -644,6 +647,33 @@ async function realDragonGift(g, to) {
   setTimeout(() => { rings("#ff7a2a", 3); }, 12200);
   try { await playKeyedVideo(g.video, { height: "min(62vh, 72vw)", bottom: "4vh", focusX: 0.5, maxMs: 15600, fadeMs: 700, withSound: true, dominance: [0.06, 0.16], spill: 1, fadeTop: 12, fadeSides: 9 }); }
   catch { await dragonGift(g, to); }
+}
+
+// 🌊 a big water splash rising from the bottom (dark green top, lighter green floor → "greener than red/blue")
+async function splashGift(g, to) {
+  banner(g, to, 8200);
+  glow("rgba(120,200,255,.3)", 8200, 0.7);
+  setTimeout(() => { shake(600); sparks(W / 2, H * 0.8, "#bfe6ff", 70, 520); }, 1800);
+  try { await playKeyedVideo(g.video, { height: "min(60vh, 56vw)", bottom: "0", focusX: 0.5, maxMs: 8000, fadeMs: 600, withSound: true, dominance: [0.06, 0.16], spill: 1 }); }
+  catch { await new Promise((r) => setTimeout(r, 2500)); }
+}
+
+// ✈️ a jet flies across, then explodes
+async function planeGift(g, to) {
+  banner(g, to, 8200);
+  glow("rgba(160,200,255,.25)", 3600, 0.6);
+  setTimeout(() => { glow("rgba(255,140,40,.55)", 3800, 1); shake(1400); rays(2600); sparks(W / 2, H * 0.55, "#ff9a3d", 110, 640); }, 4100); // the blast
+  try { await playKeyedVideo(g.video, { height: "min(60vh, 56vw)", bottom: "16vh", focusX: 0.5, maxMs: 8000, fadeMs: 500, withSound: true, key: [0.02, 0.478, 0.03], sim: 0.12, smooth: 0.1, spill: 1 }); }
+  catch { await new Promise((r) => setTimeout(r, 2500)); }
+}
+
+// 🔥 red dragon breathing fire (15 s). Uneven green + bright fire → "greener than red/blue" keeps the fire.
+async function fireDragonGift(g, to) {
+  banner(g, to, 15000);
+  glow("rgba(255,90,30,.4)", 15000, 1);
+  [2600, 7400, 11200].forEach((d) => setTimeout(() => { shake(1100); rays(2200); sparks(W / 2, H * 0.5, "#ff7a2a", 100, 620); }, d)); // each blast of fire
+  try { await playKeyedVideo(g.video, { height: "min(62vh, 72vw)", bottom: "4vh", focusX: 0.5, maxMs: 14600, fadeMs: 700, withSound: true, dominance: [0.08, 0.2], spill: 1, fadeTop: 10, fadeSides: 8 }); }
+  catch { await new Promise((r) => setTimeout(r, 2500)); }
 }
 
 // 🐘 real elephant charging through dust
