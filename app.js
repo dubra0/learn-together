@@ -139,7 +139,7 @@ document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("clic
 /* ---------- state ---------- */
 let sb = null, me = null, profile = null, isAdmin = false;
 let lk = null, currentRoom = null, currentCode = null, listChannel = null, practiceTimer = null;
-let currentTab = "feed", roomFilter = "";
+let currentTab = "feed", roomFilter = "", roomLevel = "";
 const following = new Set(), blocked = new Set(), profileCache = new Map();
 const myFollowers = new Set(); // people who follow me
 
@@ -430,11 +430,20 @@ async function renderRoomsTab() {
       <button class="chip ${roomFilter ? "" : "on"}" data-f="">${esc(t("allLangs"))}</button>
       ${Object.entries(LANGS).map(([k, v]) => `<button class="chip ${roomFilter === k ? "on" : ""}" data-f="${k}">${esc(v)}</button>`).join("")}
     </div>
+    <div class="chips" id="level-chips">
+      <button class="chip ${roomLevel ? "" : "on"}" data-lv="">${esc(t("rp_allLevels"))}</button>
+      ${Object.keys(LEVEL_CODES).map((k) => `<button class="chip ${roomLevel === k ? "on" : ""}" data-lv="${k}">${esc(levelLabel(k))}</button>`).join("")}
+    </div>
     <h2 class="section">${esc(t("liveNow"))}</h2><div id="live-list"><div class="empty">…</div></div>
     <div id="upcoming-wrap" hidden><h2 class="section">${esc(t("upcoming"))}</h2><div id="upcoming-list"></div></div>`;
   box.querySelector("#lang-chips").addEventListener("click", (e) => {
     const c = e.target.closest("[data-f]"); if (!c) return;
     roomFilter = c.dataset.f; renderRoomsTab();
+  });
+  // 🎯 only rooms of one level
+  box.querySelector("#level-chips").addEventListener("click", (e) => {
+    const c = e.target.closest("[data-lv]"); if (!c) return;
+    roomLevel = c.dataset.lv; renderRoomsTab();
   });
   if (hasGoal) startGoalWaves(box);
   // 📞 random call: the big card at the top of the rooms page
@@ -447,6 +456,7 @@ async function loadRooms() {
   const seq = ++roomsSeq;
   let q = sb.from("rooms").select("*").eq("is_live", true).order("created_at", { ascending: false }).limit(100);
   if (roomFilter) q = q.eq("language", roomFilter);
+  if (roomLevel) q = q.eq("level", roomLevel);
   const { data, error } = await q;
   if (seq !== roomsSeq || !$("#live-list")) return;
   if (error) { $("#live-list").innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
@@ -463,7 +473,12 @@ async function loadRooms() {
   $("#upcoming-list").innerHTML = upcoming.map(roomCard).join("");
   const all = [...live, ...upcoming];
   document.querySelectorAll("#tab-rooms [data-join]").forEach((b) =>
-    b.addEventListener("click", () => { liveMode = false; joinRoom(all.find((r) => r.id === b.dataset.join)); }));
+    b.addEventListener("click", async () => {
+      liveMode = false;
+      const r = all.find((x) => x.id === b.dataset.join); if (!r) return;
+      if (r.locked && r.host_id !== me.id && window.RoomsPlus) { const code = await RoomsPlus.askCode(r); if (code) joinRoom(r, code); return; } // 🔒
+      joinRoom(r);
+    }));
   document.querySelectorAll("#tab-rooms [data-start]").forEach((b) =>
     b.addEventListener("click", () => startScheduled(all.find((r) => r.id === b.dataset.start))));
   document.querySelectorAll("#tab-rooms [data-share]").forEach((b) =>
@@ -479,7 +494,8 @@ function roomCard(r) {
   const tags = `<span class="tag ${upcoming ? "blue" : "live"}">${esc(upcoming ? t("startsAt", { time: fmtTime(r.starts_at) }) : "LIVE")}</span>
     <span class="tag">${esc(LANGS[r.language] || r.language)}</span><span class="tag blue">${esc(levelLabel(r.level))}</span>
     ${r.video ? `<span class="tag">📹 ${esc(t("videoTag"))}</span>` : ""}
-    ${r.is_private ? `<span class="tag">${esc(t("privateTag"))}</span>` : ""}`;
+    ${r.is_private ? `<span class="tag">${esc(t("privateTag"))}</span>` : ""}
+    ${r.locked ? `<span class="tag">🔒</span>` : ""}`;
   let actions;
   if (upcoming) {
     actions = mine
@@ -513,6 +529,7 @@ function subscribeRooms() {
       if (currentRoom && row && row.id === currentRoom.id && row.is_live === false && row.host_id !== me.id) {
         toast(t("roomEnded")); leaveRoom(); return;
       }
+      window.RoomsPlus?.update(row); // 📝 the host changed the note
       if (!$("#screen-main").hidden && currentTab === "rooms") reloadRoomsSoon();
     })
     .subscribe();
@@ -530,13 +547,19 @@ $("#new-room-btn").addEventListener("click", () => {
   $("#room-title").value = "";
   if (roomFilter) $("#room-lang").value = roomFilter;
   setSeg("#room-type", (createType = "public"));
+  $("#room-pw-box").hidden = true; $("#room-pw").value = "";
   setSeg("#room-media", (createMedia = "voice"));
   setSeg("#room-when", (createWhen = "now"));
   $("#room-time-box").hidden = true;
   show("screen-create");
 });
 function setSeg(sel, v) { document.querySelectorAll(sel + " .chip").forEach((c) => c.classList.toggle("on", c.dataset.v === v)); }
-$("#room-type").addEventListener("click", (e) => { const c = e.target.closest("[data-v]"); if (c) setSeg("#room-type", (createType = c.dataset.v)); });
+$("#room-type").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-v]"); if (!c) return;
+  setSeg("#room-type", (createType = c.dataset.v));
+  $("#room-pw-box").hidden = createType !== "locked"; // 🔒 a room with a password
+  if (createType === "locked") $("#room-pw").focus();
+});
 $("#room-when").addEventListener("click", (e) => {
   const c = e.target.closest("[data-v]"); if (!c) return;
   setSeg("#room-when", (createWhen = c.dataset.v));
@@ -556,6 +579,8 @@ $("#create-form").addEventListener("submit", async (e) => {
     if (isNaN(d) || d.getTime() < Date.now() + 60e3) return toast(t("timeInPast"));
     startsAt = d.toISOString();
   }
+  const pw = createType === "locked" ? $("#room-pw").value.trim() : "";
+  if (createType === "locked" && !window.RoomsPlus?.validCode(pw)) return toast(t("rp_pwBad"));
   const btn = $("#create-submit"); btn.disabled = true;
   const row = {
     title, language: $("#room-lang").value, level: $("#room-level").value,
@@ -568,15 +593,16 @@ $("#create-form").addEventListener("submit", async (e) => {
   const { data, error } = await sb.from("rooms").insert(row).select().single();
   btn.disabled = false;
   if (error) { console.error(error); return toast(t("createFail") + error.message); }
+  if (pw) { if (!(await RoomsPlus.lock(data.id, pw))) return; data.locked = true; } // 🔒
   if (startsAt) { goMain("rooms", true); toast(t("scheduled"), t("share"), () => shareRoom(data)); }
-  else { joinRoom(data, data.join_code); window.Push?.notify("live", { roomId: data.id }); } // 🔔 tell my followers
+  else { joinRoom(data, data.join_code || pw || undefined); window.Push?.notify("live", { roomId: data.id }); } // 🔔 tell my followers
 });
 
 /* ---------------- Share ---------------- */
 function roomLink(r) {
   const u = new URL(location.href.split("?")[0].split("#")[0]);
   u.searchParams.set("room", r.id);
-  if (r.join_code) u.searchParams.set("code", r.join_code);
+  if (r.join_code && !r.locked) u.searchParams.set("code", r.join_code); // 🔒 a password is never put in a link
   return u.toString();
 }
 async function shareRoom(r) {
@@ -590,6 +616,10 @@ async function shareRoom(r) {
 async function openRoomLink(id, code) {
   const { data, error } = await sb.rpc("get_room", { p_id: id, p_code: code || null });
   const row = Array.isArray(data) ? data[0] : null;
+  if (!error && !row && window.RoomsPlus && !code) { // 🔒 a room with a password, opened from a link: ask it
+    const { data: lr } = await sb.from("rooms").select("*").eq("id", id).maybeSingle();
+    if (lr?.locked && lr.is_live) { const c = await RoomsPlus.askCode(lr); if (c) return openRoomLink(id, c); return; }
+  }
   if (error || !row || !row.is_live) return toast(t("e_room_closed"));
   if (row.starts_at && new Date(row.starts_at).getTime() > Date.now() && row.host_id !== me.id) {
     return toast(`${t("e_not_started")} ${t("startsAt", { time: fmtTime(row.starts_at) })}`);
@@ -1507,6 +1537,7 @@ async function joinRoom(row, code) {
   currentRoom = row; currentCode = code || row.join_code || null;
   replyTo = null; $("#reply-bar").hidden = true; pendingInvites.clear();
   setRoomHeader(row);
+  window.RoomsPlus?.paint(); // 📝 the note board
   $("#room-status").textContent = t("connecting");
   $("#seats").innerHTML = ""; $("#audience").innerHTML = ""; $("#topic-box").innerHTML = ""; $("#chat-list").innerHTML = "";
   $("#mic-btn").disabled = true; $("#mic-btn").hidden = true; $("#hand-btn").hidden = true; $("#topic-btn").hidden = true;

@@ -722,6 +722,11 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
       <div class="seg" id="room-type">
         <button type="button" class="chip on" data-v="public" data-i18n="publicRoom"></button>
         <button type="button" class="chip" data-v="private" data-i18n="privateRoom"></button>
+        <button type="button" class="chip" data-v="locked" data-i18n="rp_locked">🔒</button>
+      </div>
+      <div id="room-pw-box" hidden>
+        <label class="lbl" for="room-pw" data-i18n="rp_pwLbl"></label>
+        <input id="room-pw" inputmode="numeric" maxlength="8" autocomplete="off" pattern="[0-9]*">
       </div>
       <label class="lbl" data-i18n="when"></label>
       <div class="seg" id="room-when">
@@ -885,6 +890,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
   </header>
   <div class="stage-body">
     <button class="btn block" id="audio-unlock" type="button" hidden data-i18n="tapAudio" style="margin-bottom:12px"></button>
+    <div id="room-board" hidden></div>
     <div class="seats" id="seats"></div>
     <div class="aud-head"><span id="room-status"></span></div>
     <div class="audience" id="audience"></div>
@@ -942,6 +948,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;direction:ltr;disp
 <script src="people-search.js"></script>
 <script src="chat-plus.js"></script>
 <script src="feed-plus.js"></script>
+<script src="rooms-plus.js"></script>
 <script src="post-editor.js"></script>
 <script src="stories.js"></script>
 <script src="room-looks.js"></script>
