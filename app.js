@@ -1018,6 +1018,7 @@ function openSettings() {
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
       ${window.Visitors ? `<button type="button" id="me-dm">${esc(t("dm_menu"))}<span class="end" id="me-dm-st">…</span></button>` : ""}
+      ${window.ChatPlus ? `<button type="button" id="me-hide">${esc(t("cp_hide"))}<span class="end" id="me-hide-st">…</span></button>` : ""}
     </div>
     <div class="card">
       <div class="group-title" style="margin:0 0 10px">🏅 ${esc(t("badges"))}</div>
@@ -1047,6 +1048,7 @@ function openSettings() {
   $("#me-saved").addEventListener("click", openSaved);
   $("#me-inbox").addEventListener("click", openInbox);
   window.Visitors?.wireDm();
+  window.ChatPlus?.wireHide();
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
   $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
   $("#me-delete").addEventListener("click", deleteAccount);
@@ -2374,13 +2376,14 @@ function subscribeMessages() {
       unread++; renderBadge();
       if (!$("#screen-main").hidden && currentTab === "chats") renderChatsTab();
       if (lk) return; // don't interrupt a voice room
+      if (window.ChatPlus?.isMuted(m.sender)) return; // 🔇 a muted chat: no pop-up
       const p = await getProfile(m.sender);
       toast(t("newMessageFrom", { name: p?.name || t("guest") }), t("open"), () => openDm(m.sender));
     })
     .subscribe();
 }
 $("#top-chat").addEventListener("click", openInbox);
-$("#dm-back").addEventListener("click", () => { stopRecording(true); openInbox(); });
+$("#dm-back").addEventListener("click", () => { stopRecording(true); window.ChatPlus?.close(); openInbox(); });
 $("#dm-who").addEventListener("click", () => { if (dmWith) openProfile(dmWith.id); });
 
 const shortTime = (iso) => {
@@ -2470,6 +2473,7 @@ async function openDm(otherId) {
   $("#dm-list").innerHTML = `<div class="empty">…</div>`;
   $("#dm-input").value = "";
   show("screen-dm");
+  window.ChatPlus?.open(otherId); // 🟢 online / typing… / 🔇
   const [can, msgs] = await Promise.all([
     sb.rpc("can_message", { p_other: otherId }),
     sb.from("messages").select("*")
@@ -2483,6 +2487,7 @@ async function openDm(otherId) {
   lastDay = "";
   (msgs.data || []).forEach(appendDm);
   if (!(msgs.data || []).length) $("#dm-list").innerHTML = `<div class="empty"><span class="big">👋</span>${esc(t("noMessages"))}</div>`;
+  window.ChatPlus?.loaded(msgs.data || []);
   scrollDm();
   markRead(otherId);
 }
@@ -2505,7 +2510,7 @@ function appendDm(m) {
   const mine = m.sender === me.id;
   const div = document.createElement("div");
   div.className = "dmsg" + (mine ? " mine" : "");
-  const tm = `<div class="tm">${esc(shortTime(m.created_at))}${mine && m.read_at ? " ✓✓" : ""}</div>`;
+  const tm = `<div class="tm">${esc(shortTime(m.created_at))}${mine ? (window.ChatPlus ? `<span class="tk${m.read_at ? " rd" : ""}">${m.read_at ? "✓✓" : "✓"}</span>` : m.read_at ? " ✓✓" : "") : ""}</div>`;
   if (m.audio_path) {
     div.innerHTML = `<div class="b">🎤 ${esc(t("voiceMsg"))}${m.audio_secs ? ` · ${m.audio_secs}s` : ""}<audio controls preload="none"></audio>${tm}</div>`;
     sb.storage.from("voice-notes").createSignedUrl(m.audio_path, 3600).then(({ data }) => { if (data?.signedUrl) div.querySelector("audio").src = data.signedUrl; });
@@ -2518,8 +2523,9 @@ function appendDm(m) {
     fillSharedCard(div.querySelector(".dm-post"), pid);
   } else {
     div.innerHTML = `<div class="b"><div dir="auto">${esc(m.body)}</div>${tm}</div>`;
-    div.querySelector(".b").addEventListener("click", () => dmActions(m.body));
+    div.querySelector(".b").addEventListener("click", () => (window.ChatPlus ? ChatPlus.menu(m) : dmActions(m.body)));
   }
+  window.ChatPlus?.decorate(div, m, mine); // ↩️ reply quote, 😍 reactions, hold for the menu
   list.appendChild(div);
   scrollDm();
 }
@@ -2539,7 +2545,7 @@ $("#dm-form").addEventListener("submit", async (e) => {
   const text = $("#dm-input").value.trim().slice(0, 1000);
   if (!text) return;
   $("#dm-input").value = "";
-  const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, body: text }).select().single();
+  const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, body: text, ...(window.ChatPlus?.sendExtra() || {}) }).select().single();
   if (error) { $("#dm-input").value = text; return toast(/row-level|policy/i.test(error.message) ? t("mutualOnly") : t("error") + error.message); }
   appendDm(data);
   window.Push?.notify("dm", { target: dmWith.id }); // 🔔
@@ -2581,7 +2587,7 @@ async function sendVoice(blob, mime, secs) {
   const path = `${me.id}/${id}.${ext}`;
   const up = await sb.storage.from("voice-notes").upload(path, blob, { contentType: mime });
   if (up.error) return toast(t("error") + up.error.message);
-  const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, audio_path: path, audio_secs: secs }).select().single();
+  const { data, error } = await sb.from("messages").insert({ receiver: dmWith.id, audio_path: path, audio_secs: secs, ...(window.ChatPlus?.sendExtra() || {}) }).select().single();
   if (error) { sb.storage.from("voice-notes").remove([path]); return toast(t("error") + error.message); }
   appendDm(data);
   window.Push?.notify("dm", { target: dmWith.id }); // 🔔

@@ -1,13 +1,13 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v39";
+const CACHE = "talk-together-v40";
 // 🎁 gift videos + sounds come WITH the app: downloaded once when the app is installed/opened, then kept on the phone.
 // They have their own box (not emptied on app updates). A new or changed gift video → add/rename it here and bump GIFTS.
 const GIFTS = "learn-together-gifts-v1";
 const GIFT_FILES = ["gifts/volcano.mov.MOV", "gifts/eagle.mp4", "gifts/horse.mp4", "gifts/elephant.mp4", "gifts/wolf.MOV", "gifts/lightning%20storm.mp4", "gifts/lion.MP4", "gifts/dragon.MP4",
   "gifts/water.mp4", "gifts/plain.mp4", "gifts/fire%20dragon.MP4", "sounds/lion-roar.mp3"];
-const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "random-call.js", "visitors.js", "people-search.js","post-editor.js", "stories.js", "room-looks.js", "levels.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
+const SHELL = ["./", "index.html", "theme.css", "ui-plus.js", "safety.js", "push.js", "random-call.js", "visitors.js", "people-search.js", "chat-plus.js", "post-editor.js", "stories.js", "room-looks.js", "levels.js", "app.js", "i18n.js", "topics.js", "gift-fx.js", "wallet.js", "video-stats.js", "face-lenses.js", "top-gifters.js",
   "privacy.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png"];
 const FOREVER = ["cdn.jsdelivr.net", "fonts.gstatic.com", "fonts.googleapis.com"];
 
@@ -19,7 +19,7 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== GIFTS).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== GIFTS && k !== "lt-prefs").map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
       .then(() => saveGifts()),
   );
@@ -46,14 +46,24 @@ self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : "" }; }
   const scope = self.registration.scope;
-  e.waitUntil(self.registration.showNotification(d.title || "Learn Together", {
-    body: d.body || "",
-    icon: d.icon || scope + "icons/icon-192.png",
-    badge: scope + "icons/icon-192.png",
-    tag: d.tag || undefined,
-    renotify: !!d.tag,
-    data: { url: typeof d.url === "string" && d.url.startsWith(scope) ? d.url : scope },
-  }));
+  e.waitUntil((async () => {
+    // 🔇 a chat I muted: the notification still comes, but silently (no sound, no buzz)
+    let quiet = false;
+    try {
+      const r = await (await caches.open("lt-prefs")).match("muted.json");
+      const list = r ? await r.json() : [];
+      quiet = typeof d.tag === "string" && d.tag.startsWith("dm-") && Array.isArray(list) && list.includes(d.tag.slice(3));
+    } catch {}
+    await self.registration.showNotification(d.title || "Learn Together", {
+      body: d.body || "",
+      icon: d.icon || scope + "icons/icon-192.png",
+      badge: scope + "icons/icon-192.png",
+      tag: d.tag || undefined,
+      renotify: !!d.tag && !quiet,
+      silent: quiet,
+      data: { url: typeof d.url === "string" && d.url.startsWith(scope) ? d.url : scope },
+    });
+  })());
 });
 // windows that told us they are the installed app (home-screen icon), not a browser tab
 const appWindows = new Set();
