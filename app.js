@@ -791,7 +791,8 @@ function pfLevelBarHtml(p) {
 function profileCardHtml(p, o) {
   const isMe = !!o.isMe;
   const top = isMe
-    ? `<button class="glass" type="button" data-act="settings" aria-label="settings">⚙️</button>
+    ? `<span class="pf2-tl"><button class="glass" type="button" data-act="settings" aria-label="settings">⚙️</button>
+       ${window.Visitors ? `<button class="glass pf2-eye" type="button" data-act="visitors" aria-label="visitors">👁️<span class="n" hidden></span></button>` : ""}</span>
        ${typeof openWallet === "function" ? `<button class="glass" type="button" data-act="wallet" aria-label="wallet">💰 <span class="c pf2-coins">…</span></button>` : "<span></span>"}`
     : `<button class="glass" type="button" data-act="back" aria-label="back">${document.documentElement.dir === "rtl" ? "→" : "←"}</button>
        <button class="glass" type="button" data-act="more" aria-label="more">⋯</button>`;
@@ -921,6 +922,9 @@ function wireProfileCard(root, p, isMe, rerender) {
     if (typeof loadWallet === "function") loadWallet().then(put).catch(() => {});
   }
   root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
+  // 👁️ who visited my profile (the red number = new visitors)
+  const eye = root.querySelector('[data-act="visitors"]');
+  if (eye) { eye.addEventListener("click", (e) => { e.stopPropagation(); window.Visitors.open(); }); window.Visitors.badge(); }
   root.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener("click", openCompose));
   root.querySelector('[data-act="follow"]')?.addEventListener("click", async () => { await toggleFollow(p.id); rerender(); });
   root.querySelector('[data-act="msg"]')?.addEventListener("click", () => openDm(p.id));
@@ -1009,6 +1013,7 @@ function openSettings() {
       ${window.Push ? `<button type="button" id="me-push">${esc(t("pn_menu"))}<span class="end" id="me-push-st">…</span></button>` : ""}
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
+      ${window.Visitors ? `<button type="button" id="me-dm">${esc(t("dm_menu"))}<span class="end" id="me-dm-st">…</span></button>` : ""}
     </div>
     <div class="card">
       <div class="group-title" style="margin:0 0 10px">🏅 ${esc(t("badges"))}</div>
@@ -1037,6 +1042,7 @@ function openSettings() {
   }
   $("#me-saved").addEventListener("click", openSaved);
   $("#me-inbox").addEventListener("click", openInbox);
+  window.Visitors?.wireDm();
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
   $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
   $("#me-delete").addEventListener("click", deleteAccount);
@@ -1133,6 +1139,7 @@ async function renderProfilePage() {
   $("#pf-title").textContent = p.name;
   $("#pf-body").innerHTML = profileCardHtml(p, { isMe: false, canMsg });
   wireProfileCard($("#pf-body"), p, false, renderProfilePage);
+  window.Visitors?.log(id); // 👁️ they will see I visited
 }
 $("#pf-back").addEventListener("click", () => {
   if (pfPrev === "screen-inbox") openInbox();
@@ -1330,6 +1337,7 @@ async function openProfile(id, participant) {
     followCounts(id),
     isMe ? Promise.resolve(false) : sb.rpc("can_message", { p_other: id }).then((r) => r.data === true).catch(() => false),
   ]);
+  if (!isMe) window.Visitors?.log(id); // 👁️ a visit, also from inside a live room
   const p = prof0 || { id, name: participant?.name || t("guest"), avatar_url: partMeta(participant || {}).avatar };
   let actions = "";
   if (!isMe) {
