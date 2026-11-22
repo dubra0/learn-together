@@ -155,12 +155,13 @@ async function loadWallet() {
 async function loadCatalog() {
   if (W.catalog.length) return W.catalog;
   // with the admin's own video gifts (update-28). Older database: fall back to the basic list.
-  let r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name,image_url").order("price");
+  let r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name,image_url,display_size").order("price");
+  if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name,image_url").order("price");
   if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name").order("price");
   if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active").order("price");
   const rows = r.data || [];
   // every video gift is made playable (even hidden ones), so a gift someone just sent still shows for everyone
-  rows.forEach((g) => { if (g.video_url) window.GiftFX?.register?.(g); });
+  rows.forEach((g) => { if (g.video_url) window.GiftFX?.register?.(g); if (g.display_size) window.GiftFX?.setSize?.(g.id, g.display_size); });
   // one list, cheapest first
   W.catalog = rows.filter((g) => g.active !== false && window.GiftFX?.has(g.id)).sort((a, b) => a.price - b.price || (a.sort || 0) - (b.sort || 0));
   return W.catalog;

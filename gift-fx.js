@@ -474,6 +474,8 @@ void main(){
   gl_FragColor = vec4(c*a, a);
 }`;
 async function playKeyedVideo(src, { mode = "green", height = "78vh", bottom = "0", focusX = 0.5, key = null, sim = 0.06, smooth = 0.08, spill = 0.85, fadeMs = 400, maxMs = 0, approachMs = 0, crop = [0, 0], fadeTop = 0, fadeSides = 0, withSound = false, dominance = null } = {}) {
+  // the admin chose a size for this gift: it wins over the gift's own size
+  if (activeSize) height = `${activeSize}vh`;
   const video = document.createElement("video");
   // iPhone: muted + playsinline must be set as attributes BEFORE the source, or Safari refuses to play it inline
   video.setAttribute("muted", ""); video.setAttribute("playsinline", ""); video.setAttribute("webkit-playsinline", "");
@@ -1032,8 +1034,12 @@ function playGift(id, fromName, toName, fromId, opts) {
 }
 function queueBig(g, to) {
   pending++;
-  queueP = queueP.then(() => g.run(g, to)).catch((e) => console.warn("gift fx", e)).finally(() => pending--);
+  queueP = queueP.then(() => { activeSize = SIZE[g.id] || 0; return g.run(g, to); })
+    .catch((e) => console.warn("gift fx", e)).finally(() => { activeSize = 0; pending--; });
 }
+// 📏 the size the admin chose for each gift (from the admin panel); 0 / missing = the gift's own size
+const SIZE = {};
+let activeSize = 0;
 // sounds need one tap on the page first (browser rule); any tap unlocks them
 const unlock = () => { try { audio(); } catch {} };
 document.addEventListener("pointerdown", unlock, { once: true, capture: true });
@@ -1044,6 +1050,7 @@ window.GiftFX = {
   tierOf: (id) => BY_ID[id]?.tier || null,
   emoji: (id) => BY_ID[id]?.e || "🎁",
   videoOf: (id) => BY_ID[id]?.video || null, // the admin panel makes a gift picture from its video
+  setSize: (id, s) => { const n = Number(s); if (n >= 30 && n <= 150) SIZE[id] = n; else delete SIZE[id]; },
   setSound: (on) => { soundOn = !!on; },
   playVideo: playKeyedVideo, // for realistic gift videos later (green screen or packed alpha MP4)
   // gifts added from the admin panel: { id, emoji, video_url, tier, keying, size }. Built-in gifts are never replaced.

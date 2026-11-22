@@ -441,7 +441,10 @@ async function pictureFromVideo(src) {
   const d = g.getImageData(0, 0, w, h), p = d.data; let x0 = w, y0 = h, x1 = 0, y1 = 0;
   for (let i = 0; i < p.length; i += 4) {
     const r = p[i] / 255, gr = p[i + 1] / 255, b = p[i + 2] / 255, m = Math.max(r, b), k = gr - m;
-    const a = k <= 0.06 ? 1 : k >= 0.16 ? 0 : 1 - (k - 0.06) / 0.1;
+    let a = k <= 0.06 ? 1 : k >= 0.16 ? 0 : 1 - (k - 0.06) / 0.1;
+    // black bars some clips have along the top/bottom edge: not part of the gift
+    const row = (i / 4 / w) | 0;
+    if ((row < h * 0.035 || row > h * 0.965) && r + gr + b < 0.25) a = 0;
     if (gr > m) p[i + 1] = Math.round(m * 255);           // no green tint on the edges
     p[i + 3] = Math.round(a * 255);
     if (a > 0.1) { const px = (i / 4) % w, py = (i / 4 / w) | 0; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
@@ -457,24 +460,53 @@ async function pictureFromVideo(src) {
 async function prices(box) {
   const { data, error } = await sb.from("gift_catalog").select("*").order("price"); if (error) throw error;
   const hasPics = data.length && "image_url" in data[0];
+  const hasSize = data.length && "display_size" in data[0];
+  const vidOf = (g) => g.video_url || window.GiftFX?.videoOf(g.id);
+  // admin-added video gifts must be known to the preview player too
+  data.forEach((g) => { if (g.video_url) window.GiftFX?.register?.(g); });
   box.innerHTML = `<div class="card"><h2>🎁 نرخ و وێنەی دیارییەکان (بە سکە)</h2><div class="muted">${usd(Number(settings.usd_per_1000))} = ١,٠٠٠ سکە · لە ئەپەکەدا هەمان ڕیزبەندی دەبینرێت: هەرزانترین لە سەرەوە.</div>
     ${hasPics ? `<div class="muted">🖼️ <b>📷</b> = وێنەیەک بار بکە (PNG بە باکگراوندی ڕوون باشترە) · <b>🎬</b> = وێنەکە لە ڤیدیۆی دیارییەکە دروست دەکرێت و سەوزەکەی لادەبرێت.</div>` : `<div class="muted">بۆ وێنەی دیارییەکان سەرەتا SQL ـی <b>update-30-gift-pictures</b> Run بکە.</div>`}
-    <div class="scroll"><table><tr><th>وێنە</th><th>نرخ (🪙)</th><th>بە دۆلار</th><th>چالاک</th><th></th></tr>
+    ${hasSize ? `<div class="muted">📏 <b>قەبارە</b>: ڕاکێشە بۆ گەورەتر یان بچووکتر (100 = بە بەرزی شاشە). <b>▶️</b> = پێشبینین. بۆ قەبارەی ئاسایی، ڕاکێشەکە بخەرە سەر «ئاسایی». پاشان 💾.</div>` : `<div class="muted">بۆ گۆڕینی قەبارەی دیارییەکان سەرەتا SQL ـی <b>update-31-gift-size</b> Run بکە.</div>`}
+    <div class="scroll"><table><tr><th>وێنە</th><th>نرخ (🪙)</th><th>بە دۆلار</th>${hasSize ? "<th>📏 قەبارە</th>" : ""}<th>چالاک</th><th></th></tr>
     ${data.map((g) => `<tr><td><div style="display:flex;align-items:center;gap:6px"><span data-pic="${esc(g.id)}">${picHtml(g)}</span>
         ${hasPics ? `<label class="btn" style="padding:6px 9px;margin:0" title="وێنە بار بکە">📷<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-up="${esc(g.id)}" hidden></label>
         ${(g.video_url || window.GiftFX?.videoOf(g.id)) ? `<button class="btn" style="padding:6px 9px" data-fromvid="${esc(g.id)}" title="لە ڤیدیۆوە">🎬</button>` : ""}
         ${g.image_url ? `<button class="btn" style="padding:6px 9px" data-nopic="${esc(g.id)}" title="لابردنی وێنە">✖</button>` : ""}` : ""}</div></td>
       <td><input type="number" min="1" value="${g.price}" data-price="${esc(g.id)}" style="max-width:130px"></td>
-      <td class="num" data-usd="${esc(g.id)}">${usd(priceOf(g.price))}</td><td><input type="checkbox" data-act="${esc(g.id)}" ${g.active ? "checked" : ""} style="width:auto"></td>
+      <td class="num" data-usd="${esc(g.id)}">${usd(priceOf(g.price))}</td>
+      ${hasSize ? `<td>${vidOf(g) ? `<div style="display:flex;align-items:center;gap:6px;min-width:190px">
+        <input type="range" min="29" max="150" value="${g.display_size || 29}" data-size="${esc(g.id)}" style="padding:0;flex:1">
+        <b data-sizev="${esc(g.id)}" style="min-width:42px;text-align:center;font-size:.8rem">${g.display_size || "ئاسایی"}</b>
+        <button class="btn" style="padding:6px 9px" data-try="${esc(g.id)}" title="پێشبینین">▶️</button></div>` : `<span class="muted">—</span>`}</td>` : ""}
+      <td><input type="checkbox" data-act="${esc(g.id)}" ${g.active ? "checked" : ""} style="width:auto"></td>
       <td><button class="btn" data-save="${esc(g.id)}">💾</button></td></tr>`).join("")}</table></div></div>`;
   box.querySelectorAll("[data-price]").forEach((i) => i.addEventListener("input", () => { box.querySelector(`[data-usd="${i.dataset.price}"]`).textContent = usd(priceOf(Number(i.value))); }));
   box.querySelectorAll("[data-save]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.save;
     const price = Math.floor(Number(box.querySelector(`[data-price="${id}"]`).value));
     if (!(price >= 1)) return alert("نرخەکە دروست نییە.");
-    const { error: e2 } = await sb.from("gift_catalog").update({ price, active: box.querySelector(`[data-act="${id}"]`).checked }).eq("id", id);
+    const row = { price, active: box.querySelector(`[data-act="${id}"]`).checked };
+    const sz = box.querySelector(`[data-size="${id}"]`);
+    if (hasSize && sz) row.display_size = Number(sz.value) >= 30 ? Number(sz.value) : null;
+    const { error: e2 } = await sb.from("gift_catalog").update(row).eq("id", id);
     if (e2) return alert(e2.message);
     b.textContent = "✅"; setTimeout(() => (b.textContent = "💾"), 1200);
+  }));
+  // 📏 size slider: 29 (the far left) = the gift's own size
+  box.querySelectorAll("[data-size]").forEach((r) => r.addEventListener("input", () => {
+    box.querySelector(`[data-sizev="${r.dataset.size}"]`).textContent = Number(r.value) >= 30 ? r.value : "ئاسایی";
+  }));
+  // ▶️ preview the real gift at the chosen size, on a dark screen (tap to close)
+  box.querySelectorAll("[data-try]").forEach((b) => b.addEventListener("click", async () => {
+    if (!window.GiftFX) return alert("gift-fx.js بار نەبوو.");
+    const id = b.dataset.try, v = Number(box.querySelector(`[data-size="${id}"]`).value);
+    window.GiftFX.setSize(id, v >= 30 ? v : 0);
+    const bg = document.createElement("div");
+    bg.style.cssText = "position:fixed;inset:0;z-index:94;background:radial-gradient(circle at 50% 40%,#3a2f6b,#0b0a14);display:grid;place-items:start center;padding-top:70px;color:#fff;font-weight:700";
+    bg.textContent = "پێشبینین — بۆ داخستن دەستی لێ بدە"; document.body.appendChild(bg);
+    bg.addEventListener("click", () => bg.remove());
+    window.GiftFX.play(id, "Admin", "Test", "admin-preview-" + Date.now(), { price: 99999 });
+    setTimeout(() => bg.remove(), 16000);
   }));
   const setPic = async (id, url) => {
     const { error: e3 } = await sb.from("gift_catalog").update({ image_url: url }).eq("id", id);
