@@ -350,6 +350,10 @@ function openDeepLink(search) {
   } else if (userId && UUIDRE.test(userId)) {
     history.replaceState(null, "", location.pathname);
     openProfilePage(userId);
+  } else if (/^\d{10}$/.test(q.get("u") || "") && window.MePlus) { // 🔗 a profile link with the 10-digit ID
+    const u = q.get("u");
+    history.replaceState(null, "", location.pathname);
+    MePlus.openByPublic(u);
   }
 }
 async function loadSocial() {
@@ -972,6 +976,7 @@ function wireProfileCard(root, p, isMe, rerender) {
   }
   root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
   window.PeopleSearch?.fillId(root, p.id); // 🪪 the 10-digit ID under the name
+  window.MePlus?.decorateProfile(root, p, isMe); // 💎 VIP · 🎂 today · 🔗 link
   // 👁️ who visited my profile (the red number = new visitors)
   const eye = root.querySelector('[data-act="visitors"]');
   if (eye) { eye.addEventListener("click", (e) => { e.stopPropagation(); window.Visitors.open(); }); window.Visitors.badge(); }
@@ -1066,6 +1071,7 @@ function openSettings() {
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
       ${window.Visitors ? `<button type="button" id="me-dm">${esc(t("dm_menu"))}<span class="end" id="me-dm-st">…</span></button>` : ""}
       ${window.ChatPlus ? `<button type="button" id="me-hide">${esc(t("cp_hide"))}<span class="end" id="me-hide-st">…</span></button>` : ""}
+      ${window.MePlus ? `<button type="button" id="me-bday">${esc(t("mp_bday"))}<span class="end" id="me-bday-st">…</span></button>` : ""}
     </div>
     <div class="card">
       <div class="group-title" style="margin:0 0 10px">🏅 ${esc(t("badges"))}</div>
@@ -1097,6 +1103,8 @@ function openSettings() {
   $("#me-inbox").addEventListener("click", openInbox);
   window.Visitors?.wireDm();
   window.ChatPlus?.wireHide();
+  $("#me-bday")?.addEventListener("click", () => MePlus.openBirthday());
+  window.MePlus?.wireBirthday();
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
   $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
   $("#me-delete").addEventListener("click", deleteAccount);

@@ -215,6 +215,7 @@ function rcEl() {
     <button type="button" class="btn line" id="rc-home">${esc(t("rc_back"))}</button>
   </div>`;
   document.body.appendChild(el);
+  window.MePlus?.callPrefs(el); // 👨 / 👩: who I am and who I want to talk with (⭐ Premium)
 
   const q = (s) => el.querySelector(s);
   q("#rc-close").addEventListener("click", closeRandomCall);
@@ -275,6 +276,7 @@ async function closeRandomCall() {
   if (RC.room) await rcEndCall("me");
   try { sb.rpc("rc_leave"); } catch {}
   document.getElementById("rc")?.remove();
+  window.MePlus?.refreshBadge();
 }
 
 async function rcLoadStatus() {
@@ -289,6 +291,7 @@ async function rcLoadStatus() {
   const usedM = Math.floor((s.o_used || 0) / 60), limM = Math.floor((s.o_limit || 0) / 60);
   el.querySelector("#rc-used").textContent = t("rc_usedOf", { u: rcFmt(usedM), l: rcFmt(limM) });
   el.querySelector("#rc-leftbig").textContent = t("rc_leftBig", { n: rcFmt(Math.max(0, limM - usedM)) });
+  window.MePlus?.callBadge(Math.max(0, limM - usedM)); // ⏳ the same number on the 📞 button
   const c = t("rc_coins", { n: rcFmt(s.o_coins) });
   el.querySelector("#rc-coins").textContent = c; el.querySelector("#rc-coins2").textContent = c;
 }
