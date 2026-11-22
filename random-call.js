@@ -1,6 +1,6 @@
 /* =====================================================================
    📞 Random call: a one-to-one voice call with anyone (any country, any language)
-   - free: 30 minutes a day, each call up to 10 minutes · ➕ 5 min = 500 🪙 · ⭐ Premium 30 days = 15,000 🪙 (5 h a day)
+   - free: 30 minutes a day in total (one long call or many short ones) · ➕ 5 min = 500 🪙 · ⭐ Premium 30 days = 15,000 🪙 (5 h a day)
    - 18+ only · blocked people are never matched · report / block in one tap
    Server: supabase/update-16-random-call.sql (matching + minutes + buying) and smooth-worker action "rc_token".
    Uses globals from app.js: sb, me, profile, lk, CONFIG, LivekitClient, $, esc, t, I18N, avHtml, flag, lvHtml, getProfile,
@@ -12,8 +12,8 @@
   const W = {
     en: { rc_card: "📞 Talk to someone new", rc_cardSub: "A random voice call with anyone in the world", rc_title: "📞 New friend",
       rc_heroT: "Talk to someone new", rc_heroS: "Anyone, from any country · voice only", rc_online: "{n} people in calls now", rc_start: "📞 Start",
-      rc_free: "🆓 Free", rc_freeBig: "30 min", rc_freeSub: "a day · each call up to 10 min", rc_pro: "⭐ Premium", rc_proBig: "5 hours", rc_proSub: "a day · 15,000 🪙 / month",
-      rc_today: "Today", rc_plus5: "➕ 5 min · 500 🪙", rc_buyPro: "⭐ Premium · 15,000 🪙", rc_coins: "🪙 Your coins: {n}", rc_rules18: "🔞 18+ only",
+      rc_free: "🆓 Free", rc_freeBig: "30 min", rc_freeSub: "a day · with 1 person or many, your choice", rc_pro: "⭐ Premium", rc_proBig: "5 hours", rc_proSub: "a day · 15,000 🪙 / month",
+      rc_tab: "Call", rc_today: "Today",rc_leftBig: "⏳ {n} min left", rc_usedOf: "You used {u} of {l} minutes today",rc_plus5: "➕ 5 min · 500 🪙", rc_buyPro: "⭐ Premium · 15,000 🪙", rc_coins: "🪙 Your coins: {n}", rc_rules18: "🔞 18+ only",
       rc_rulesRep: "🚩 If someone is rude, report or block them with one tap", rc_searching: "Looking for someone…", rc_cancel: "Cancel",
       rc_topic: "💡 Something to talk about", rc_topicNext: "🔄 Another topic", rc_mic: "Mic", rc_speaker: "Sound", rc_gift: "Gift", rc_follow: "Follow",
       rc_next: "⏭️ Someone else", rc_end: "📵 End", rc_report: "🚩 Report", rc_block: "⛔ Block", rc_talked: "Talked for {t}", rc_how: "How was it?",
@@ -25,8 +25,8 @@
       rc_proOn: "⭐ Premium until {d}", rc_fail: "Could not connect the call: ", rc_banned: "Your account is blocked.", rc_thanks: "Thanks! ⭐", rc_followed: "✅ Following" },
     ckb: { rc_card: "📞 قسە لەگەڵ کەسێکی نوێ", rc_cardSub: "پەیوەندی دەنگی هەڕەمەکی لەگەڵ هەر کەسێک لە جیهاندا", rc_title: "📞 هاوڕێی نوێ",
       rc_heroT: "قسە لەگەڵ کەسێکی نوێ بکە", rc_heroS: "هەر کەسێک لە هەر وڵاتێک · تەنها بە دەنگ", rc_online: "{n} کەس ئێستا لە پەیوەندیدان", rc_start: "📞 دەست پێبکە",
-      rc_free: "🆓 بەخۆڕایی", rc_freeBig: "30 خولەک", rc_freeSub: "ڕۆژانە · هەر پەیوەندییەک تا 10 خولەک", rc_pro: "⭐ Premium", rc_proBig: "5 کاتژمێر", rc_proSub: "ڕۆژانە · 15,000 🪙 لە مانگێکدا",
-      rc_today: "ئەمڕۆ", rc_plus5: "➕ 5 خولەک · 500 🪙", rc_buyPro: "⭐ Premium · 15,000 🪙", rc_coins: "🪙 سکەکانت: {n}", rc_rules18: "🔞 تەنها بۆ ١٨ ساڵ بەسەرەوە",
+      rc_free: "🆓 بەخۆڕایی", rc_freeBig: "30 خولەک", rc_freeSub: "ڕۆژانە · لەگەڵ ١ کەس یان چەند کەس، بە ئارەزووی خۆت", rc_pro: "⭐ Premium", rc_proBig: "5 کاتژمێر", rc_proSub: "ڕۆژانە · 15,000 🪙 لە مانگێکدا",
+      rc_tab: "پەیوەندی", rc_today: "ئەمڕۆ",rc_leftBig: "⏳ {n} خولەکت ماوە", rc_usedOf: "ئەمڕۆ {u} خولەکت لە {l} خولەک بەکارهێناوە",rc_plus5: "➕ 5 خولەک · 500 🪙", rc_buyPro: "⭐ Premium · 15,000 🪙", rc_coins: "🪙 سکەکانت: {n}", rc_rules18: "🔞 تەنها بۆ ١٨ ساڵ بەسەرەوە",
       rc_rulesRep: "🚩 هەر کەسێک خراپ بوو، بە یەک دەستلێدان ڕاپۆرت یان بلۆکی بکە", rc_searching: "دەگەڕێین بۆ کەسێک…", rc_cancel: "پاشگەزبوونەوە",
       rc_topic: "💡 بابەتێک بۆ قسەکردن", rc_topicNext: "🔄 بابەتێکی تر", rc_mic: "مایک", rc_speaker: "دەنگ", rc_gift: "دیاری", rc_follow: "فۆڵۆو",
       rc_next: "⏭️ کەسێکی تر", rc_end: "📵 کۆتایی", rc_report: "🚩 ڕاپۆرت", rc_block: "⛔ بلۆک", rc_talked: "ماوەی قسەکردن: {t}", rc_how: "چۆن بوو؟",
@@ -38,8 +38,8 @@
       rc_proOn: "⭐ Premium تا {d}", rc_fail: "پەیوەندییەکە نەکرا: ", rc_banned: "ئەکاونتەکەت ڕاگیراوە.", rc_thanks: "سوپاس! ⭐", rc_followed: "✅ فۆڵۆوت کرد" },
     ar: { rc_card: "📞 تحدث مع شخص جديد", rc_cardSub: "مكالمة صوتية عشوائية مع أي شخص في العالم", rc_title: "📞 صديق جديد",
       rc_heroT: "تحدث مع شخص جديد", rc_heroS: "أي شخص من أي بلد · صوت فقط", rc_online: "{n} شخص في مكالمات الآن", rc_start: "📞 ابدأ",
-      rc_free: "🆓 مجاني", rc_freeBig: "30 دقيقة", rc_freeSub: "يومياً · كل مكالمة حتى 10 دقائق", rc_pro: "⭐ Premium", rc_proBig: "5 ساعات", rc_proSub: "يومياً · 15,000 🪙 شهرياً",
-      rc_today: "اليوم", rc_plus5: "➕ 5 دقائق · 500 🪙", rc_buyPro: "⭐ Premium · 15,000 🪙", rc_coins: "🪙 عملاتك: {n}", rc_rules18: "🔞 لمن هم فوق 18 فقط",
+      rc_free: "🆓 مجاني", rc_freeBig: "30 دقيقة", rc_freeSub: "يومياً · مع شخص واحد أو عدة أشخاص، كما تشاء", rc_pro: "⭐ Premium", rc_proBig: "5 ساعات", rc_proSub: "يومياً · 15,000 🪙 شهرياً",
+      rc_tab: "اتصال", rc_today: "اليوم",rc_leftBig: "⏳ بقي {n} دقيقة", rc_usedOf: "استخدمت {u} من {l} دقيقة اليوم",rc_plus5: "➕ 5 دقائق · 500 🪙", rc_buyPro: "⭐ Premium · 15,000 🪙", rc_coins: "🪙 عملاتك: {n}", rc_rules18: "🔞 لمن هم فوق 18 فقط",
       rc_rulesRep: "🚩 إذا أساء أحد، أبلغ عنه أو احظره بلمسة", rc_searching: "نبحث عن شخص…", rc_cancel: "إلغاء",
       rc_topic: "💡 موضوع للحديث", rc_topicNext: "🔄 موضوع آخر", rc_mic: "الميكروفون", rc_speaker: "الصوت", rc_gift: "هدية", rc_follow: "متابعة",
       rc_next: "⏭️ شخص آخر", rc_end: "📵 إنهاء", rc_report: "🚩 إبلاغ", rc_block: "⛔ حظر", rc_talked: "مدة الحديث: {t}", rc_how: "كيف كانت؟",
@@ -51,6 +51,7 @@
       rc_proOn: "⭐ Premium حتى {d}", rc_fail: "تعذر الاتصال: ", rc_banned: "حسابك محظور.", rc_thanks: "شكراً! ⭐", rc_followed: "✅ تمت المتابعة" },
   };
   try { for (const [l, o] of Object.entries(W)) if (I18N[l]) Object.assign(I18N[l], o); } catch {}
+  try { document.querySelectorAll('[data-i18n="rc_tab"]').forEach((el) => (el.textContent = t("rc_tab"))); } catch {} // the 📞 button's name (the words arrive after the page was translated)
 
   const css = document.createElement("style");
   css.textContent = `
@@ -86,8 +87,10 @@
   #rc .plan{border-radius:20px;padding:14px;border:1.5px solid var(--line);background:var(--card);display:grid;gap:3px;align-content:start}
   #rc .plan b{font-weight:900} #rc .plan .n{font-size:1.4rem;font-weight:900} #rc .plan span{color:var(--muted);font-size:.78rem}
   #rc .plan.pro{border-color:var(--amber);background:var(--amber-soft)}
-  #rc .today{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;font-weight:800;font-size:.85rem;color:var(--muted)}
-  #rc .today .bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+  #rc .today{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;font-weight:800;font-size:.85rem;color:var(--muted)}
+  #rc .today .tr{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  #rc .today .tr b{color:var(--brand);font-size:1.05rem}
+  #rc .today .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
   #rc .today .bar i{display:block;height:100%;background:var(--brand);border-radius:99px}
   #rc .btn.amber{background:var(--amber);color:#3a2400}
   #rc .buyrow .btn{padding:12px 6px;font-size:.86rem}
@@ -176,7 +179,7 @@ function rcEl() {
       <div class="plan"><b>${esc(t("rc_free"))}</b><span class="n">${esc(t("rc_freeBig"))}</span><span>${esc(t("rc_freeSub"))}</span></div>
       <div class="plan pro"><b>${esc(t("rc_pro"))}</b><span class="n">${esc(t("rc_proBig"))}</span><span>${esc(t("rc_proSub"))}</span></div>
     </div>
-    <div class="today"><span>${esc(t("rc_today"))}</span><div class="bar"><i id="rc-bar"></i></div><span id="rc-used">…</span></div>
+    <div class="today"><div class="tr"><span>${esc(t("rc_today"))}</span><b id="rc-leftbig">…</b></div><div class="bar"><i id="rc-bar"></i></div><span id="rc-used">…</span></div>
     <div class="buyrow"><button type="button" class="btn ghost" data-rcbuy="plus5">${esc(t("rc_plus5"))}</button><button type="button" class="btn amber" data-rcbuy="premium">${esc(t("rc_buyPro"))}</button></div>
     <div class="muted" id="rc-coins"></div>
     <ul class="rules"><li>${esc(t("rc_rules18"))}</li><li>${esc(t("rc_rulesRep"))}</li></ul>
@@ -283,7 +286,9 @@ async function rcLoadStatus() {
   el.querySelector("#rc-online").textContent = t("rc_online", { n: rcFmt(Math.max(1, s.o_online || 0)) });
   el.querySelector("#rc-plan").textContent = pro ? t("rc_proOn", { d: new Date(s.o_premium_until).toLocaleDateString(uiLang, { day: "numeric", month: "short" }) }) : t("rc_free");
   el.querySelector("#rc-bar").style.width = Math.min(100, ((s.o_used || 0) / Math.max(1, s.o_limit || 1)) * 100) + "%";
-  el.querySelector("#rc-used").textContent = `${Math.floor((s.o_used || 0) / 60)} / ${Math.floor((s.o_limit || 0) / 60)}`;
+  const usedM = Math.floor((s.o_used || 0) / 60), limM = Math.floor((s.o_limit || 0) / 60);
+  el.querySelector("#rc-used").textContent = t("rc_usedOf", { u: rcFmt(usedM), l: rcFmt(limM) });
+  el.querySelector("#rc-leftbig").textContent = t("rc_leftBig", { n: rcFmt(Math.max(0, limM - usedM)) });
   const c = t("rc_coins", { n: rcFmt(s.o_coins) });
   el.querySelector("#rc-coins").textContent = c; el.querySelector("#rc-coins2").textContent = c;
 }
@@ -362,7 +367,7 @@ async function rcConnect(roomId, partnerId) {
       throw new Error(code || error?.message || "token");
     }
     RC.left = Number(data.left) || 600;
-    RC.callLeft = Math.min(600, RC.left);
+    RC.callLeft = RC.left; // no limit per call: only the day's total counts (30 min with 1 person or with many)
     const E = LivekitClient.RoomEvent;
     const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true,
       audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },

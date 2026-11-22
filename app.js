@@ -377,6 +377,7 @@ function renderTopbar() {
 }
 $("#top-me").addEventListener("click", () => goMain("me"));
 $("#tabbar").addEventListener("click", (e) => {
+  if (e.target.closest("#tab-call")) { if (typeof openRandomCall === "function") openRandomCall(); return; } // 📞 the middle button
   const b = e.target.closest("[data-tab]");
   if (b) goMain(b.dataset.tab);
 });
@@ -414,10 +415,10 @@ async function renderRoomsTab() {
   const hasGoal = typeof goalCardHtml === "function";
   box.innerHTML = (hasGoal ? `
     <div class="home-hello">
-      <div class="hh-me">${avHtml(profile?.name, profile?.avatar_url, "sm")}<div><div class="hh-lbl">${esc(helloWord())}</div><div class="hh-name" dir="auto">${esc(name)}</div></div></div>
+      <div class="hh-me"><div><div class="hh-lbl">${esc(helloWord())}</div><div class="hh-name" dir="auto">${esc(name)}</div></div></div>
       <span class="hh-streak">🔥 ${profile?.streak || 0}</span>
     </div>
-    ${typeof rcCardHtml === "function" ? rcCardHtml() : goalCardHtml()}` : `
+    ${typeof rcCardHtml === "function" ? "" : goalCardHtml()}` : `
     <div class="hero">
       <div class="hello">${esc(t("hello", { name }))}</div>
       <div class="sub">${esc(t("appTagline"))}</div>
