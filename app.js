@@ -842,13 +842,14 @@ function profileCardHtml(p, o) {
     <div class="pf2-tabs" role="tablist">
       <button type="button" role="tab" data-pftab="posts" aria-selected="true">${esc(t("pf_posts"))}</button>
       <button type="button" role="tab" data-pftab="videos" aria-selected="false">${esc(t("pf_videos"))}</button>
+      ${window.FeedPlus ? `<button type="button" role="tab" data-pftab="reposts" aria-selected="false">${esc(t("fp_reposts"))}</button>` : ""}
     </div>
     <div class="pf-content"><div class="empty">…</div></div>
   </div>`;
 }
 function tileHtml(post) {
   const vid = safeVideo(post.video_url);
-  return `<button type="button" class="ptile" data-ptile="${post.id}">
+  return `<button type="button" class="ptile" data-ptile="${post.id}">${post.pinned_at ? `<span class="pin">📌</span>` : ""}
     ${vid ? `<video src="${esc(vid)}#t=${(Number(post.edit?.a) || 0) + 0.5}" muted playsinline preload="metadata"></video><span class="pl">▶ ${fmtNum(post.view_count)}</span>`
       : post.image_url && safeAvatar(post.image_url) ? `<img src="${esc(post.image_url)}" alt="" loading="lazy">`
       : `<div class="txt" dir="auto">${esc(post.body || "")}</div>`}
@@ -861,6 +862,20 @@ function renderPfContent(root) {
   if (!box) return;
   const all = root._posts;
   if (!all) return;
+  // 🔁 the posts this person reposted
+  if (root._pfTab === "reposts" && window.FeedPlus) {
+    root.querySelectorAll("[data-pftab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.pftab === "reposts")));
+    box.innerHTML = `<div class="empty">…</div>`;
+    const p = root._p;
+    FeedPlus.reposts(p.id).then((list) => {
+      if (root._p !== p || root._pfTab !== "reposts") return;
+      box.innerHTML = list.length ? `<div class="pgrid">${list.map(tileHtml).join("")}</div>` : `<div class="empty"><span class="big">🔁</span>${esc(t("fp_noReposts"))}</div>`;
+      box.querySelectorAll("[data-ptile]").forEach((b) => b.addEventListener("click", () => {
+        const i = list.findIndex((x) => x.id === Number(b.dataset.ptile)); if (i >= 0) openPostViewer(list, i);
+      }));
+    });
+    return;
+  }
   const videos = root._pfTab === "videos";
   const posts = videos ? all.filter((x) => safeVideo(x.video_url)) : all;
   root.querySelectorAll("[data-pftab]").forEach((b) => {
@@ -886,6 +901,7 @@ async function loadPfExtras(root) {
   ]);
   if (root._p !== p) return;
   root._posts = posts.data || [];
+  if (window.FeedPlus) root._posts = FeedPlus.sortPinned(root._posts); // 📌 pinned posts first
   root._posts.forEach((x) => feedCache.set(x.id, x));
   const likes = root._posts.reduce((s, x) => s + (x.like_count || 0), 0);
   const n = { following: c.following, followers: c.followers, likes };
@@ -1016,6 +1032,7 @@ function openSettings() {
       <button type="button" id="me-photos">📷 ${esc(t("photos"))}<span class="end">${(p.photos || []).length}/6</span></button>
       ${window.Push ? `<button type="button" id="me-push">${esc(t("pn_menu"))}<span class="end" id="me-push-st">…</span></button>` : ""}
       <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
+      ${window.FeedPlus ? `<button type="button" id="me-savedposts">${esc(t("fp_savedTitle"))}</button>` : ""}
       <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
       ${window.Visitors ? `<button type="button" id="me-dm">${esc(t("dm_menu"))}<span class="end" id="me-dm-st">…</span></button>` : ""}
       ${window.ChatPlus ? `<button type="button" id="me-hide">${esc(t("cp_hide"))}<span class="end" id="me-hide-st">…</span></button>` : ""}
@@ -1046,6 +1063,7 @@ function openSettings() {
     $("#me-push").addEventListener("click", async () => { if (await window.Push.isOn()) await window.Push.disable(); else await window.Push.enable(); paint(); });
   }
   $("#me-saved").addEventListener("click", openSaved);
+  $("#me-savedposts")?.addEventListener("click", () => FeedPlus.openSaved());
   $("#me-inbox").addEventListener("click", openInbox);
   window.Visitors?.wireDm();
   window.ChatPlus?.wireHide();
@@ -2671,6 +2689,7 @@ function reelHtml(post) {
         ${canFollow ? `<button type="button" class="plus" data-rfollow="${esc(post.user_id)}" aria-label="follow">+</button>` : ""}</div>
       <button type="button" class="rail-btn ${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
       <button type="button" class="rail-btn" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
+      ${window.FeedPlus ? FeedPlus.railHtml(post) : ""}
       ${vid ? `<button type="button" class="rail-btn" data-mute="1"><span>${feedMuted ? "🔇" : "🔊"}</span><span></span></button>` : ""}
       ${post.body && !vid ? `<button type="button" class="rail-btn" data-ptr="${post.id}"><span>🌐</span><span>${esc(t("translate"))}</span></button>` : ""}
       <button type="button" class="rail-btn" data-pshare="${post.id}"><span>↪️</span><span>${esc(t("share"))}</span></button>
@@ -2678,7 +2697,7 @@ function reelHtml(post) {
     </div>
     <div class="reel-info">
       <div class="nm" data-person="${esc(post.user_id)}" dir="auto">@${esc(u.name)} ${flag(u.country)} ${lvHtml(u)}</div>
-      <div class="tm">${esc(shortTime(post.created_at))}<span class="reel-stats">${vid ? `<span data-views="${post.id}">👁 ${fmtNum(post.view_count)}</span>` : ""}<span>❤️ <span data-likes="${post.id}">${fmtNum(post.like_count)}</span></span></span></div>
+      <div class="tm">${esc(shortTime(post.created_at))}<span class="reel-stats">${vid || window.FeedPlus ? `<span data-views="${post.id}">👁 ${fmtNum(post.view_count)}</span>` : ""}<span>❤️ <span data-likes="${post.id}">${fmtNum(post.like_count)}</span></span></span></div>
       ${(img || vid) && post.body ? `<div class="cap" dir="auto">${esc(post.body)}</div>` : ""}
     </div>
   </section>`;
@@ -2718,6 +2737,7 @@ function wireReels(root) {
   });
   root.querySelectorAll("video.reel-video").forEach((v) => reelObserver().observe(v));
   window.PostEditor?.decorate(root);   // ✂️ texts on the post + play only the trimmed part
+  window.FeedPlus?.wire(root);         // 🔖 save · 🔁 repost · 👁 views on photo/text posts
 }
 /* play the video that is on screen, pause the others; count a view after 1.5 s of watching */
 let _reelObs = null;
@@ -2927,6 +2947,7 @@ function likeWithHeart(id, el) {
 
 /* ---- comments ---- */
 async function openComments(postId) {
+  if (window.FeedPlus) return FeedPlus.openComments(postId); // 💬 with replies and ❤️ on comments
   const post = feedCache.get(postId); if (!post) return;
   openSheet(`<h1>💬 ${esc(t("comments"))} <span class="muted" id="cm-count">${post.comment_count || 0}</span></h1>
     <div id="cm-list"><div class="empty">…</div></div>
@@ -2998,12 +3019,14 @@ function postMenu(id) {
   const post = feedCache.get(id); if (!post) return;
   const mine = post.user_id === me.id;
   openSheet(`<div class="menu" style="box-shadow:none">
+    ${window.FeedPlus ? FeedPlus.menuHtml(post) : ""}
     ${mine || isAdmin ? `<button type="button" id="po-del" class="danger">🗑️ ${esc(t("deletePost"))}</button>` : ""}
     ${mine ? "" : `<button type="button" id="po-report" class="danger">🚩 ${esc(t("reportPost"))}</button>`}
     <button type="button" id="po-close">${esc(t("close"))}</button></div>`);
   $("#po-del")?.addEventListener("click", () => deletePost(id));
   $("#po-report")?.addEventListener("click", () => openReport({ userId: post.user_id, postId: id }));
   $("#po-close").addEventListener("click", closeSheet);
+  window.FeedPlus?.wireMenu(post);
 }
 async function deletePost(id) {
   const post = feedCache.get(id); if (!post) return;
