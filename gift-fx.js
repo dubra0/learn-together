@@ -1043,6 +1043,7 @@ window.GiftFX = {
   has: (id) => !!BY_ID[id],
   tierOf: (id) => BY_ID[id]?.tier || null,
   emoji: (id) => BY_ID[id]?.e || "🎁",
+  videoOf: (id) => BY_ID[id]?.video || null, // the admin panel makes a gift picture from its video
   setSound: (on) => { soundOn = !!on; },
   playVideo: playKeyedVideo, // for realistic gift videos later (green screen or packed alpha MP4)
   // gifts added from the admin panel: { id, emoji, video_url, tier, keying, size }. Built-in gifts are never replaced.

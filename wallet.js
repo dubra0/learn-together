@@ -134,7 +134,8 @@ for (const [l, o] of Object.entries(I18N_W)) if (I18N[l]) Object.assign(I18N[l],
   .pg-tabs button.on{background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:#fff}
   .pg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:42vh;overflow-y:auto}
   .pg-item{border:2px solid transparent;background:var(--soft);border-radius:14px;padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font:inherit;color:inherit}
-  .pg-item .e{font-size:2rem;line-height:1.15} .pg-item .p{font-size:.72rem;font-weight:800;color:#f59e0b;font-variant-numeric:tabular-nums}
+  .pg-item .e{font-size:2rem;line-height:1.15}
+  .pg-item .pic{width:52px;height:52px;object-fit:contain;display:block;filter:drop-shadow(0 3px 6px rgba(0,0,0,.25))} .pg-item .p{font-size:.72rem;font-weight:800;color:#f59e0b;font-variant-numeric:tabular-nums}
   .pg-item.on{border-color:#f59e0b;background:rgba(245,158,11,.12)} .pg-item.poor{opacity:.45}`;
   document.head.appendChild(s);
 })();
@@ -154,12 +155,14 @@ async function loadWallet() {
 async function loadCatalog() {
   if (W.catalog.length) return W.catalog;
   // with the admin's own video gifts (update-28). Older database: fall back to the basic list.
-  let r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name").order("sort");
-  if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active").order("sort");
+  let r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name,image_url").order("price");
+  if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active,video_url,tier,keying,size,name").order("price");
+  if (r.error) r = await sb.from("gift_catalog").select("id,emoji,price,sort,active").order("price");
   const rows = r.data || [];
   // every video gift is made playable (even hidden ones), so a gift someone just sent still shows for everyone
   rows.forEach((g) => { if (g.video_url) window.GiftFX?.register?.(g); });
-  W.catalog = rows.filter((g) => g.active !== false && window.GiftFX?.has(g.id));
+  // one list, cheapest first
+  W.catalog = rows.filter((g) => g.active !== false && window.GiftFX?.has(g.id)).sort((a, b) => a.price - b.price || (a.sort || 0) - (b.sort || 0));
   return W.catalog;
 }
 const statusMsg = (st) => ({ no_coins: t("w_noCoins"), blocked: t("w_e_blocked"), bad_target: t("w_e_bad_target"), banned: t("e_banned"),
@@ -181,18 +184,25 @@ async function openPaidGifts(given) {
   if (early && !$("#pg-send")) return; // closed, or another sheet was opened meanwhile
   renderPaid(targets);
 }
+// the gift's real picture (set by the admin) — or its emoji when it has none
+const GIFT_IMG = "/storage/v1/object/public/gift-images/";
+function giftPic(g) {
+  const u = g.image_url;
+  if (typeof u === "string" && u.startsWith(CONFIG.SUPABASE_URL + GIFT_IMG)) return `<img class="pic" src="${esc(u)}" alt="" loading="lazy" decoding="async">`;
+  return `<span class="e">${g.emoji}</span>`;
+}
 function renderPaid(targets) {
   const coins = W.wallet?.coins || 0;
-  // only tabs that have gifts in them (when the shop has just a few gifts, no empty tabs)
-  const tabs = [["small", "💝"], ["animals", "🦁"], ["special", "✨"]].filter(([k]) => W.catalog.some((g) => TIER_OF(g.id) === k));
-  if (tabs.length && !tabs.some(([k]) => k === W.tab)) { W.tab = tabs[0][0]; W.chosen = W.catalog.find((g) => TIER_OF(g.id) === W.tab)?.id || null; }
-  const list = W.catalog.filter((g) => TIER_OF(g.id) === W.tab);
+  // all gifts on one page, cheapest first (no tabs)
+  const tabs = [];
+  const list = W.catalog;
+  if (!list.some((g) => g.id === W.chosen)) W.chosen = list[0]?.id || null;
   openSheet(`<div class="pg-head"><h1 style="margin:0">🪙 ${esc(t("w_paidGifts"))}</h1><span class="pg-coins">🪙 ${fmtN(coins)}</span></div>
     <div class="muted small" style="margin-top:8px">${esc(t("sendTo"))}</div>
     <div class="gift-targets">${targets.map((x) => `<button type="button" class="btn sm ${x.id === W.target ? "" : "ghost"}" data-pt="${esc(x.id)}">${x.side === "a" ? "❤️ " : x.side === "b" ? "💙 " : ""}${esc(x.name)}</button>`).join("")}</div>
     <div class="pg-tabs" ${tabs.length < 2 ? "hidden" : ""}>${tabs.map(([k, ic]) => `<button type="button" data-tab="${k}" class="${W.tab === k ? "on" : ""}">${ic}</button>`).join("")}</div>
     <div class="pg-grid">${list.map((g) => `<button type="button" class="pg-item ${g.id === W.chosen ? "on" : ""} ${g.price > coins ? "poor" : ""}" data-pg="${esc(g.id)}">
-      <span class="e">${g.emoji}</span><span class="p">🪙 ${fmtN(g.price)}</span></button>`).join("") || `<div class="muted">${esc(t("w_empty"))}</div>`}</div>
+      ${giftPic(g)}<span class="p">🪙 ${fmtN(g.price)}</span></button>`).join("") || `<div class="muted">${esc(t("w_empty"))}</div>`}</div>
     <button type="button" class="btn block" id="pg-send" style="margin-top:12px" ${W.sending ? "disabled" : ""}>${esc(t("w_send"))} ${W.catalog.find((g) => g.id === W.chosen)?.emoji || "🎁"}</button>`);
   document.querySelectorAll("#sheet [data-pt]").forEach((b) => b.addEventListener("click", () => { W.target = b.dataset.pt; renderPaid(targets); }));
   document.querySelectorAll("#sheet [data-tab]").forEach((b) => b.addEventListener("click", () => {

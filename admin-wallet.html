@@ -316,6 +316,8 @@ async function newgift(box) {
       const video_url = sb.storage.from("gift-videos").getPublicUrl(path).data.publicUrl;
       const ins = await sb.from("gift_catalog").insert({ id, emoji, price, sort: 60, active: true, video_url, name: name || null, tier, keying, size });
       if (ins.error) { await sb.storage.from("gift-videos").remove([path]); throw new Error(ins.error.message); }
+      // a real picture for the shop, cut out of the video itself (if update-30 has been run)
+      try { $("#ng-status").textContent = "⏳ وێنەی دیارییەکە دروست دەکرێت…"; const pic = await uploadPic(id, await pictureFromVideo(localUrl), "png"); await sb.from("gift_catalog").update({ image_url: pic }).eq("id", id); } catch {}
       $("#ng-status").innerHTML = `✅ <b>${esc(emoji)} ${esc(name || id)}</b> زیاد کرا بە ${n(price)} 🪙. لە ئەپەکەدا دەردەکەوێت (ئەپەکە دابخە و بیکەرەوە).`;
       $("#ng-file").value = ""; listMine();
     } catch (err) { $("#ng-status").textContent = "⚠️ " + (err.message || err); }
@@ -418,11 +420,51 @@ async function settingsTab(box) {
 }
 
 /* 🎁 gift prices */
+/* 🖼️ gift pictures: upload one, or cut one out of the gift's own green-screen video */
+const IMG_PREFIX = SUPABASE_URL + "/storage/v1/object/public/gift-images/";
+const picHtml = (g) => g.image_url && String(g.image_url).startsWith(IMG_PREFIX)
+  ? `<img src="${esc(g.image_url)}" alt="" style="width:46px;height:46px;object-fit:contain">` : `<span style="font-size:1.6rem">${g.emoji}</span>`;
+async function uploadPic(id, blob, ext) {
+  const path = `${id}-${Date.now()}.${ext}`;
+  const up = await sb.storage.from("gift-images").upload(path, blob, { contentType: blob.type || "image/png", upsert: false });
+  if (up.error) throw new Error(/bucket|not found/i.test(up.error.message) ? "سەرەتا SQL ـی update-30-gift-pictures Run بکە." : up.error.message);
+  return sb.storage.from("gift-images").getPublicUrl(path).data.publicUrl;
+}
+// takes a frame (at 45% of the clip), removes the green, trims the empty edges and returns a square transparent PNG
+async function pictureFromVideo(src) {
+  const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.crossOrigin = "anonymous"; v.preload = "auto"; v.src = src;
+  await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = () => rej(new Error("ڤیدیۆکە نەکرایەوە")); setTimeout(() => rej(new Error("ڤیدیۆکە زۆری خایاند")), 20000); });
+  v.currentTime = Math.max(0.1, v.duration * 0.45); await new Promise((r) => (v.onseeked = r));
+  const sc = Math.min(1, 640 / v.videoWidth), w = Math.round(v.videoWidth * sc), h = Math.round(v.videoHeight * sc);
+  const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(v, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h), p = d.data; let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let i = 0; i < p.length; i += 4) {
+    const r = p[i] / 255, gr = p[i + 1] / 255, b = p[i + 2] / 255, m = Math.max(r, b), k = gr - m;
+    const a = k <= 0.06 ? 1 : k >= 0.16 ? 0 : 1 - (k - 0.06) / 0.1;
+    if (gr > m) p[i + 1] = Math.round(m * 255);           // no green tint on the edges
+    p[i + 3] = Math.round(a * 255);
+    if (a > 0.1) { const px = (i / 4) % w, py = (i / 4 / w) | 0; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
+  }
+  g.putImageData(d, 0, 0);
+  if (x1 <= x0 || y1 <= y0) throw new Error("لەم ڤیدیۆیەدا هیچ شتێک نەدۆزرایەوە");
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1, S = 256, f = Math.min((S - 12) / bw, (S - 12) / bh);
+  const out = document.createElement("canvas"); out.width = S; out.height = S;
+  out.getContext("2d").drawImage(c, x0, y0, bw, bh, (S - bw * f) / 2, (S - bh * f) / 2, bw * f, bh * f);
+  return await new Promise((r) => out.toBlob(r, "image/png"));
+}
+
 async function prices(box) {
-  const { data, error } = await sb.from("gift_catalog").select("*").order("sort"); if (error) throw error;
-  box.innerHTML = `<div class="card"><h2>🎁 نرخی دیارییەکان (بە سکە)</h2><div class="muted">${usd(Number(settings.usd_per_1000))} = ١,٠٠٠ سکە</div>
-    <div class="scroll"><table><tr><th></th><th>نرخ (🪙)</th><th>بە دۆلار</th><th>چالاک</th><th></th></tr>
-    ${data.map((g) => `<tr><td style="font-size:1.6rem">${g.emoji}</td><td><input type="number" min="1" value="${g.price}" data-price="${esc(g.id)}" style="max-width:130px"></td>
+  const { data, error } = await sb.from("gift_catalog").select("*").order("price"); if (error) throw error;
+  const hasPics = data.length && "image_url" in data[0];
+  box.innerHTML = `<div class="card"><h2>🎁 نرخ و وێنەی دیارییەکان (بە سکە)</h2><div class="muted">${usd(Number(settings.usd_per_1000))} = ١,٠٠٠ سکە · لە ئەپەکەدا هەمان ڕیزبەندی دەبینرێت: هەرزانترین لە سەرەوە.</div>
+    ${hasPics ? `<div class="muted">🖼️ <b>📷</b> = وێنەیەک بار بکە (PNG بە باکگراوندی ڕوون باشترە) · <b>🎬</b> = وێنەکە لە ڤیدیۆی دیارییەکە دروست دەکرێت و سەوزەکەی لادەبرێت.</div>` : `<div class="muted">بۆ وێنەی دیارییەکان سەرەتا SQL ـی <b>update-30-gift-pictures</b> Run بکە.</div>`}
+    <div class="scroll"><table><tr><th>وێنە</th><th>نرخ (🪙)</th><th>بە دۆلار</th><th>چالاک</th><th></th></tr>
+    ${data.map((g) => `<tr><td><div style="display:flex;align-items:center;gap:6px"><span data-pic="${esc(g.id)}">${picHtml(g)}</span>
+        ${hasPics ? `<label class="btn" style="padding:6px 9px;margin:0" title="وێنە بار بکە">📷<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-up="${esc(g.id)}" hidden></label>
+        ${(g.video_url || window.GiftFX?.videoOf(g.id)) ? `<button class="btn" style="padding:6px 9px" data-fromvid="${esc(g.id)}" title="لە ڤیدیۆوە">🎬</button>` : ""}
+        ${g.image_url ? `<button class="btn" style="padding:6px 9px" data-nopic="${esc(g.id)}" title="لابردنی وێنە">✖</button>` : ""}` : ""}</div></td>
+      <td><input type="number" min="1" value="${g.price}" data-price="${esc(g.id)}" style="max-width:130px"></td>
       <td class="num" data-usd="${esc(g.id)}">${usd(priceOf(g.price))}</td><td><input type="checkbox" data-act="${esc(g.id)}" ${g.active ? "checked" : ""} style="width:auto"></td>
       <td><button class="btn" data-save="${esc(g.id)}">💾</button></td></tr>`).join("")}</table></div></div>`;
   box.querySelectorAll("[data-price]").forEach((i) => i.addEventListener("input", () => { box.querySelector(`[data-usd="${i.dataset.price}"]`).textContent = usd(priceOf(Number(i.value))); }));
@@ -433,6 +475,30 @@ async function prices(box) {
     const { error: e2 } = await sb.from("gift_catalog").update({ price, active: box.querySelector(`[data-act="${id}"]`).checked }).eq("id", id);
     if (e2) return alert(e2.message);
     b.textContent = "✅"; setTimeout(() => (b.textContent = "💾"), 1200);
+  }));
+  const setPic = async (id, url) => {
+    const { error: e3 } = await sb.from("gift_catalog").update({ image_url: url }).eq("id", id);
+    if (e3) throw new Error(e3.message);
+    const g = data.find((x) => x.id === id); if (g) g.image_url = url;
+    box.querySelector(`[data-pic="${id}"]`).innerHTML = picHtml(g || { emoji: "🎁", image_url: url });
+  };
+  box.querySelectorAll("[data-up]").forEach((inp) => inp.addEventListener("change", async () => {
+    const f = inp.files[0]; if (!f) return;
+    if (f.size > 2 * 1048576) return alert("وێنەکە زۆر گەورەیە (زۆرترین 2 MB).");
+    const holder = box.querySelector(`[data-pic="${inp.dataset.up}"]`); holder.textContent = "⏳";
+    try { const ext = (f.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png"; await setPic(inp.dataset.up, await uploadPic(inp.dataset.up, f, ext)); }
+    catch (err) { alert(err.message || err); holder.innerHTML = picHtml(data.find((x) => x.id === inp.dataset.up)); }
+  }));
+  box.querySelectorAll("[data-fromvid]").forEach((b) => b.addEventListener("click", async () => {
+    const id = b.dataset.fromvid, g = data.find((x) => x.id === id);
+    const src = g?.video_url || window.GiftFX?.videoOf(id); if (!src) return;
+    const holder = box.querySelector(`[data-pic="${id}"]`); holder.textContent = "⏳"; b.disabled = true;
+    try { await setPic(id, await uploadPic(id, await pictureFromVideo(src), "png")); }
+    catch (err) { alert(err.message || err); holder.innerHTML = picHtml(g); }
+    b.disabled = false;
+  }));
+  box.querySelectorAll("[data-nopic]").forEach((b) => b.addEventListener("click", async () => {
+    try { await setPic(b.dataset.nopic, null); b.remove(); } catch (err) { alert(err.message || err); }
   }));
 }
 
