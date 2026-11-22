@@ -181,7 +181,9 @@ async function loadMyProfile() {
   if (!profile && me.user_metadata?.name) {
     // user from an older version: create the profile from what we know
     const row = { id: me.id, name: String(me.user_metadata.name).slice(0, 40), avatar_url: safeAvatar(me.user_metadata.avatar_url) || null };
-    const ins = await saveProfileRow(row);
+    let ins = await saveProfileRow(row);
+    // that name belongs to someone else now: keep it, with a few numbers after it
+    if (/name_taken/.test(ins.error?.message || "")) ins = await saveProfileRow({ ...row, name: row.name.slice(0, 34) + " " + Math.floor(1000 + Math.random() * 9000) });
     profile = ins.data || null;
   }
   if (profile) profileCache.set(profile.id, profile);
@@ -290,7 +292,7 @@ $("#name-form").addEventListener("submit", async (e) => {
     enterApp();
   } catch (err) {
     console.error(err);
-    toast(/anonymous/i.test(err?.message || "") ? t("anonDisabled") : t("error") + (err?.message || err));
+    toast(/name_taken/.test(err?.message || "") ? t("nameTaken") : /anonymous/i.test(err?.message || "") ? t("anonDisabled") : t("error") + (err?.message || err));
   } finally { if (btn) btn.disabled = false; }
 });
 
@@ -825,6 +827,7 @@ function profileCardHtml(p, o) {
         <div class="pf2-acts">${acts}</div>
       </div>
       <div class="pf2-name" dir="auto"><span>${esc(p.name || "")}</span> ${flag(p.country)} ${rel ? `<span class="tag">${esc(rel)}</span>` : ""}</div>
+      <button type="button" class="pf2-idline" hidden></button>
       ${pfSince(p) ? `<div class="pf2-since">${esc(pfSince(p))}</div>` : ""}
       ${p.bio ? `<p class="pf2-bio" dir="auto">${esc(p.bio)}</p>` : ""}
       ${langs ? `<div class="pf2-langs">${langs}</div>` : ""}
@@ -922,6 +925,7 @@ function wireProfileCard(root, p, isMe, rerender) {
     if (typeof loadWallet === "function") loadWallet().then(put).catch(() => {});
   }
   root.querySelectorAll('[data-act="settings"]').forEach((b) => b.addEventListener("click", openSettings));
+  window.PeopleSearch?.fillId(root, p.id); // 🪪 the 10-digit ID under the name
   // 👁️ who visited my profile (the red number = new visitors)
   const eye = root.querySelector('[data-act="visitors"]');
   if (eye) { eye.addEventListener("click", (e) => { e.stopPropagation(); window.Visitors.open(); }); window.Visitors.badge(); }
@@ -1272,7 +1276,7 @@ $("#edit-form").addEventListener("submit", async (e) => {
     profile = data; profileCache.set(profile.id, profile);
     toast(t("profileSaved"));
     goMain("me");
-  } catch (err) { console.error(err); toast(t("error") + (err?.message || err)); }
+  } catch (err) { console.error(err); toast(/name_taken/.test(err?.message || "") ? t("nameTaken") : t("error") + (err?.message || err)); }
   finally { if (btn) btn.disabled = false; }
 });
 
@@ -2594,9 +2598,7 @@ let feedLast = null, feedLoading = false, feedDone = false;
 async function renderFeedTab() {
   const box = $("#tab-feed");
   box.innerHTML = `<div class="feed-top">
-      <button type="button" class="tab live" data-k="live">LIVE</button>
-      <button type="button" class="tab ${feedKind === "following" ? "on" : ""}" data-k="following">${esc(t("followingFeed"))}</button>
-      <button type="button" class="tab ${feedKind === "all" ? "on" : ""}" data-k="all">${esc(t("forYou"))}</button>
+      ${window.PeopleSearch ? `<button type="button" class="srch" id="feed-search" aria-label="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>` : ""}
       <button type="button" class="plus" id="feed-new" aria-label="post">＋</button>
     </div>
     <div id="feed-list"><section class="reel reel-empty">…</section></div>`;
@@ -2605,6 +2607,7 @@ async function renderFeedTab() {
     feedKind = b.dataset.k; box.scrollTop = 0; renderFeedTab();
   }));
   $("#feed-new").addEventListener("click", openCompose);
+  $("#feed-search")?.addEventListener("click", () => window.PeopleSearch.open()); // 🔍 find someone by name or ID
   feedLast = null; feedDone = false; feedLoading = false;
   box.onscroll = () => { if (box.scrollTop + box.clientHeight * 2.5 > box.scrollHeight) loadMoreFeed(); };
   await loadMoreFeed(true);
