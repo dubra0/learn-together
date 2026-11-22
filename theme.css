@@ -452,3 +452,31 @@ code{background:var(--soft)}
 }
 @keyframes pf2spin{to{transform:rotate(360deg)}}
 @keyframes pf2eq{from{height:25%}to{height:100%}}
+
+/* =====================================================================
+   🌙 / ☀️ chosen in ⚙️ Settings (no choice = follow the phone)
+   ===================================================================== */
+html[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f2f5f3; --card:#ffffff; --ink:#0f1d19; --muted:#5d6f69; --line:#dce5e0;
+  --brand:#0fa88f; --brand-ink:#ffffff; --soft:#d9f3ec; --soft-2:#e3eef9;
+  --grad:linear-gradient(135deg,#14b89c 0%,#0b8f7a 100%);
+  --amber:#ffb23f; --amber-soft:#fff0d6; --gem:#4f8cff;
+  --stage:#0c1a17; --stage-2:#13261f;
+  --shadow:0 8px 26px rgba(15,40,33,.08); --shadow-lg:0 16px 44px rgba(15,40,33,.16);
+}
+html[data-theme="light"] .pill#top-streak,html[data-theme="light"] .hh-streak{color:#9a5b00}
+html[data-theme="light"] .pf2-lvbar .tx{color:#9a5b00}
+html[data-theme="light"] .pf2-name .tag,html[data-theme="light"] .pf2-langs span.native{color:#0b8f7a}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#08110f; --card:#111d1a; --ink:#e9f4f0; --muted:#91a8a0; --line:#20332e;
+  --brand:#2fd1b3; --brand-ink:#04201a; --soft:#103a32; --soft-2:#14283b;
+  --grad:linear-gradient(135deg,#2fd1b3 0%,#16a58b 100%);
+  --amber:#ffc164; --amber-soft:#3a2c12; --gem:#78a6ff;
+  --stage:#050c0a; --stage-2:#0d1c18;
+  --shadow:0 8px 26px rgba(0,0,0,.4); --shadow-lg:0 16px 44px rgba(0,0,0,.55);
+}
+html[data-theme="dark"] .pill#top-streak,html[data-theme="dark"] .hh-streak{color:var(--amber)}
+html[data-theme="dark"] .pf2-lvbar .tx{color:#ffcf85}
+html[data-theme="dark"] .pf2-name .tag,html[data-theme="dark"] .pf2-langs span.native{color:#7fe6d2}

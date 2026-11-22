@@ -1080,6 +1080,7 @@ function openSettings() {
     </div>
     <div class="menu">
       <label>🌐 ${esc(t("appLanguage"))}<select id="me-lang">${uiLangOptions()}</select></label>
+      ${window.SettingsPlus ? SettingsPlus.html() : ""}
       <a href="privacy.html" target="_blank" rel="noopener">📄 ${esc(t("privacy"))}</a>
       ${isAdmin ? `<a href="admin.html" target="_blank" rel="noopener">🛡️ ${esc(t("adminPanel"))}</a>` : ""}
       ${isAdmin ? `<a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}</a>` : ""}
@@ -1105,6 +1106,7 @@ function openSettings() {
   window.ChatPlus?.wireHide();
   $("#me-bday")?.addEventListener("click", () => MePlus.openBirthday());
   window.MePlus?.wireBirthday();
+  window.SettingsPlus?.wire(); // 🌗 look · 📵 calls · 🚫 blocked
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
   $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
   $("#me-delete").addEventListener("click", deleteAccount);
