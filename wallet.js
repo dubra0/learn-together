@@ -204,6 +204,7 @@ function renderPaid(targets) {
     <div class="pg-tabs" ${tabs.length < 2 ? "hidden" : ""}>${tabs.map(([k, ic]) => `<button type="button" data-tab="${k}" class="${W.tab === k ? "on" : ""}">${ic}</button>`).join("")}</div>
     <div class="pg-grid">${list.map((g) => `<button type="button" class="pg-item ${g.id === W.chosen ? "on" : ""} ${g.price > coins ? "poor" : ""}" data-pg="${esc(g.id)}">
       ${giftPic(g)}<span class="p">🪙 ${fmtN(g.price)}</span></button>`).join("") || `<div class="muted">${esc(t("w_empty"))}</div>`}</div>
+    ${window.WalletPlus ? `<input class="pg-note" id="pg-note" maxlength="80" autocomplete="off" dir="auto" placeholder="${esc(t("wp_notePh"))}" value="${esc(W.note || "")}">` : ""}
     <button type="button" class="btn block" id="pg-send" style="margin-top:12px" ${W.sending ? "disabled" : ""}>${esc(t("w_send"))} ${W.catalog.find((g) => g.id === W.chosen)?.emoji || "🎁"}</button>`);
   document.querySelectorAll("#sheet [data-pt]").forEach((b) => b.addEventListener("click", () => { W.target = b.dataset.pt; renderPaid(targets); }));
   document.querySelectorAll("#sheet [data-tab]").forEach((b) => b.addEventListener("click", () => {
@@ -214,6 +215,7 @@ function renderPaid(targets) {
     W.chosen = b.dataset.pg; renderPaid(targets);
   }));
   $("#pg-send").addEventListener("click", () => sendPaidGift(targets));
+  $("#pg-note")?.addEventListener("input", (e) => { W.note = e.target.value; }); // 💌 a message with the gift
 }
 /* 🔢 tap again and again: each tap counts at once on my screen (x1, x2, x3 …).
    Fast taps are grouped: "100 × 🌹" goes to the server as ONE send (send_gifts, update-21),
@@ -240,9 +242,10 @@ function sendPaidGift(targets) {
   window.GiftFX?.play(g.id, profile?.name || "", toName, me?.id, { qty: 1, price: g.price }); // others get it from the server
   tapCount(g, to);
   // group the taps: send when the finger stops for a moment (or every 500 taps)
-  const key = `${to}|${g.id}|${room}`;
+  const note = (W.note || "").trim().slice(0, 80);
+  const key = `${to}|${g.id}|${room}|${note}`;
   let q = GB.get(key);
-  if (!q) { q = { g, to, toName, room, qty: 0, timer: 0 }; GB.set(key, q); }
+  if (!q) { q = { g, to, toName, room, note, qty: 0, timer: 0 }; GB.set(key, q); }
   q.qty++;
   clearTimeout(q.timer);
   if (q.qty >= 500) flushGifts(key); else q.timer = setTimeout(() => flushGifts(key), 350);
@@ -271,11 +274,15 @@ function flushGifts(key) {
   sendChain = sendChain.then(() => sendBatch(q)).finally(() => { inFlight--; paintCoins(); });
 }
 async function sendBatch(q) {
-  const { g, to, toName, room } = q;
+  const { g, to, toName, room, note } = q;
   let sent = 0, coinsNow = null, status = "ok";
   try {
     if (batchOk) {
-      const { data, error } = await sb.rpc("send_gifts", { p_to: to, p_gift: g.id, p_room: room, p_qty: q.qty });
+      // 💌 with a message → send_gifts_note (update 39); without → send_gifts as before
+      const { data, error } = note
+        ? await sb.rpc("send_gifts_note", { p_to: to, p_gift: g.id, p_room: room, p_qty: q.qty, p_note: note })
+        : await sb.rpc("send_gifts", { p_to: to, p_gift: g.id, p_room: room, p_qty: q.qty });
+      if (!error && note) { W.note = ""; const n = $("#pg-note"); if (n) n.value = ""; }
       if (error && /send_gifts|PGRST202|function/i.test((error.code || "") + (error.message || ""))) batchOk = false;
       else if (error) throw error;
       else { const r = Array.isArray(data) ? data[0] : null; status = r?.o_status || "error"; coinsNow = r?.o_coins ?? null; sent = r?.o_qty || 0; }
@@ -295,7 +302,7 @@ async function sendBatch(q) {
     if (status !== "ok" && !sent) return toast(statusMsg(status));
     if (sent < q.qty) toast(t("w_noCoins"));
     if (!sent) return;
-    if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji}${sent > 1 ? " ×" + sent : ""} → ${toName}`);
+    if (currentRoom && typeof addSystem === "function") addSystem(`🪙 ${profile?.name || ""} ${g.emoji}${sent > 1 ? " ×" + sent : ""} → ${toName}${note ? ` · 💌 “${note}”` : ""}`);
     // 👑 my level comes from coins I gave: did these gifts take me to a new level?
     if (profile) {
       const before = coinLevel(profile.gift_coins || 0);
@@ -327,7 +334,7 @@ function onGiftRow(payload) {
       if (row.room_id && currentRoom && row.room_id === currentRoom.id) window.TopGifters?.soon(); // 👑 top gifters strip
       if (row.room_id && currentRoom && row.room_id === currentRoom.id && row.from_id !== me.id) {
         window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id, { qty, price: unit });
-        if (typeof addSystem === "function") addSystem(`🪙 ${row.from_name} ${emoji}${qty > 1 ? " ×" + qty : ""} → ${row.to_name}`);
+        if (typeof addSystem === "function") addSystem(`🪙 ${row.from_name} ${emoji}${qty > 1 ? " ×" + qty : ""} → ${row.to_name}${row.note ? ` · 💌 “${row.note}”` : ""}`);
         // in a battle, premium gifts count too (1 point per 10 coins)
         try {
           if (typeof amHost === "function" && amHost() && typeof hostBattle !== "undefined" && hostBattle && !hostBattle.done) {
@@ -340,7 +347,7 @@ function onGiftRow(payload) {
         // a gift for me from outside my current room (e.g. from my profile): I still see the animation
         const shownInRoom = row.room_id && currentRoom && row.room_id === currentRoom.id;
         if (!shownInRoom && row.from_id !== me.id) window.GiftFX?.play(row.gift_id, row.from_name, row.to_name, row.from_id, { qty, price: unit });
-        toast(t("w_got", { name: row.from_name || "", gift: `${emoji}${qty > 1 ? " ×" + qty : ""}`, d: fmtN(row.diamonds) }));
+        toast(t("w_got", { name: row.from_name || "", gift: `${emoji}${qty > 1 ? " ×" + qty : ""}`, d: fmtN(row.diamonds) }) + (row.note ? ` · 💌 “${row.note}”` : ""));
         clearTimeout(onGiftRow._w); onGiftRow._w = setTimeout(loadWallet, 1500);   // once after a burst, not 100 times
       }
   }
