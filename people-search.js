@@ -59,7 +59,7 @@
   .ni.t2{background-image:linear-gradient(120deg,#3b0764,#7c3aed,#db2777,#7c3aed,#3b0764);box-shadow:0 8px 22px rgba(124,58,237,.4)}
   .ni.t3{background-image:linear-gradient(120deg,#083344,#0891b2,#059669,#0891b2,#083344);box-shadow:0 8px 22px rgba(8,145,178,.35)}
   .ni b{font-size:1.7rem;font-weight:900;letter-spacing:4px;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px rgba(0,0,0,.4)}
-  .ni .tag{position:absolute;top:6px;inset-inline-start:8px;font-size:.7rem}
+  .ni .nt{position:absolute;top:6px;inset-inline-start:8px;font-size:.75rem}
   .ni span.p{font-size:.78rem;font-weight:900;background:rgba(0,0,0,.28);border-radius:999px;padding:3px 10px}
   .ni.sold{filter:grayscale(.85);opacity:.5;cursor:default}.ni.mine{outline:3px solid #fff;outline-offset:-3px}
   @media (prefers-reduced-motion:reduce){.ni,.ni::after{animation:none}}`;
@@ -84,7 +84,7 @@
     if (list.error) { box.innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(list.error.message)}</small></div>`; return; }
     const rows = list.data || [];
     box.innerHTML = `<div class="ni-grid">${rows.map((r) => `<button type="button" class="ni ${niceTier(r.id) || "t3"} ${r.mine ? "mine" : r.sold ? "sold" : ""}" data-ni="${r.id}" data-np="${r.price}" ${r.sold && !r.mine ? "disabled" : ""}>
-      <span class="tag">💎</span><b>${esc(String(r.id))}</b><span class="p">${r.mine ? esc(t("ps_mine")) : r.sold ? esc(t("ps_sold")) : `🪙 ${Number(r.price).toLocaleString("en-US")}`}</span></button>`).join("")}</div>`;
+      <span class="nt">💎</span><b>${esc(String(r.id))}</b><span class="p">${r.mine ? esc(t("ps_mine")) : r.sold ? esc(t("ps_sold")) : `🪙 ${Number(r.price).toLocaleString("en-US")}`}</span></button>`).join("")}</div>`;
     box.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-ni]"); if (!b || b.classList.contains("sold") || b.classList.contains("mine")) return;
       const id = b.dataset.ni, p = Number(b.dataset.np).toLocaleString("en-US");
