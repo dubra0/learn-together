@@ -1060,34 +1060,38 @@ function renderMeTab() {
 function openSettings() {
   const p = profile || {};
   show("screen-settings");
-  $("#settings-body").innerHTML = `
-    <div class="menu">
-      <button type="button" id="me-edit">✏️ ${esc(t("editProfile"))}</button>
-      ${typeof openWallet === "function" ? `<button type="button" id="me-wallet">💰 ${esc(t("w_wallet"))}</button>` : ""}
+  const SP = window.SettingsPlus;
+  const sec = (title, inner) => `<section class="stc"><h3>${title}</h3><div class="menu">${inner}</div></section>`;
+  const tgl = (id, label, stId) => `<button type="button" id="${id}" class="tgl">${label}<span class="end" id="${stId}">…</span><span class="sw" aria-hidden="true"></span></button>`;
+  $("#settings-body").innerHTML =
+    sec(`👤 ${esc(t("st_account"))}`, `
+      <button type="button" id="me-edit">✏️ ${esc(t("editProfile"))}<span class="chev">›</span></button>
+      ${typeof openWallet === "function" ? `<button type="button" id="me-wallet">💰 ${esc(t("w_wallet"))}<span class="chev">›</span></button>` : ""}
       <button type="button" id="me-photos">📷 ${esc(t("photos"))}<span class="end">${(p.photos || []).length}/6</span></button>
-      ${window.Push ? `<button type="button" id="me-push">${esc(t("pn_menu"))}<span class="end" id="me-push-st">…</span></button>` : ""}
-      <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}</button>
-      ${window.FeedPlus ? `<button type="button" id="me-savedposts">${esc(t("fp_savedTitle"))}</button>` : ""}
-      <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}</button>
-      ${window.Visitors ? `<button type="button" id="me-dm">${esc(t("dm_menu"))}<span class="end" id="me-dm-st">…</span></button>` : ""}
-      ${window.ChatPlus ? `<button type="button" id="me-hide">${esc(t("cp_hide"))}<span class="end" id="me-hide-st">…</span></button>` : ""}
-      ${window.MePlus ? `<button type="button" id="me-bday">${esc(t("mp_bday"))}<span class="end" id="me-bday-st">…</span></button>` : ""}
-    </div>
-    <div class="card">
-      <div class="group-title" style="margin:0 0 10px">🏅 ${esc(t("badges"))}</div>
-      <div class="stats3" style="margin-top:0"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
-      ${badgesHtml(p)}
-    </div>
-    <div class="menu">
-      <label>🌐 ${esc(t("appLanguage"))}<select id="me-lang">${uiLangOptions()}</select></label>
-      ${window.SettingsPlus ? SettingsPlus.html() : ""}
-      <a href="privacy.html" target="_blank" rel="noopener">📄 ${esc(t("privacy"))}</a>
-      ${isAdmin ? `<a href="admin.html" target="_blank" rel="noopener">🛡️ ${esc(t("adminPanel"))}</a>` : ""}
-      ${isAdmin ? `<a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}</a>` : ""}
       <button type="button" id="me-id">🪪 ${esc(t("yourId"))}<span class="end" id="me-id-v">…</span></button>
       ${window.PeopleSearch ? `<button type="button" id="me-nice">💎 ${esc(t("ps_niceTitle"))}<span class="chev">›</span></button>` : ""}
-      <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>
-    </div>`;
+      ${window.MePlus ? `<button type="button" id="me-bday">${esc(t("mp_bday"))}<span class="end" id="me-bday-st">…</span></button>` : ""}`) +
+    sec(`⚙️ ${esc(t("st_prefs"))}`, `
+      ${window.Push ? tgl("me-push", esc(t("pn_menu")), "me-push-st") : ""}
+      ${SP ? SP.themeHtml() : ""}
+      ${window.ChatPlus ? tgl("me-hide", esc(t("cp_hide")), "me-hide-st") : ""}`) +
+    sec(`🔒 ${esc(t("st_privacy"))}`, `
+      ${window.Visitors ? tgl("me-dm", esc(t("dm_menu")), "me-dm-st") : ""}
+      ${SP ? SP.friendsHtml() + SP.blockedHtml() : ""}`) +
+    sec(`📚 ${esc(t("st_mine"))}`, `
+      <button type="button" id="me-inbox">💬 ${esc(t("messagesTitle"))}<span class="chev">›</span></button>
+      <button type="button" id="me-saved">⭐ ${esc(t("savedWords"))}<span class="chev">›</span></button>
+      ${window.FeedPlus ? `<button type="button" id="me-savedposts">${esc(t("fp_savedTitle"))}<span class="chev">›</span></button>` : ""}`) +
+    `<section class="stc"><h3>🏅 ${esc(t("badges"))}</h3><div class="card">
+      <div class="stats3" style="margin-top:0"><div><b>${p.xp || 0}</b><span>${esc(t("xp"))}</span></div><div><b>🔥 ${p.streak || 0}</b><span>${esc(t("dayStreak"))}</span></div><div><b>${p.minutes || 0}</b><span>${esc(t("minutesLbl"))}</span></div></div>
+      ${badgesHtml(p)}</div></section>` +
+    sec(`🌐 ${esc(t("appLanguage"))}`, `<label class="st-lang"><select id="me-lang">${uiLangOptions()}</select></label>`) +
+    sec(`📄 ${esc(t("st_legal"))}`, `<a href="privacy.html" target="_blank" rel="noopener">📄 ${esc(t("privacy"))}<span class="chev">↗</span></a>`) +
+    (isAdmin ? sec(`🛡️ ${esc(t("st_admin"))}`, `
+      <a href="admin.html" target="_blank" rel="noopener">🛡️ ${esc(t("adminPanel"))}<span class="chev">↗</span></a>
+      <a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}<span class="chev">↗</span></a>`) : "") +
+    sec(`⚠️ ${esc(t("st_danger"))}`, `<button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>`);
+  window.SettingsPlus?.decorate(); // 🌙 the night look + real on / off switches
   $("#me-edit").addEventListener("click", openEditProfile);
   $("#me-wallet")?.addEventListener("click", openWallet);
   $("#me-photos").addEventListener("click", () => {
