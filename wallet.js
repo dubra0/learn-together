@@ -393,6 +393,7 @@ async function openWallet() {
       <div class="d"><span>💎 ${esc(t("w_diamonds"))}</span><b>${fmtN(w.diamonds)}</b>
         <div class="w-sub">${esc(t("w_available"))}: ${fmtN(w.withdrawable)} · ${esc(t("w_onHold"))}: ${fmtN(w.held)}</div></div>
     </div>
+    ${window.AppleIAP?.available() ? `<div id="iap-box"></div>` : ""}
     <div class="w-id"><span>🪪</span><code id="w-pid">…</code><button type="button" class="btn sm" id="w-copy">📋 ${esc(t("w_copyId"))}</button></div>
     ${window.PeopleSearch ? `<button type="button" class="btn ghost block" id="w-nice" style="margin:-4px 0 12px">💎 ${esc(t("ps_niceTitle"))}</button>` : ""}
 
@@ -432,6 +433,7 @@ async function openWallet() {
   sb.rpc("public_id_of", { p_user: me.id }).then(({ data }) => { pid = data ? String(data) : null; const c = $("#w-pid"); if (c) c.textContent = pid || "—"; }, () => {});
   $("#w-copy").addEventListener("click", async () => { if (!pid) return; try { await navigator.clipboard.writeText(pid); toast(t("copied")); } catch { prompt(t("w_yourId"), pid); } });
   $("#w-nice")?.addEventListener("click", () => window.PeopleSearch.openNiceIds());
+  window.AppleIAP?.available() && window.AppleIAP.fill(); // 🍎 coin packs (iPhone app only)
   const calc = () => {
     const a = Math.floor(Number($("#w-amt").value) || 0);
     const gross = a / 1000 * Number(w.usd_per_1000), net = gross - Math.round(gross * Number(w.withdraw_fee) * 100) / 100;

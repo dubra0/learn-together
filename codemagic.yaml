@@ -1,0 +1,79 @@
+# Learn Together — build the iPhone app in the cloud (Codemagic), no Mac needed.
+# Codemagic reads this file from the GitHub repo. The web app files are copied into native/www,
+# Capacitor makes the Xcode project, Codemagic signs it and sends it to TestFlight / App Store Connect.
+#
+# Set up once in Codemagic (codemagic.io → this app → Teams / Integrations):
+#   1. Developer Portal integration "LT App Store" = an App Store Connect API key (from App Store Connect → Users and Access → Integrations)
+#   2. Environment group "revenuecat" with REVENUECAT_IOS_KEY (the PUBLIC iOS API key from RevenueCat — starts with "appl_")
+# The bundle id below must be the same as in App Store Connect and native/capacitor.config.json.
+
+workflows:
+  ios-release:
+    name: iPhone app → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: LT App Store
+    environment:
+      groups:
+        - revenuecat
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.learntogether.live
+      vars:
+        BUNDLE_ID: com.learntogether.live
+        APP_STORE_APPLE_ID: 0            # put the app's Apple ID number here after making the app in App Store Connect
+      node: 20
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events: []                         # build only when started by hand (Start new build)
+    scripts:
+      - name: Copy the web app into the iPhone project
+        script: |
+          mkdir -p native/www
+          rsync -a --delete \
+            --exclude native --exclude codemagic.yaml --exclude '.git*' --exclude '*.md' \
+            --exclude admin.html --exclude admin-wallet.html --exclude demo.html \
+            ./ native/www/
+          # the public RevenueCat key the app uses for Apple purchases (not a secret)
+          echo "window.LT_NATIVE = { revenuecatKey: '${REVENUECAT_IOS_KEY}' };" > native/www/native-config.js
+      - name: Install Capacitor
+        script: |
+          cd native
+          npm install
+          npx cap add ios || true
+          npx cap sync ios
+      - name: App icon and splash (from the 512 px icon)
+        script: |
+          cd native
+          mkdir -p assets
+          sips -z 1024 1024 www/icons/icon-512.png --out assets/icon-only.png
+          cp assets/icon-only.png assets/splash.png
+          cp assets/icon-only.png assets/splash-dark.png
+          npx @capacitor/assets generate --ios --iconBackgroundColor '#0a0f2c' --splashBackgroundColor '#0a0f2c' || true
+      - name: Permissions text (microphone, camera, photos)
+        script: |
+          PLIST=native/ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Learn Together uses the microphone so you can speak in voice rooms, calls and voice messages.'" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Learn Together uses the camera for video rooms and to take your profile photo.'" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Learn Together lets you choose photos and videos for your profile and posts.'" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string audio" "$PLIST" || true
+      - name: Signing
+        script: |
+          xcode-project use-profiles
+      - name: Version number
+        script: |
+          cd native/ios/App
+          agvtool new-version -all $(($BUILD_NUMBER + 1))
+      - name: Build the .ipa
+        script: |
+          xcode-project build-ipa --workspace native/ios/App/App.xcworkspace --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
