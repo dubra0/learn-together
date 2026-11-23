@@ -57,6 +57,8 @@
     border-top:1px solid rgba(226,182,90,.16);font-weight:700;border-radius:0}
   .st-night .stc .menu > :first-child{border-top:0}
   .st-night .stc .menu .end,.st-night .stc .menu .chev{color:var(--mut2)}
+  .st-night .stc .menu .chev{margin-inline-start:auto;font-size:1.15rem}
+  .st-night .stc .menu .end + .chev{margin-inline-start:8px}
   .st-night .stc .menu .danger{color:#ff8a8a}
   /* real on / off switches */
   .st-night .tgl .end{display:none}

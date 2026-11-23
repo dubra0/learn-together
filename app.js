@@ -128,7 +128,7 @@ function show(id) {
   window.scrollTo(0, 0);
 }
 function openSheet(html) {
-  $("#sheet").classList.remove("compact");
+  $("#sheet").classList.remove("compact", "cm-mode", "mo-mode");
   $("#sheet-body").innerHTML = html;
   $("#sheet").hidden = false; $("#sheet-backdrop").hidden = false;
 }
@@ -2744,9 +2744,8 @@ function reelHtml(post) {
         ${canFollow ? `<button type="button" class="plus" data-rfollow="${esc(post.user_id)}" aria-label="follow">+</button>` : ""}</div>
       <button type="button" class="rail-btn ${likedSet.has(post.id) ? "on" : ""}" data-like="${post.id}">${likeBtnInner(post)}</button>
       <button type="button" class="rail-btn" data-cm="${post.id}"><span>💬</span><span>${post.comment_count || 0}</span></button>
-      ${window.FeedPlus ? FeedPlus.railHtml(post) : ""}
       ${vid ? `<button type="button" class="rail-btn" data-mute="1"><span>${feedMuted ? "🔇" : "🔊"}</span><span></span></button>` : ""}
-      ${post.body && !vid ? `<button type="button" class="rail-btn" data-ptr="${post.id}"><span>🌐</span><span>${esc(t("translate"))}</span></button>` : ""}
+      ${post.body && !vid && !window.FeedPlus ? `<button type="button" class="rail-btn" data-ptr="${post.id}"><span>🌐</span><span>${esc(t("translate"))}</span></button>` : ""}
       <button type="button" class="rail-btn" data-pshare="${post.id}"><span>↪️</span><span>${esc(t("share"))}</span></button>
       <button type="button" class="rail-btn" data-pmore="${post.id}"><span>⋯</span><span></span></button>
     </div>
@@ -3071,6 +3070,7 @@ async function toggleLike(id) {
   }
 }
 function postMenu(id) {
+  if (window.FeedPlus?.openMenu) return FeedPlus.openMenu(id); // ⋯ a grid of everything (save, repost, translate…)
   const post = feedCache.get(id); if (!post) return;
   const mine = post.user_id === me.id;
   openSheet(`<div class="menu" style="box-shadow:none">
