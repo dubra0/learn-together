@@ -1,7 +1,7 @@
 // Service worker: makes the app open fast even on weak internet. Never caches Supabase / LiveKit traffic.
 //  - app files: try the internet for the newest version, but if it takes more than 2.5 s use the saved copy
 //  - libraries with a fixed version (jsdelivr) and fonts: never change, so always from the saved copy
-const CACHE = "talk-together-v53";
+const CACHE = "talk-together-v55";
 // 🎁 gift videos + sounds come WITH the app: downloaded once when the app is installed/opened, then kept on the phone.
 // They have their own box (not emptied on app updates). A new or changed gift video → add/rename it here and bump GIFTS.
 const GIFTS = "learn-together-gifts-v1";

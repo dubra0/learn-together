@@ -238,19 +238,35 @@
   }
 
   /* 💬 live comments: Lv on every name, gold rows for 💎 VIP / nice IDs, gift banners */
+  // ⚡ asked together: everyone new who wrote in the last second → 2 requests in total (not 3 per person)
   const who = new Map();   // identity → promise of { lv, vip, pid } (asked once per person)
+  let ask = new Map(), askTimer = 0;
   function infoOf(id) {
     if (who.has(id)) return who.get(id);
-    const pr = (async () => {
-      const [p, vip, pid] = await Promise.all([
-        Promise.resolve(getProfile(id)).catch(() => null),
-        sb.rpc("vip_of", { p_ids: [id] }).then((r) => (r.data || []).length > 0, () => false),
-        sb.rpc("public_id_of", { p_user: id }).then((r) => r.data, () => null),
-      ]);
-      return { lv: p && typeof coinLevel === "function" ? coinLevel(p) : null, vip, pid };
-    })();
-    who.set(id, pr);
+    let res; const pr = new Promise((r) => (res = r));
+    who.set(id, pr); ask.set(id, res);
+    if (!askTimer) askTimer = setTimeout(flushAsk, 900);
     return pr;
+  }
+  async function flushAsk() {
+    askTimer = 0;
+    const batch = ask; ask = new Map();
+    const ids = [...batch.keys()].slice(0, 200);
+    [...batch.keys()].slice(200).forEach((id) => { ask.set(id, batch.get(id)); });   // the rest next time
+    if (ask.size && !askTimer) askTimer = setTimeout(flushAsk, 900);
+    let profs = [], vips = [];
+    try {
+      [profs, vips] = await Promise.all([
+        sb.from("profiles").select("id,gift_coins,public_id").in("id", ids).then((r) => r.data || [], () => []),
+        sb.rpc("vip_of", { p_ids: ids }).then((r) => r.data || [], () => []),
+      ]);
+    } catch {}
+    const byId = new Map(profs.map((p) => [p.id, p]));
+    const vipSet = new Set(vips.map((v) => (typeof v === "string" ? v : Object.values(v)[0])));
+    ids.forEach((id) => {
+      const p = byId.get(id);
+      batch.get(id)({ lv: p && typeof coinLevel === "function" ? coinLevel(p) : null, vip: vipSet.has(id), pid: p?.public_id || null });
+    });
   }
   async function decorateMsg(div, p) {
     if (!p?.identity) return;

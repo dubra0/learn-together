@@ -400,8 +400,10 @@ function renderTab(force) {
   $("#new-room-btn").hidden = currentTab !== "rooms";
   $("#new-post-btn").hidden = currentTab !== "feed";
   const at = tabShownAt[currentTab];
-  if (!force && at && Date.now() - at < 60e3 && $("#tab-" + currentTab).childElementCount && currentTab !== "me") {
-    if (currentTab === "rooms") loadRooms(); // the live list changes often: refresh it in place
+  // ⚡ a section seen before opens instantly, exactly as it was; only its live parts refresh quietly behind it
+  if (!force && at && $("#tab-" + currentTab).childElementCount && currentTab !== "me") {
+    if (currentTab === "rooms") { loadRooms(); warmVoice(); } // the live list changes often: refresh it in place
+    else if (currentTab === "chats" && Date.now() - at > 20e3 && $("#inbox-list")) { tabShownAt.chats = Date.now(); fillInbox($("#inbox-list"), true); }
     return;
   }
   tabShownAt[currentTab] = Date.now();
@@ -416,6 +418,7 @@ function renderTab(force) {
 /* ---------------- Rooms tab ---------------- */
 let roomsSeq = 0;
 async function renderRoomsTab() {
+  warmVoice(); // ⚡ get the voice server ready while the list shows
   const box = $("#tab-rooms");
   const name = profile?.name || t("guest");
   const hasGoal = typeof goalCardHtml === "function";
@@ -1571,7 +1574,8 @@ async function joinRoom(row, code) {
   try {
     const { data: { session } } = await sb.auth.getSession();
     accessToken = session?.access_token || null;
-    const { data, error } = await sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId: row.id, code: currentCode } });
+    const { data, error } = await roomToken(row.id, currentCode); // ⚡ often already asked for when the finger touched "Join"
+    if (data?.url) { try { store.set("lkUrl", data.url); } catch {} }
     if (error) {
       let code2 = "";
       try { code2 = (await error.context.json()).error; } catch {}
@@ -1603,7 +1607,7 @@ async function joinRoom(row, code) {
         renderPeople();
       })
       .on(E.ParticipantConnected, (p) => {
-        if (!blocked.has(p.identity)) { addSystem(t("joined", { name: p.name || t("guest") })); window.showEntranceFor?.(p.identity); }
+        if (!blocked.has(p.identity)) noteJoin(p); // ⚡ in a big live: "Sara and 24 others joined", not 25 lines
         renderPeople();
         // the live we challenged has arrived: bring them on stage and start the battle
         if (amHost() && pendingBattleWith === p.identity) {
@@ -1678,6 +1682,7 @@ async function joinRoom(row, code) {
       });
 
     await room.connect(data.url, data.token);
+    renderPeople(); $("#room-status").textContent = ""; // ⚡ show the seats as soon as we are in, before the mic is ready
     try { await room.startAudio(); } catch {}
     if (room.localParticipant.permissions?.canPublish) {
       try { await room.localParticipant.setMicrophoneEnabled(true); } catch (err) { console.warn(err); toast(t("micDenied")); }
@@ -1700,6 +1705,35 @@ async function joinRoom(row, code) {
     else showVoiceHelp(`${t("joinFail")}${msg}`, link);
   }
 }
+
+/* ⚡ faster lives and calls
+   - the voice server's door is "warmed up" while you look at Rooms / Call (the first join is no longer slow)
+   - touching "Join" already asks for the entry ticket, so it is ready when the finger lifts */
+let warmAt = 0;
+function warmVoice() {
+  if (!sb || !me || Date.now() - warmAt < 4 * 60e3) return;
+  warmAt = Date.now();
+  sb.functions.invoke(CONFIG.FUNCTION, { body: { warm: true } }).catch(() => {});
+  try { const u = store.get("lkUrl"); if (u && LivekitClient?.Room) new LivekitClient.Room().prepareConnection(u).catch(() => {}); } catch {}
+}
+const tokCache = new Map();   // "room|code" → { at, p }
+function roomToken(roomId, code) {
+  const k = roomId + "|" + (code || ""), c = tokCache.get(k);
+  tokCache.delete(k);
+  if (c && Date.now() - c.at < 20e3) return c.p;
+  return sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId, code: code || null } });
+}
+function prefetchToken(roomId, code) {
+  const k = roomId + "|" + (code || "");
+  if (tokCache.has(k) && Date.now() - tokCache.get(k).at < 20e3) return;
+  tokCache.set(k, { at: Date.now(), p: sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId, code: code || null } }) });
+}
+document.addEventListener("pointerdown", (e) => {
+  const b = e.target.closest("#tab-rooms [data-join]"); if (!b || !sb || !me || lk) return;
+  const card = b.closest(".room-card");
+  if (card && card.innerHTML.includes("🔒")) return;   // a password room: the ticket needs the password first
+  prefetchToken(b.dataset.join, null);
+}, { passive: true });
 
 /* the host's app tells the server every 30 s that the room is still alive */
 function startHeartbeat() {
@@ -1748,7 +1782,16 @@ function audHtml(p) {
 }
 const AUD_SHOW = 12;
 function listenersSorted() { return allParticipants().filter((p) => !isSpeaker(p)).sort((a, b) => handUp(b) - handUp(a)); }
+/* ⚡ big lives (thousands of people): the stage is redrawn at most ~3 times a second, not on every single event */
+let rpTimer = 0, rpLast = 0;
 function renderPeople() {
+  const big = !!lk && lk.remoteParticipants.size > 60;
+  if (!big) return renderPeopleNow();
+  if (rpTimer) return;
+  const wait = Math.max(0, rpLast + 300 - performance.now());
+  rpTimer = setTimeout(() => requestAnimationFrame(() => { rpTimer = 0; rpLast = performance.now(); renderPeopleNow(); }), wait);
+}
+function renderPeopleNow() {
   if (!lk || !currentRoom) return;
   window.RoomLooks?.sync();   // 🎨 the background the host chose
   const all = allParticipants();
@@ -2274,12 +2317,46 @@ try {
   for (const [l, s] of Object.entries({ en: "New comments", ckb: "کۆمێنتی نوێ", ar: "تعليقات جديدة", tr: "Yeni yorumlar", fa: "نظرات جدید", de: "Neue Kommentare", fr: "Nouveaux commentaires", es: "Comentarios nuevos" }))
     if (I18N[l]) I18N[l].newComments = s;
 } catch {}
+/* ⚡ new chat lines are put on the screen together, once per frame (a busy live sends dozens a second) */
+let chatPending = [], chatForce = false, chatRaf = 0;
+function chatPush(div, force) {
+  chatPending.push(div); if (force) chatForce = true;
+  if (chatPending.length > 80) chatPending = chatPending.slice(-80);   // more than fits on screen: keep the newest
+  if (chatRaf) return;
+  chatRaf = requestAnimationFrame(() => {
+    chatRaf = 0;
+    const frag = document.createDocumentFragment();
+    chatPending.forEach((d) => frag.appendChild(d));
+    chatPending = [];
+    $("#chat-list").appendChild(frag); trimChat(); scrollChat(chatForce || undefined); chatForce = false;
+  });
+}
+// people coming in: one line each in a small live; grouped every 2 s in a big one
+let joinQueue = [], joinTimer = 0;
+function noteJoin(p) {
+  const small = !lk || lk.remoteParticipants.size <= 60;
+  if (small || following.has(p.identity)) window.showEntranceFor?.(p.identity);   // entrance effects only where they can be seen
+  if (small) return addSystem(t("joined", { name: p.name || t("guest") }));
+  joinQueue.push(p.name || t("guest"));
+  if (joinTimer) return;
+  joinTimer = setTimeout(() => {
+    joinTimer = 0;
+    const q = joinQueue; joinQueue = [];
+    if (!q.length || !currentRoom) return;
+    addSystem(q.length === 1 ? t("joined", { name: q[0] }) : t("joinedMany", { name: q[q.length - 1], n: q.length - 1 }));
+  }, 2000);
+}
+try {
+  for (const [l, s] of Object.entries({ en: "✨ {name} and {n} others joined", ckb: "✨ {name} و {n} کەسی تر هاتنە ژوورەوە", ar: "✨ انضم {name} و{n} آخرون", tr: "✨ {name} ve {n} kişi daha katıldı",
+    fa: "✨ {name} و {n} نفر دیگر آمدند", de: "✨ {name} und {n} weitere sind da", fr: "✨ {name} et {n} autres sont arrivés", es: "✨ {name} y {n} más se unieron" }))
+    if (I18N[l]) I18N[l].joinedMany = s;
+} catch {}
 function addSystem(text) {
   const div = document.createElement("div");
   div.className = "smsg sys";
   div.innerHTML = `<div class="bub">${esc(text)}</div>`;
   window.LiveLook?.decorateSys(div, text); // 🎁 gifts / 🧧 / ✨ entering get their own look
-  $("#chat-list").appendChild(div); trimChat(); scrollChat();
+  chatPush(div);
 }
 function addChat(p, text, reply) {
   if (blocked.has(p.identity)) return;
@@ -2296,7 +2373,7 @@ function addChat(p, text, reply) {
     <span class="who" dir="auto">${isHost ? "👑 " : ""}${esc(name)}</span><span dir="auto">${esc(text)}</span></div>`;
   div.querySelector(".bub").addEventListener("click", () => msgActions(name, text));
   window.LiveLook?.decorateMsg(div, p); // Lv · 💎 VIP / nice ID
-  $("#chat-list").appendChild(div); trimChat(); scrollChat(!!mine);
+  chatPush(div, !!mine);
 }
 function msgActions(name, text) {
   openSheet(`<div class="muted small" dir="auto" style="margin-bottom:8px"><b>${esc(name)}:</b> ${esc(text)}</div>
@@ -2511,11 +2588,11 @@ async function renderChatsTab() {
   });
   await fillInbox($("#inbox-list"));
 }
-async function fillInbox(box) {
-  box.innerHTML = `<div class="empty">…</div>`;
+async function fillInbox(box, quiet) {
+  if (!quiet) box.innerHTML = `<div class="empty">…</div>`; // a quiet refresh keeps the old list on screen until the new one is ready
   const { data, error } = await sb.from("messages").select("id,sender,receiver,body,audio_path,created_at,read_at")
     .or(`sender.eq.${me.id},receiver.eq.${me.id}`).order("created_at", { ascending: false }).limit(300);
-  if (error) { box.innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
+  if (error) { if (!quiet) box.innerHTML = `<div class="empty">${esc(t("loadFail"))}<br><small>${esc(error.message)}</small></div>`; return; }
   const convs = new Map();
   for (const m of data || []) {
     const other = m.sender === me.id ? m.receiver : m.sender;

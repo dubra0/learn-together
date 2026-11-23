@@ -269,6 +269,7 @@ function rcView(name) { const el = rcEl(); el.querySelectorAll(".rc-v").forEach(
 async function openRandomCall() {
   if (typeof lk !== "undefined" && lk) return toast(t("rc_inLive"));
   rcEl(); rcView("start");
+  if (typeof warmVoice === "function") warmVoice(); // ⚡ the voice server gets ready while you read the page
   await rcLoadStatus();
 }
 async function closeRandomCall() {
@@ -342,14 +343,16 @@ async function rcSearch() {
     else if (r?.o_status === "adult") { rcStopSearch(); RC.st && (RC.st.o_adult = false); rcView("start"); rcSearch(); }
   };
   clearInterval(RC.poll);
-  RC.poll = setInterval(tick, 2000);
+  RC.poll = setInterval(tick, 1200); // ⚡ look for a partner a bit more often (was every 2 s)
   tick();
 }
 
 /* ---------- the call ---------- */
 async function rcConnect(roomId, partnerId) {
   RC.partner = partnerId; RC.talked = 0; RC.unsent = 0; RC.ending = false; RC.muted = false; RC.silent = false;
-  RC.pProf = (typeof getProfile === "function" ? await getProfile(partnerId) : null) || { id: partnerId, name: t("guest") };
+  // ⚡ ask for the call ticket and the partner's profile at the same time (not one after the other)
+  const tokenP = sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId, action: "rc_token" } });
+  RC.pProf = (typeof getProfile === "function" ? await getProfile(partnerId).catch(() => null) : null) || { id: partnerId, name: t("guest") };
   const el = rcEl();
   el.querySelector("#rc-pav").innerHTML = avHtml(RC.pProf.name, RC.pProf.avatar_url, "lg");
   el.querySelector("#rc-pname").textContent = `${RC.pProf.name || t("guest")} ${flag(RC.pProf.country) || ""}`.trim();
@@ -363,7 +366,7 @@ async function rcConnect(roomId, partnerId) {
   rcView("call");
 
   try {
-    const { data, error } = await sb.functions.invoke(CONFIG.FUNCTION, { body: { roomId, action: "rc_token" } });
+    const { data, error } = await tokenP;
     if (error || !data?.token) {
       let code = ""; try { code = (await error?.context?.json())?.error; } catch {}
       if (code === "limit") return rcShowDone(null, 0, "day");
@@ -384,8 +387,8 @@ async function rcConnect(roomId, partnerId) {
       .on(E.ActiveSpeakersChanged, (sp) => el.querySelector("#rc-ring").classList.toggle("talk", sp.some((p) => p.identity === partnerId)))
       .on(E.Disconnected, () => { if (!RC.ending && RC.room === room) rcEndCall("them"); });
     await room.connect(data.url, data.token);
-    try { await room.startAudio(); } catch {}
-    await room.localParticipant.setMicrophoneEnabled(true);
+    // ⚡ sound and mic start together
+    await Promise.all([room.startAudio().catch(() => {}), room.localParticipant.setMicrophoneEnabled(true)]);
     // the other person never came: find someone else
     clearTimeout(RC.joinWait);
     if (!room.remoteParticipants.size) RC.joinWait = setTimeout(async () => { if (RC.room === room && !room.remoteParticipants.size) { await rcEndCall("quiet"); rcSearch(); } }, 15000);
