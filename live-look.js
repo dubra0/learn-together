@@ -3,7 +3,8 @@
    - under it: 🏆 coins gifted in this live (tap → top gifters) · photos of the people here + 👤 count (tap → list)
    - seats in rows of 5, the note board, chat
    - bottom: 🔊 sound · 💬 write · (🎙️ / ✋) · 🎁 · ⌘ more tools
-   - ⏻ → "Minimize" (keep listening while you use the app; a bubble brings you back) or "Exit" */
+   - ⏻ → "Minimize" (keep listening while you use the app; a bubble brings you back) or "Exit"
+   - 💬 comments: Lv on every name, gold rows for 💎 VIP / nice IDs, gift banners */
 (() => {
   const W = {
     en: { ll_min: "Minimize", ll_exit: "Exit", ll_tools: "More", ll_back: "Back to the live", ll_soundOff: "🔈 Room sound off", ll_soundOn: "🔊 Room sound on",
@@ -85,6 +86,24 @@
   .ll-tools.on{display:grid}
   .ll-tools .s-round{width:52px;height:52px;flex:none}
   .ll-tools .s-round[hidden]{display:none}
+
+  /* 💬 live comments */
+  #screen-room .s-chat{gap:7px}
+  #screen-room .smsg .bub{background:rgba(0,0,0,.38);border-radius:16px;padding:6px 12px;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.06)}
+  #screen-room .smsg .who{display:flex;align-items:center;gap:5px;flex-wrap:wrap;color:#f7d98b;font-size:.76rem;font-weight:800;margin:0 0 1px}
+  #screen-room .smsg.host .who{color:#fde68a}
+  #screen-room .ll-lvp{background:#22c55e;color:#04210f;border-radius:999px;padding:0 6px;font-size:.66rem;font-weight:900}
+  #screen-room .smsg .who .nid{font-size:.66rem;padding:0 7px;letter-spacing:1px}
+  #screen-room .smsg.vip .bub{background:linear-gradient(90deg,rgba(217,119,6,.38),rgba(0,0,0,.38));border-color:rgba(250,204,21,.45)}
+  #screen-room .smsg.mine .bub{background:rgba(226,182,90,.24);border-color:rgba(226,182,90,.35)}
+  #screen-room .smsg .bub > span[dir]:last-child{display:block;line-height:1.45}
+  #screen-room .smsg.sys .bub{background:rgba(0,0,0,.25);border-radius:999px;padding:3px 11px;font-size:.76rem;color:rgba(255,255,255,.72);border:0}
+  #screen-room .smsg.sys.gift{align-items:center}
+  #screen-room .smsg.sys.gift .bub{background:linear-gradient(90deg,rgba(219,39,119,.6),rgba(124,58,237,.4));color:#fde68a;font-weight:800}
+  #screen-room .smsg.sys.gift .gx{font-size:1.25rem;font-weight:900;font-style:italic;color:#fde047;text-shadow:0 0 10px rgba(253,224,71,.6);margin-inline-start:6px}
+  #screen-room .smsg.sys.red .bub{background:rgba(185,28,28,.45);color:#fecaca;font-weight:800}
+  #screen-room .smsg.sys.lvup .bub{background:linear-gradient(90deg,rgba(34,197,94,.45),rgba(0,0,0,.3));color:#dcfce7;font-weight:800}
+  #screen-room #chat-new{background:#e2b65a;color:#2a1a00;font-weight:900}
 
   /* ⏻ minimize / exit */
   .ll-exit{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;justify-content:center;gap:44px;
@@ -218,6 +237,39 @@
     }
   }
 
+  /* 💬 live comments: Lv on every name, gold rows for 💎 VIP / nice IDs, gift banners */
+  const who = new Map();   // identity → promise of { lv, vip, pid } (asked once per person)
+  function infoOf(id) {
+    if (who.has(id)) return who.get(id);
+    const pr = (async () => {
+      const [p, vip, pid] = await Promise.all([
+        Promise.resolve(getProfile(id)).catch(() => null),
+        sb.rpc("vip_of", { p_ids: [id] }).then((r) => (r.data || []).length > 0, () => false),
+        sb.rpc("public_id_of", { p_user: id }).then((r) => r.data, () => null),
+      ]);
+      return { lv: p && typeof coinLevel === "function" ? coinLevel(p) : null, vip, pid };
+    })();
+    who.set(id, pr);
+    return pr;
+  }
+  async function decorateMsg(div, p) {
+    if (!p?.identity) return;
+    let i; try { i = await infoOf(p.identity); } catch { return; }
+    const nm = div.querySelector(".who"); if (!nm) return;
+    if (i.lv && !nm.querySelector(".ll-lvp")) nm.insertAdjacentHTML("afterbegin", `<span class="ll-lvp">Lv.${i.lv}</span>`);
+    const nice = i.pid && window.PeopleSearch?.niceTier(i.pid);
+    if (nice) nm.insertAdjacentHTML("beforeend", ` ${PeopleSearch.idBadge(i.pid)}`);
+    if (i.vip || nice) div.classList.add("vip");
+  }
+  function decorateSys(div, text) {
+    const s = String(text || "");
+    if (s.startsWith("🪙")) {          // 🪙 Ahmed 🌹 ×10 → Lana · 💌 “…”
+      div.classList.add("gift");
+      const m = s.match(/×\s?([\d,]+)/);
+      if (m) div.insertAdjacentHTML("beforeend", `<span class="gx">×${esc(m[1])}</span>`);
+    } else if (s.startsWith("🧧")) div.classList.add("red");
+  }
+
   /* ⏻ */
   function openExit() {
     const o = document.createElement("div"); o.className = "ll-exit";
@@ -252,7 +304,7 @@
     if (typeof lk !== "undefined" && lk && currentRoom) { show("screen-room"); if (typeof renderPeople === "function") renderPeople(); }
   }
 
-  window.LiveLook = { header, isMinimized: () => minimized, restore };
+  window.LiveLook = { header, isMinimized: () => minimized, restore, decorateMsg, decorateSys };
 
   // keep everything up to date while a live is open (cheap checks)
   setInterval(() => {

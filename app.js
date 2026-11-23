@@ -2278,6 +2278,7 @@ function addSystem(text) {
   const div = document.createElement("div");
   div.className = "smsg sys";
   div.innerHTML = `<div class="bub">${esc(text)}</div>`;
+  window.LiveLook?.decorateSys(div, text); // 🎁 gifts / 🧧 / ✨ entering get their own look
   $("#chat-list").appendChild(div); trimChat(); scrollChat();
 }
 function addChat(p, text, reply) {
@@ -2294,6 +2295,7 @@ function addChat(p, text, reply) {
     ${reply ? `<div class="quote" dir="auto">↩ ${esc(reply.name)}: ${esc(reply.text)}</div>` : ""}
     <span class="who" dir="auto">${isHost ? "👑 " : ""}${esc(name)}</span><span dir="auto">${esc(text)}</span></div>`;
   div.querySelector(".bub").addEventListener("click", () => msgActions(name, text));
+  window.LiveLook?.decorateMsg(div, p); // Lv · 💎 VIP / nice ID
   $("#chat-list").appendChild(div); trimChat(); scrollChat(!!mine);
 }
 function msgActions(name, text) {

@@ -54,7 +54,41 @@
   .cp-rbar button{border:0;background:none;cursor:pointer;font-size:1rem;color:var(--ink)}
   .cp-emo{display:flex;justify-content:space-between;gap:6px;margin:4px 0 12px}
   .cp-emo button{flex:1;border:0;background:var(--soft);border-radius:14px;font-size:1.5rem;padding:8px 0;cursor:pointer}
-  .cp-emo button.on{outline:2px solid var(--brand)}`;
+  .cp-emo button.on{outline:2px solid var(--brand)}
+
+  /* ===== 💬 private chat: dark navy + gold ===== */
+  #screen-dm{--g:#e2b65a;--g2:#f7d98b;--dink:#f6eedb;--dmut:rgba(246,238,219,.62);--dcard:#121a46;
+    background:radial-gradient(80% 40% at 50% 0%,rgba(226,182,90,.08),transparent 70%),linear-gradient(180deg,#111a44,#0a0f2c 50%,#070a1f);color:var(--dink)}
+  #screen-dm > .appbar{background:rgba(8,12,36,.88);border-bottom:1px solid rgba(226,182,90,.18);box-shadow:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #screen-dm > .appbar .icon-btn,#screen-dm .dm-mute{border:1.5px solid rgba(226,182,90,.45);background:rgba(0,0,0,.3);color:var(--g2);border-radius:50%}
+  #screen-dm .dm-who{color:var(--dink)}
+  #screen-dm .dm-st{color:#34d399}
+  #screen-dm .dm-st.typing{color:var(--g2)}
+  #screen-dm .day-sep{align-self:center;background:rgba(0,0,0,.3);border-radius:999px;padding:2px 10px;color:var(--dmut);font-size:.72rem}
+  #screen-dm .dmsg .b{background:var(--dcard);border:1px solid rgba(226,182,90,.16);color:var(--dink);box-shadow:none;line-height:1.55;padding:8px 12px 6px}
+  #screen-dm .dmsg.mine .b{background:linear-gradient(180deg,#f7d98b,#d9a441);color:#2a1a00;border:0}
+  #screen-dm .dmsg .tm{opacity:.62}
+  #screen-dm .dmsg.mine .tk.rd{color:#0b5bd3}
+  #screen-dm .dmsg .rq{background:rgba(0,0,0,.14)}
+  #screen-dm .dmsg .rx span{background:var(--dcard);border-color:rgba(226,182,90,.3);color:var(--dink)}
+  #screen-dm .dmsg audio{filter:sepia(.4) saturate(1.4) hue-rotate(-10deg)}
+  #screen-dm .dmsg.mine audio{filter:none}
+  #screen-dm .cp-dots{display:inline-flex;gap:4px;padding:11px 14px}
+  #screen-dm .cp-dots i{width:7px;height:7px;border-radius:50%;background:var(--g2);animation:cpdot 1.2s infinite}
+  #screen-dm .cp-dots i:nth-child(2){animation-delay:.2s}#screen-dm .cp-dots i:nth-child(3){animation-delay:.4s}
+  @keyframes cpdot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+  @media (prefers-reduced-motion:reduce){#screen-dm .cp-dots i{animation:none}}
+  #screen-dm .dm-bottom{background:rgba(8,12,36,.9);border-top:1px solid rgba(226,182,90,.18)}
+  #screen-dm .dm-form input{border:1.5px solid rgba(226,182,90,.45);background:rgba(0,0,0,.35);color:var(--dink)}
+  #screen-dm .dm-form input::placeholder{color:var(--dmut)}
+  #screen-dm .dm-form input:focus{border-color:var(--g2);outline:none}
+  #screen-dm .dm-rec,#screen-dm .dm-send{background:linear-gradient(180deg,#f7d98b,#d9a441);color:#2a1a00}
+  #screen-dm .dm-rec.rec{background:#ef4444;color:#fff}
+  #screen-dm .dm-form:not(.has-text) .dm-send{display:none}
+  #screen-dm .dm-form.has-text .dm-rec:not(.rec){display:none}
+  #screen-dm .notice{background:rgba(226,182,90,.12);color:var(--g2);border-color:rgba(226,182,90,.3)}
+  #screen-dm .cp-rbar{background:rgba(226,182,90,.14);color:var(--g2)}
+  #screen-dm .cp-rbar button{color:var(--g2)}`;
   document.head.appendChild(css);
 
   const EMO = ["❤️", "😂", "😮", "😢", "👍", "🔥"];
@@ -93,7 +127,16 @@
   }
   function paintStatus() {
     const st = document.getElementById("dm-st"); if (!st) return;
-    if (Date.now() - S.typingT < 3500) { st.textContent = t("cp_typing"); st.classList.add("typing"); return; }
+    const typing = Date.now() - S.typingT < 3500;
+    // ● ● ● at the bottom of the chat while they type
+    let dots = document.getElementById("cp-dots");
+    if (typing && !dots) {
+      dots = document.createElement("div"); dots.id = "cp-dots"; dots.className = "dmsg";
+      dots.innerHTML = `<div class="b cp-dots"><i></i><i></i><i></i></div>`;
+      document.getElementById("dm-list")?.appendChild(dots);
+      const body = document.getElementById("dm-body"); if (body) body.scrollTop = body.scrollHeight;
+    } else if (!typing && dots) dots.remove();
+    if (typing) { st.textContent = t("cp_typing"); st.classList.add("typing"); return; }
     st.classList.remove("typing");
     const at = S.seenAt ? new Date(S.seenAt).getTime() : 0;
     st.textContent = !at ? "" : Date.now() - at < 130e3 ? t("cp_online") : t("cp_seen", { t: ago(S.seenAt) });
@@ -246,6 +289,10 @@
       const inp = document.getElementById("dm-input");
       if (inp && !inp._cpTyping) {
         inp._cpTyping = true;
+        // 🎤 when the box is empty, ➤ when there is text
+        const swap = () => document.getElementById("dm-form")?.classList.toggle("has-text", !!inp.value.trim());
+        inp.addEventListener("input", swap);
+        document.getElementById("dm-form")?.addEventListener("submit", () => setTimeout(swap, 0));
         inp.addEventListener("input", () => {
           if (!S.chan || Date.now() - S.lastTyping < 2500 || !inp.value) return;
           S.lastTyping = Date.now();
