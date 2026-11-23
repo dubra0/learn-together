@@ -350,7 +350,7 @@ function openDeepLink(search) {
   } else if (userId && UUIDRE.test(userId)) {
     history.replaceState(null, "", location.pathname);
     openProfilePage(userId);
-  } else if (/^\d{10}$/.test(q.get("u") || "") && window.MePlus) { // 🔗 a profile link with the 10-digit ID
+  } else if (/^\d{3,10}$/.test(q.get("u") || "") && window.MePlus) { // 🔗 a profile link with the short ID
     const u = q.get("u");
     history.replaceState(null, "", location.pathname);
     MePlus.openByPublic(u);
@@ -1084,7 +1084,8 @@ function openSettings() {
       <a href="privacy.html" target="_blank" rel="noopener">📄 ${esc(t("privacy"))}</a>
       ${isAdmin ? `<a href="admin.html" target="_blank" rel="noopener">🛡️ ${esc(t("adminPanel"))}</a>` : ""}
       ${isAdmin ? `<a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}</a>` : ""}
-      <button type="button" id="me-id">🪪 ${esc(t("yourId"))}<span class="end">${esc(me.id.slice(0, 8))}…</span></button>
+      <button type="button" id="me-id">🪪 ${esc(t("yourId"))}<span class="end" id="me-id-v">…</span></button>
+      ${window.PeopleSearch ? `<button type="button" id="me-nice">💎 ${esc(t("ps_niceTitle"))}<span class="chev">›</span></button>` : ""}
       <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>
     </div>`;
   $("#me-edit").addEventListener("click", openEditProfile);
@@ -1108,7 +1109,11 @@ function openSettings() {
   window.MePlus?.wireBirthday();
   window.SettingsPlus?.wire(); // 🌗 look · 📵 calls · 🚫 blocked
   $("#me-lang").addEventListener("change", (e) => setUiLang(e.target.value));
-  $("#me-id").addEventListener("click", async () => { try { await navigator.clipboard.writeText(me.id); toast(t("copied")); } catch { prompt(t("yourId"), me.id); } });
+  // 🪪 the short ID is the only ID people see (the long inside id stays hidden)
+  let myPid = null;
+  sb.rpc("public_id_of", { p_user: me.id }).then(({ data }) => { myPid = data ? String(data) : null; if ($("#me-id-v")) $("#me-id-v").textContent = myPid || "—"; }, () => {});
+  $("#me-id").addEventListener("click", async () => { if (!myPid) return; try { await navigator.clipboard.writeText(myPid); toast(t("copied")); } catch { prompt(t("yourId"), myPid); } });
+  $("#me-nice")?.addEventListener("click", () => PeopleSearch.openNiceIds());
   $("#me-delete").addEventListener("click", deleteAccount);
 }
 

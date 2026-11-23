@@ -45,7 +45,7 @@ code{direction:ltr;display:inline-block}
   <div class="muted">کۆدی شەحن، ڕاکێشانی پارە، ڕێکخستن و نرخی دیارییەکان</div>
   <div class="tabs" id="tabs">
     <button class="on" data-t="stats">📊 کورتە</button>
-    <button data-t="make">🎟️ دروستکردنی کۆد</button>
+    <button data-t="make">🪙 کۆین و کۆد</button>
     <button data-t="codes">🗂️ کۆدەکان</button>
     <button data-t="payouts">💵 ڕاکێشانەکان</button>
     <button data-t="settings">⚙️ ڕێکخستن</button>
@@ -93,6 +93,12 @@ async function names(ids) {
   return Object.fromEntries((data || []).map((p) => [p.id, p.name]));
 }
 const priceOf = (coins) => coins / 1000 * Number(settings?.usd_per_1000 || 0.99);
+// 🪪 a short ID (numbers) → { o_user, o_name } (update-40)
+async function findPid(v) {
+  const { data, error } = await sb.rpc("admin_find_pid", { p_pid: Number(v) });
+  if (error) { alert(/admin_find_pid|function/i.test(error.message) ? "سەرەتا SQL ـی update-40-nice-ids Run بکە." : error.message); return null; }
+  return (data || [])[0] || null;
+}
 
 async function load() {
   const box = $("#box"); box.innerHTML = `<div class="empty">…</div>`;
@@ -127,6 +133,16 @@ async function stats(box) {
 /* 🎟️ make codes */
 async function make(box) {
   box.innerHTML = `<div class="card">
+    <h2>🪙 کۆین بنێرە بۆ ID ـێک</h2>
+    <div class="muted">ID ـەکەی بنووسە (ژمارەکەی ژێر ناوی) و چەند کۆین. ڕاستەوخۆ دەچێتە جزدانەکەی.</div>
+    <div class="row">
+      <div><label for="g-id">ID</label><input id="g-id" inputmode="numeric" placeholder="4829105736" style="direction:ltr" autocomplete="off"></div>
+      <div><label for="g-coins">ژمارەی کۆین</label><input id="g-coins" type="number" min="1" max="10000000" placeholder="1000"></div>
+    </div>
+    <div id="g-who" class="muted" style="margin-top:6px"></div>
+    <button class="btn main" id="g-go" style="margin-top:10px">🪙 بینێرە</button>
+  </div>
+  <div class="card">
     <h2>🎟️ کۆدی نوێ دروست بکە</h2>
     <div class="row">
       <div><label for="m-count">ژمارەی کۆد</label><input id="m-count" type="number" min="1" max="500" value="10"></div>
@@ -152,6 +168,31 @@ async function make(box) {
     <div id="c-out" style="margin-top:10px"></div>
   </div>
   <div id="m-out"></div>`;
+  // 🪙 coins straight to someone's short ID
+  let gFound = null;
+  $("#g-id").addEventListener("input", async () => {
+    const v = $("#g-id").value.trim(); $("#g-who").textContent = ""; gFound = null;
+    if (!/^\d{3,10}$/.test(v)) return;
+    const r = await findPid(v);
+    if ($("#g-id").value.trim() !== v) return;
+    gFound = r; $("#g-who").textContent = r ? `👤 ${r.o_name}` : "⚠️ ئەم ID ـیە نەدۆزرایەوە.";
+  });
+  $("#g-go").addEventListener("click", async (e) => {
+    const v = $("#g-id").value.trim(), coins = Math.floor(Number($("#g-coins").value));
+    if (!/^\d{3,10}$/.test(v)) return alert("ID ـەکە هەڵەیە. تەنها ژمارە بنووسە.");
+    if (!(coins >= 1 && coins <= 10000000)) return alert("ژمارەی کۆین دەبێت لە نێوان ١ و ١٠,٠٠٠,٠٠٠ بێت.");
+    if (!gFound) gFound = await findPid(v);
+    if (!gFound) return alert("ئەم ID ـیە نەدۆزرایەوە.");
+    if (!confirm(`${n(coins)} 🪙 بنێردرێت بۆ «${gFound.o_name}» (ID ${v})؟`)) return;
+    e.target.disabled = true;
+    const { data, error } = await sb.rpc("admin_give_coins", { p_pid: Number(v), p_coins: coins });
+    e.target.disabled = false;
+    if (error) return alert(error.message);
+    const r = (data || [])[0] || {};
+    if (r.o_status !== "ok") return alert({ not_admin: "تۆ بەڕێوەبەر نیت.", bad_coins: "ژمارەی کۆین هەڵەیە.", no_user: "ئەم ID ـیە نەدۆزرایەوە." }[r.o_status] || r.o_status);
+    alert(`✅ ${n(coins)} 🪙 نێردرا بۆ ${r.o_name}. ئێستا ${n(r.o_balance)} 🪙 ـی هەیە.`);
+    $("#g-coins").value = "";
+  });
   const cNorm = () => $("#c-code").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const ccalc = () => {
     const coins = Math.floor(Number($("#c-coins").value)) || 0, len = cNorm().length;
@@ -211,29 +252,33 @@ async function admins(box) {
     <div class="muted">هەموو بەڕێوەبەرێک هەمان دەسەڵاتی هەیە: پارە، کۆد، ڕاکێشان، نرخ، دیاری، ڕاپۆرت و بلۆک. ${isOwner ? "تەنها تۆ (خاوەن) دەتوانیت بەڕێوەبەر زیاد بکەیت یان لاببەیت." : "تەنها خاوەنی ئەپەکە دەتوانێت بەڕێوەبەر زیاد بکات یان لاببات."}</div>
     <div class="scroll" style="margin-top:10px"><table><tr><th>ناو</th><th>ID</th><th>لە</th><th></th></tr>
     ${(list.data || []).map((a) => `<tr><td>${a.is_owner ? "👑 " : "🛡️ "}${esc(a.name || "—")}${a.user_id === me ? " <span class='muted'>(تۆ)</span>" : ""}</td>
-      <td><code style="font-size:.72rem">${esc(a.user_id)}</code></td><td class="num">${day(a.added_at)}</td>
+      <td><code data-pid-of="${esc(a.user_id)}">…</code></td><td class="num">${day(a.added_at)}</td>
       <td>${isOwner && !a.is_owner ? `<button class="btn danger" data-rm="${esc(a.user_id)}" data-nm="${esc(a.name || "")}">لابردن</button>` : a.is_owner ? "<span class='muted'>خاوەن</span>" : ""}</td></tr>`).join("")}
     </table></div>
   </div>
   ${isOwner ? `<div class="card">
     <h2>➕ بەڕێوەبەری نوێ</h2>
     <div class="muted">ئەو کەسە لە ئەپەکەدا بڕوات بۆ <b>💰 جزدان</b> و دوگمەی <b>📋 کۆپیکردنی ID</b> دابگرێت و ID ـەکەی بۆ تۆ بنێرێت. پاشان لێرە دایبنێ.</div>
-    <label for="ad-id">ID ـی ئەو کەسە</label><input id="ad-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="direction:ltr" autocomplete="off">
+    <label for="ad-id">ID ـی ئەو کەسە (ژمارە)</label><input id="ad-id" placeholder="4829105736" inputmode="numeric" style="direction:ltr" autocomplete="off">
     <div id="ad-who" class="muted" style="margin-top:6px"></div>
     <button class="btn main" id="ad-go" style="margin-top:10px">👑 بیکە بە بەڕێوەبەر</button>
     <div class="muted" style="margin-top:8px">⚠️ تەنها کەسێک زیاد بکە کە زۆر متمانەت پێیەتی، چونکە دەتوانێت دەست لە پارە و کۆدەکان بدات.</div>
   </div>` : ""}`;
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  // the short ID (numbers) → the person
+  let found = null;
   $("#ad-id")?.addEventListener("input", async () => {
-    const id = $("#ad-id").value.trim(); $("#ad-who").textContent = "";
-    if (!UUID.test(id)) return;
-    const { data } = await sb.from("profiles").select("name").eq("id", id).maybeSingle();
-    $("#ad-who").textContent = data ? `👤 ${data.name}` : "⚠️ ئەم ID ـیە نەدۆزرایەوە.";
+    const v = $("#ad-id").value.trim(); $("#ad-who").textContent = ""; found = null;
+    if (!/^\d{3,10}$/.test(v)) return;
+    const r = await findPid(v);
+    if ($("#ad-id").value.trim() !== v) return;
+    found = r; $("#ad-who").textContent = r ? `👤 ${r.o_name}` : "⚠️ ئەم ID ـیە نەدۆزرایەوە.";
   });
   $("#ad-go")?.addEventListener("click", async (e) => {
-    const id = $("#ad-id").value.trim();
-    if (!UUID.test(id)) return alert("ID ـەکە هەڵەیە. دەبێت وەک ئەمە بێت: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
-    const who = $("#ad-who").textContent.replace("👤 ", "");
+    const v = $("#ad-id").value.trim();
+    if (!/^\d{3,10}$/.test(v)) return alert("ID ـەکە هەڵەیە. تەنها ژمارە بنووسە (بۆ نموونە 4829105736).");
+    if (!found) found = await findPid(v);
+    if (!found) return alert("ئەم ID ـیە نەدۆزرایەوە.");
+    const id = found.o_user, who = found.o_name;
     if (!confirm(`دڵنیایت دەتەوێت «${who || id}» بکەیت بە بەڕێوەبەر؟ هەمان دەسەڵاتی تۆی دەبێت.`)) return;
     e.target.disabled = true;
     const { data, error } = await sb.rpc("admin_add", { p_user: id });
@@ -242,6 +287,8 @@ async function admins(box) {
     if (data !== "ok") return alert({ not_owner: "تەنها خاوەن دەتوانێت ئەمە بکات.", no_user: "ئەم ID ـیە نەدۆزرایەوە." }[data] || data);
     admins(box);
   });
+  // the short ID of every admin
+  box.querySelectorAll("[data-pid-of]").forEach(async (c) => { const { data } = await sb.rpc("public_id_of", { p_user: c.dataset.pidOf }); c.textContent = data ? String(data) : "—"; });
   box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", async () => {
     if (!confirm(`«${b.dataset.nm || b.dataset.rm}» لە بەڕێوەبەری لاببەیت؟`)) return;
     const { data, error } = await sb.rpc("admin_remove", { p_user: b.dataset.rm });

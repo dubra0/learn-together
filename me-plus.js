@@ -134,7 +134,7 @@
     try { await navigator.clipboard.writeText(url); toast(t("mp_linkCopied")); } catch { prompt(t("mp_link"), url); }
   }
   async function openByPublic(v) {
-    const n = Number(v); if (!/^\d{10}$/.test(String(v || "")) || !n) return;
+    const n = Number(v); if (!/^\d{3,10}$/.test(String(v || "")) || !n) return;
     const { data } = await sb.rpc("user_by_public_id", { p_id: n });
     if (data) openProfilePage(data);
   }

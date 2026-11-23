@@ -176,7 +176,8 @@
     const tags = document.getElementById("room-tags"); if (!tags || !headInfo) return;
     tags.querySelectorAll(".ll-lv,.ll-id").forEach((x) => x.remove());
     const { lv, pid } = headInfo;
-    tags.insertAdjacentHTML("afterbegin", `${lv ? `<span class="tg ll-lv">Lv.${lv}</span>` : ""}${pid ? `<span class="tg ll-id">ID:${esc(String(pid))}</span>` : ""}`);
+    const nice = pid && window.PeopleSearch?.niceTier(pid);
+    tags.insertAdjacentHTML("afterbegin", `${lv ? `<span class="tg ll-lv">Lv.${lv}</span>` : ""}${pid ? `<span class="tg ll-id">${nice ? PeopleSearch.idBadge(pid) : `ID:${esc(String(pid))}`}</span>` : ""}`);
   }
   async function header() {
     build();
