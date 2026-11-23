@@ -1499,7 +1499,7 @@ function openReport({ userId, roomId, postId }) {
 /* =====================================================================
    Voice room (LiveKit) — stage with seats, audience, chat with replies
    ===================================================================== */
-const MAX_STAGE = 8;               // seats on stage, host included
+const MAX_STAGE = 10;              // seats on stage, host included (2 rows of 5)
 let replyTo = null, heartbeatTimer = null, accessToken = null;
 const pendingInvites = new Set();  // people the host invited to the stage
 const enc = (o) => new TextEncoder().encode(JSON.stringify(o));
@@ -1519,6 +1519,7 @@ function setRoomHeader(row) {
   const f = $("#room-follow");
   f.hidden = !me || row.host_id === me.id;
   if (!f.hidden) { const on = following.has(row.host_id); f.textContent = on ? t("unfollow") : t("follow"); f.classList.toggle("on", on); }
+  window.LiveLook?.header(); // host photo · Lv · ID
 }
 $("#room-follow").addEventListener("click", async () => { if (!currentRoom) return; await toggleFollow(currentRoom.host_id); setRoomHeader(currentRoom); });
 
@@ -1541,6 +1542,10 @@ function showVoiceHelp(message, link) {
 }
 
 async function joinRoom(row, code) {
+  if (row && lk && window.LiveLook?.isMinimized()) { // a live is minimized: its own room → go back to it; another → exit first
+    if (currentRoom && row.id === currentRoom.id) return LiveLook.restore();
+    return toast(t("ll_inLive"));
+  }
   if (!row || lk) return;
   if (profile?.banned) return toast(t("e_banned"));
   if (!LivekitClient.isBrowserSupported()) return showVoiceHelp(t("browserUnsupported"), roomLink({ ...row, join_code: code || row.join_code }));
