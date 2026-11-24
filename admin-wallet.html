@@ -45,6 +45,7 @@ code{direction:ltr;display:inline-block}
   <div class="muted">کۆدی شەحن، ڕاکێشانی پارە، ڕێکخستن و نرخی دیارییەکان</div>
   <div class="tabs" id="tabs">
     <button class="on" data-t="stats">📊 کورتە</button>
+    <button data-t="apple">🍎 Apple</button>
     <button data-t="make">🪙 کۆین و کۆد</button>
     <button data-t="codes">🗂️ کۆدەکان</button>
     <button data-t="payouts">💵 ڕاکێشانەکان</button>
@@ -102,7 +103,7 @@ async function findPid(v) {
 
 async function load() {
   const box = $("#box"); box.innerHTML = `<div class="empty">…</div>`;
-  try { await ({ stats, make, codes, payouts, settingsTab, prices, newgift, admins })[tab === "settings" ? "settingsTab" : tab](box); }
+  try { await ({ stats, apple, make, codes, payouts, settingsTab, prices, newgift, admins })[tab === "settings" ? "settingsTab" : tab](box); }
   catch (err) { box.innerHTML = `<div class="card">⚠️ ${esc(err.message || err)}</div>`; }
 }
 
@@ -127,6 +128,31 @@ async function stats(box) {
       <div class="stat"><b>${n(s.codes_new)}</b><span>کۆدی نەفرۆشراو (${n(s.codes_new_coins)} 🪙)</span></div>
       <div class="stat"><b>${n(s.coins_in_wallets)} 🪙</b><span>سکە لە جزدانەکان</span></div>
       <div class="stat"><b>${n(s.diamonds_in_wallets)} 💎</b><span>ئەڵماس لە جزدانەکان</span></div>
+    </div>`;
+}
+
+/* 🍎 coins bought with Apple in the iPhone app (update-43) */
+async function apple(box) {
+  const [st, rec] = await Promise.all([sb.rpc("admin_iap_stats"), sb.rpc("admin_iap_recent", { p_limit: 100 })]);
+  const err = st.error || rec.error;
+  if (err) { box.innerHTML = `<div class="card">${/admin_iap|function/i.test(err.message) ? "سەرەتا SQL ـی update-43-admin-apple Run بکە." : esc(err.message)}</div>`; return; }
+  const get = (per, env) => (st.data || []).find((r) => r.o_period === per && r.o_env === env) || {};
+  const block = (env) => [["today", "ئەمڕۆ"], ["month", "ئەم مانگە"], ["all", "هەمووی"]].map(([k, label]) => {
+    const r = get(k, env);
+    const net = Number(r.o_usd || 0) * 0.85; // Apple keeps 15% (Small Business Program)
+    return `<div class="stat money"><b>${usd(r.o_usd)}</b><span>${label} · ${n(r.o_buyers)} کڕیار · ${n(r.o_purchases)} کڕین · ${n(r.o_coins)} 🪙<br>بۆ تۆ دوای Apple (١٥٪): ≈ ${usd(net)}${Number(r.o_refunds) ? ` · ↩️ ${n(r.o_refunds)} گەڕێنراوە` : ""}</span></div>`;
+  }).join("");
+  const rows = (rec.data || []).map((r) => `<tr>
+      <td>${esc(r.o_name || "—")}<div class="muted">${r.o_pid ? esc(String(r.o_pid)) : ""}</div></td>
+      <td>${esc(r.o_product)}</td><td>${n(r.o_coins)} 🪙</td><td>${r.o_usd != null ? usd(r.o_usd) : "—"}</td>
+      <td>${r.o_env === "SANDBOX" ? "🧪 تاقیکردنەوە" : "💵 ڕاستەقینە"}</td>
+      <td>${r.o_refunded ? "↩️ گەڕێنراوە" : "✅"}</td><td>${day(r.o_at)}</td></tr>`).join("");
+  box.innerHTML = `
+    <h2>💵 کڕینی ڕاستەقینە (App Store)</h2><div class="grid">${block("PRODUCTION")}</div>
+    <h2 style="margin-top:18px">🧪 کڕینی تاقیکردنەوە (TestFlight · پارە نابڕدرێت)</h2><div class="grid">${block("SANDBOX")}</div>
+    <div class="card" style="margin-top:18px"><h2>📋 دوایین کڕینەکان</h2>
+      <div class="muted">نرخەکان بە دۆلارن (نرخی بنەڕەتی پاکێج). Apple بە دراوی هەر وڵاتێک وەریدەگرێت؛ ژمارەی ڕاستی پارە لە App Store Connect → Payments دەبینیت.</div>
+      ${rows ? `<div class="scroll"><table><tr><th>کەس</th><th>پاکێج</th><th>کۆین</th><th>نرخ</th><th>جۆر</th><th>دۆخ</th><th>کات</th></tr>${rows}</table></div>` : `<div class="empty">هێشتا هیچ کڕینێک نییە.</div>`}
     </div>`;
 }
 
