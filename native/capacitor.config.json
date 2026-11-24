@@ -1,0 +1,13 @@
+{
+  "appId": "com.learntogether.live",
+  "appName": "Learn Together",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "App"
+  },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 600, "backgroundColor": "#0a0f2c", "showSpinner": false },
+    "StatusBar": { "style": "DARK", "overlaysWebView": true }
+  }
+}
