@@ -28,7 +28,14 @@
 
   const isIOSApp = () => { try { return !!window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform() === "ios"; } catch { return false; } };
   let P = null, ready = null, products = [], coinsOf = {};
-  const plugin = () => P || (P = window.Capacitor?.registerPlugin ? window.Capacitor.registerPlugin("Purchases") : window.Capacitor?.Plugins?.Purchases);
+  // the app has no bundled @capacitor/core, so talk to the native plugin straight through the bridge
+  const native = (name) => {
+    const C = window.Capacitor || {};
+    if (typeof C.registerPlugin === "function") return C.registerPlugin(name);
+    if (C.Plugins && C.Plugins[name]) return C.Plugins[name];
+    return new Proxy({}, { get: (_, m) => (opts) => C.nativePromise(name, String(m), opts || {}) });
+  };
+  const plugin = () => P || (P = native("Purchases"));
 
   async function setup() {
     if (ready) return ready;

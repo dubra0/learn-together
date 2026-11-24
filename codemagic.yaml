@@ -70,7 +70,8 @@ workflows:
             <key>com.apple.developer.applesignin</key><array><string>Default</string></array>
           </dict></plist>
           EOF
-          ruby -e 'require "xcodeproj"; p = Xcodeproj::Project.open("native/ios/App/App.xcodeproj"); p.targets.find { |x| x.name == "App" }.build_configurations.each { |c| c.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements" }; p.save'
+          ruby -e 'require "xcodeproj"; p = Xcodeproj::Project.open("native/ios/App/App.xcodeproj"); p.targets.find { |x| x.name == "App" }.build_configurations.each { |c| c.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements"; c.build_settings["TARGETED_DEVICE_FAMILY"] = "1" }; p.save'
+          # TARGETED_DEVICE_FAMILY 1 = iPhone only (so the App Store asks for no iPad screenshots)
       - name: Signing
         script: |
           xcode-project use-profiles
