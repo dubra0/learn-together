@@ -1095,6 +1095,7 @@ function openSettings() {
       <a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}<span class="chev">↗</span></a>`) : "") +
     sec(`⚠️ ${esc(t("st_danger"))}`, `<button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>`);
   window.SettingsPlus?.decorate(); // 🌙 the night look + real on / off switches
+  window.AppleLogin?.settings();   // 🍏 save my account with Apple (iPhone app only)
   $("#me-edit").addEventListener("click", openEditProfile);
   $("#me-wallet")?.addEventListener("click", openWallet);
   $("#me-photos").addEventListener("click", () => {

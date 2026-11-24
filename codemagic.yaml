@@ -61,6 +61,16 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" || true
           /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$PLIST" || true
           /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string audio" "$PLIST" || true
+      - name: Sign in with Apple (capability)
+        script: |
+          cat > native/ios/App/App/App.entitlements <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.developer.applesignin</key><array><string>Default</string></array>
+          </dict></plist>
+          EOF
+          ruby -e 'require "xcodeproj"; p = Xcodeproj::Project.open("native/ios/App/App.xcodeproj"); p.targets.find { |x| x.name == "App" }.build_configurations.each { |c| c.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements" }; p.save'
       - name: Signing
         script: |
           xcode-project use-profiles
@@ -76,4 +86,4 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        submit_to_testflight: false      # upload only; testers in "Internal Testing" get it at once (external testers need Apple review)
