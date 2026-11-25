@@ -16,7 +16,7 @@
   try { for (const [l, o] of Object.entries(W)) if (I18N[l]) Object.assign(I18N[l], o); } catch {}
 
   const isIOSApp = () => { try { return !!window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform() === "ios"; } catch { return false; } };
-  if (!isIOSApp()) { window.AppleLogin = { settings() {} }; return; }
+  if (!isIOSApp()) { window.AppleLogin = { settings() {}, available: false }; return; }
 
   const css = document.createElement("style");
   css.textContent = `
@@ -25,10 +25,7 @@
   .al-btn svg{width:18px;height:18px;fill:#fff}
   .al-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.8rem;margin:12px 0}
   .al-or::before,.al-or::after{content:"";flex:1;height:1px;background:var(--line)}
-  /* iPhone app: sign in with Apple first — the name / photo / age part shows only after that */
-  #name-form.al-only > :not(#al-start):not(.al-note){display:none!important}
-  .al-note{margin:10px 0 0;text-align:center;color:var(--muted);font-size:.8rem;line-height:1.5}
-  #name-form:not(.al-only) .al-note{display:none}`;
+`;
   document.head.appendChild(css);
   const LOGO = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.06 1.6 2.24 2.73 2.2 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.41 1.2-2.47-.03-.01-2.3-.88-2.32-3.5zM14.2 6.14c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.55 1.31-.56.65-1.05 1.69-.92 2.68.97.08 1.96-.49 2.57-1.23z"/></svg>`;
 
@@ -60,49 +57,19 @@
   }
   const cancelled = (e) => /cancel|1001/i.test(String(e?.message || e?.code || e || ""));
 
-  // 1) welcome screen: Continue with Apple
-  async function signIn(btn) {
-    btn.disabled = true;
+  // 1) welcome screen (auth-plus.js draws the button): sign in with Apple.
+  //    Resolves { name } once signed in, null if the person closed the Apple sheet; throws on a real error.
+  async function login() {
     try {
       const a = await appleToken();
       const { data, error } = await sb.auth.signInWithIdToken({ provider: "apple", token: a.token, nonce: a.nonce });
       if (error) throw error;
       me = data.user;
-      await loadMyProfile();
-      if (profile) { store.set("onboarded", "1"); return enterApp(); }
-      // a new person: same name screen as always, already signed in with Apple
-      unlockForm();
-      const inp = document.getElementById("name-input");
-      if (inp && !inp.value && a.name) inp.value = a.name.slice(0, 30);
-      toast(t("al_pickName"));
+      return { name: a.name };
     } catch (e) {
-      if (!cancelled(e)) { console.error(e); toast(t("al_fail") + (e?.message || e)); }
-    } finally { btn.disabled = false; }
-  }
-  // signed in with Apple already? (a real Apple account, not an anonymous one)
-  const appleSession = async () => {
-    try { const { data } = await sb.auth.getSession(); return (data.session?.user?.identities || []).some((i) => i.provider === "apple"); } catch { return false; }
-  };
-  let appleOK = false;
-  function unlockForm() {
-    appleOK = true;
-    const form = document.getElementById("name-form"); if (!form) return;
-    form.classList.remove("al-only");
-    document.getElementById("al-start")?.remove();
-    form.querySelector(".al-or")?.remove();
-  }
-  function welcome() {
-    const form = document.getElementById("name-form");
-    if (!form || document.getElementById("al-start")) return;
-    form.classList.add("al-only");
-    form.insertAdjacentHTML("afterbegin", `<button type="button" class="al-btn" id="al-start">${LOGO}<span>${esc(t("al_btn"))}</span></button><p class="al-note">${esc(t("al_only"))}</p>`);
-    document.getElementById("al-start").addEventListener("click", (e) => signIn(e.currentTarget));
-    appleSession().then((yes) => { if (yes) unlockForm(); });   // came back after Apple but before picking a name
-    // never start an anonymous account from the iPhone app: no Apple sign-in → no "Get started"
-    // (on the document, capture phase: runs before app.js's own submit handler on the form)
-    document.addEventListener("submit", (e) => {
-      if (e.target?.id === "name-form" && !appleOK) { e.preventDefault(); e.stopImmediatePropagation(); toast(t("al_only")); }
-    }, true);
+      if (cancelled(e)) return null;
+      throw new Error(t("al_fail") + (e?.message || e));
+    }
   }
 
   // 2) ⚙️ Settings → Account: link Apple to the account I already have
@@ -133,6 +100,5 @@
     if (!on) document.getElementById("me-apple").addEventListener("click", (e) => link(e.currentTarget));
   }
 
-  welcome();
-  window.AppleLogin = { settings };
+  window.AppleLogin = { settings, login, available: true, logo: LOGO };
 })();
