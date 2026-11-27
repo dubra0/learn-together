@@ -5,7 +5,7 @@
    Supabase setup (once): Email provider ON, email templates show {{ .Token }}, custom SMTP (Resend);
    Google provider ON (+ set GOOGLE_ON below to true); URL Configuration → Redirect URLs has the site address. */
 (() => {
-  const GOOGLE_ON = false;   // ← true after Google is set up in Supabase (Authentication → Providers → Google)
+  const GOOGLE_ON = true;    // Google is set up (Google Cloud project "Learn Together" + Supabase → Providers → Google)
 
   const W = {
     en: { ap_tag: "Learn languages by talking", ap_live: "🎙️ Live rooms", ap_call: "📞 Calls", ap_chat: "💬 Chat",
