@@ -1099,6 +1099,7 @@ function openSettings() {
   window.SettingsPlus?.decorate(); // 🌙 the night look + real on / off switches
   window.AppleLogin?.settings();   // 🍏 save my account with Apple (iPhone app only)
   window.Support?.settings();      // 💬 live chat with the Learn Together team
+  if (isAdmin) planWarn();         // 💡 a free plan is close to its limit → a warning in settings (update-48)
   $("#me-edit").addEventListener("click", openEditProfile);
   $("#me-wallet")?.addEventListener("click", openWallet);
   $("#me-photos").addEventListener("click", () => {
@@ -1385,6 +1386,18 @@ async function saveWord(text) {
 }
 
 /* ---------------- Delete account ---------------- */
+// 💡 admins: warn in settings when a free plan (database, storage, users, emails, voice minutes) passes 70%
+async function planWarn() {
+  try {
+    const { data: u, error } = await sb.rpc("admin_usage"); if (error || !u) return;
+    const NAMES = { db_mb: "🗄️ Database", storage_mb: "🖼️ Storage", mau: "👥 Users", emails_day: "✉️ Emails", voice_min_month: "🎙️ Voice" };
+    const near = Object.keys(NAMES).map((k) => ({ k, p: u.limits?.[k] ? (Number(u[k] || 0) / Number(u.limits[k])) * 100 : 0 })).filter((x) => x.p >= 70);
+    if (!near.length || document.getElementById("me-planwarn")) return;
+    const anchor = document.querySelector('a[href="admin.html"]'); if (!anchor) return;
+    anchor.insertAdjacentHTML("beforebegin", `<a href="admin.html" target="_blank" rel="noopener" id="me-planwarn" style="color:#e11d48;font-weight:800">${near.some((x) => x.p >= 90) ? "🚨" : "⚠️"} ${near.map((x) => `${NAMES[x.k]} ${Math.round(x.p)}%`).join(" · ")}<span class="chev">↗</span></a>`);
+  } catch {}
+}
+
 // 🚪 log out: the account stays as it is; signing in again (same email / Google / Apple) brings everything back
 async function logOut() {
   if (!confirm(t("logOutQ"))) return;

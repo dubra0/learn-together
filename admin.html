@@ -43,6 +43,24 @@ h1{margin:0 0 4px} .muted{color:var(--muted)}
 details.tbl{margin-top:8px;font-size:.85rem}
 details.tbl table{border-collapse:collapse;width:100%;margin-top:6px}
 details.tbl td,details.tbl th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:start;font-variant-numeric:tabular-nums}
+/* 💡 free plans */
+.plans{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.plan{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:grid;gap:6px;border-inline-start:5px solid var(--st,#16a34a)}
+.plan h3{margin:0;font-size:.98rem;display:flex;justify-content:space-between;gap:6px;align-items:center}
+.plan .who{font-size:.72rem;color:var(--muted);font-weight:700}
+.plan .num{font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums;direction:ltr;text-align:right}
+.plan .num small{font-size:.8rem;color:var(--muted);font-weight:600}
+.meter{height:10px;border-radius:999px;background:var(--soft);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:999px;background:var(--st,#16a34a);min-width:4px}
+.plan .left{font-size:.8rem;font-weight:700;color:var(--st,#16a34a)}
+.plan .note{font-size:.76rem;color:var(--muted);line-height:1.6}
+.plan .acts{display:flex;gap:6px;flex-wrap:wrap}
+.plan .acts a,.plan .acts button{font:inherit;font-size:.76rem;font-weight:700;border:0;border-radius:10px;padding:4px 10px;background:var(--soft);color:var(--brand);cursor:pointer;text-decoration:none}
+.pill{font-size:.68rem;font-weight:800;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.pill.ok{background:#dcfce7;color:#166534}.pill.warn{background:#fef3c7;color:#92400e}.pill.bad{background:#ffe4e6;color:#9f1239}.pill.man{background:var(--soft);color:var(--muted)}
+.alert{border-radius:14px;padding:10px 14px;margin:0 0 10px;font-weight:700;font-size:.88rem;background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3}
+.alert.warn{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-inline-start:6px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -55,7 +73,9 @@ details.tbl td,details.tbl th{border-bottom:1px solid var(--line);padding:4px 6p
     <button data-t="resolved">✅ چارەسەرکراو</button>
     <button data-t="banned">⛔ بلۆککراوەکان</button>
     <button data-t="rooms">🎙️ ژوورە کراوەکان</button>
+    <button data-t="plans" id="tabPlans">💡 پلانە بەخۆڕاییەکان</button>
   </div>
+  <div id="planAlert"></div>
   <div id="box"><div class="empty">…</div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
@@ -134,6 +154,76 @@ async function loadStats(box) {
     <div class="card chart-card"><h3>🎙️ ژوور و Live ی نوێ</h3><div class="sub">هەر ڕۆژێک، ١٤ ڕۆژی ڕابردوو</div>${barChart(s.daily || [], "rooms", "ژووری نوێ")}</div>`;
 }
 
+/* ---------- 💡 free plans: how much is used, how much is left, and a warning before anything runs out (update-48) ---------- */
+const SUPA_USAGE = "https://supabase.com/dashboard/org/_/usage";
+// measured: the database counts these itself · lim = the key in plan_limits
+const MEASURED = [
+  { key: "db_mb", name: "🗄️ داتابەیس", who: "Supabase", unit: "MB", per: "", up: "Supabase Pro ≈ $25/مانگ (8 GB)", link: SUPA_USAGE },
+  { key: "storage_mb", name: "🖼️ فایل و وێنە (Storage)", who: "Supabase", unit: "MB", per: "", up: "Supabase Pro ≈ $25/مانگ (100 GB)", link: SUPA_USAGE },
+  { key: "mau", name: "👥 بەکارهێنەری مانگانە", who: "Supabase", unit: "", per: "لەم مانگەدا", up: "Supabase Pro ≈ $25/مانگ (100,000)", link: SUPA_USAGE },
+  { key: "emails_day", name: "✉️ ئیمەیڵی کۆد", who: "Gmail", unit: "", per: "ئەمڕۆ (نزیکەیی)", up: "Gmail بگۆڕە بە Resend یان Brevo (بەخۆڕایی تا ٣٠٠/ڕۆژ، پاشان پارەدار)", link: "https://supabase.com/dashboard/project/vjuqtzhefxpiqsmasfkb/auth/smtp" },
+  { key: "voice_min_month", name: "🎙️ خولەکی دەنگ", who: "LiveKit", unit: "min", per: "لەم مانگەدا", up: "LiveKit Ship ≈ $50/مانگ", link: "https://cloud.livekit.io/" },
+];
+// checked by hand on the provider's page (the database can't see these)
+const MANUAL = [
+  { name: "📶 داتای ناردن (Egress)", who: "Supabase", limit: "5 GB لە مانگێکدا", note: "وێنە و ڤیدیۆ و داتای ئەپ کە دەنێردرێن بۆ مۆبایلەکان.", link: SUPA_USAGE },
+  { name: "⚡ Realtime", who: "Supabase", limit: "200 پەیوەندی لە یەک کاتدا · 2M نامە/مانگ", note: "چات، پشتگیری و ژوورەکان بە لایڤ.", link: SUPA_USAGE },
+  { name: "🧩 Edge Functions", who: "Supabase", limit: "500,000 بانگکردن/مانگ", note: "smooth-worker (تۆکنی دەنگ) و clever-service (کڕینی Apple).", link: SUPA_USAGE },
+  { name: "💤 داخرانی پرۆژە", who: "Supabase", limit: "پاش ٧ ڕۆژ بێ چالاکی", note: "لە پلانی بەخۆڕاییدا ئەگەر هەفتەیەک کەس بەکاری نەهێنێت، پرۆژەکە دەوەستێت. لە Pro دا ناوەستێت.", link: "https://supabase.com/dashboard/project/vjuqtzhefxpiqsmasfkb" },
+  { name: "🍏 بیلدی iPhone", who: "Codemagic", limit: "500 خولەک/مانگ", note: "هەر بیلدێک نزیکەی ١٠–٢٠ خولەکە.", link: "https://codemagic.io/apps" },
+  { name: "💰 کڕینی Apple", who: "RevenueCat", limit: "بەخۆڕایی تا $2,500 داهات/مانگ", note: "پاش ئەوە ١٪ ی داهاتەکە وەردەگرێت.", link: "https://app.revenuecat.com/" },
+  { name: "🌐 ماڵپەڕ", who: "GitHub Pages", limit: "نزیکەی 100 GB/مانگ", note: "ڤیدیۆی دیارییەکان زۆرترین بەشن.", link: "https://github.com/dubra0/learn-together" },
+  { name: "🍎 ئەندامێتی Apple", who: "Apple", limit: "$99 ساڵانە", note: "ئەگەر نوێ نەکرێتەوە، ئەپەکە لە App Store لادەبرێت.", link: "https://developer.apple.com/account" },
+];
+const lvl = (p) => (p >= 90 ? "bad" : p >= 70 ? "warn" : "ok");
+const COL = { ok: "#16a34a", warn: "#d97706", bad: "#e11d48" };
+async function getUsage() { const { data, error } = await sb.rpc("admin_usage"); if (error) throw error; return data; }
+function nearLimits(u) {
+  return MEASURED.map((m) => ({ m, used: Number(u[m.key] || 0), lim: Number(u.limits?.[m.key] || 0) }))
+    .filter((x) => x.lim > 0).map((x) => ({ ...x, p: (x.used / x.lim) * 100 })).filter((x) => x.p >= 70);
+}
+function showAlert(u) {
+  const near = nearLimits(u), bad = near.some((x) => x.p >= 90);
+  $("#planAlert").innerHTML = near.length ? `<div class="alert ${bad ? "" : "warn"}">${bad ? "🚨" : "⚠️"} ئاگاداربە: ${near.map((x) => `${esc(x.m.name)} ${Math.round(x.p)}٪`).join(" · ")} — سەیری «💡 پلانە بەخۆڕاییەکان» بکە.</div>` : "";
+  $("#tabPlans").innerHTML = "💡 پلانە بەخۆڕاییەکان" + (near.length ? `<span class="dot"></span>` : "");
+}
+async function loadPlans(box) {
+  let u;
+  try { u = await getUsage(); } catch (e) { box.innerHTML = `<div class="card">⚠️ ${esc(e.message)}<br><span class="muted">SQL ـی update-48 Run بکە.</span></div>`; return; }
+  showAlert(u);
+  const card = (m) => {
+    const used = Number(u[m.key] || 0), lim = Number(u.limits?.[m.key] || 0), p = lim ? Math.min(100, (used / lim) * 100) : 0, l = lvl(p);
+    const left = Math.max(0, lim - used);
+    const extra = m.key === "voice_min_month" ? `<div class="note">ئەمڕۆ: ${nf(u.voice_min_today)} خولەک${u.voice_since ? ` · لە ${esc(u.voice_since)} ەوە دەژمێردرێت` : " · لە ئێستاوە دەژمێردرێت"}. ژمارەی ڕاستەقینە لە LiveKit ببینە.</div>`
+      : m.key === "emails_day" ? `<div class="note">ئیمەیڵەکانی کۆدی چوونەژوورەوە. Gmail ڕۆژانە نزیکەی ٥٠٠ ڕێگە دەدات.</div>` : "";
+    return `<div class="plan" style="--st:${COL[l]}"><h3>${esc(m.name)} <span class="pill ${l}">${l === "ok" ? "✅ باشە" : l === "warn" ? "⚠️ نزیکە" : "🚨 تەواو دەبێت"}</span></h3>
+      <div class="who">${esc(m.who)} ${m.per ? "· " + esc(m.per) : ""}</div>
+      <div class="num">${nf(used)} <small>/ ${nf(lim)} ${esc(m.unit)}</small></div>
+      <div class="meter" role="img" aria-label="${Math.round(p)}%"><i style="width:${p.toFixed(1)}%"></i></div>
+      <div class="left">${Math.round(p)}٪ بەکارهاتووە · ${nf(Math.round(left))} ${esc(m.unit)} ماوە</div>${extra}
+      <div class="note">⬆️ ${esc(m.up)}</div>
+      <div class="acts"><a href="${m.link}" target="_blank" rel="noopener">↗ بینین</a><button type="button" data-lim="${m.key}">✏️ گۆڕینی سنوور</button></div></div>`;
+  };
+  const man = (m) => `<div class="plan" style="--st:#94a3b8"><h3>${esc(m.name)} <span class="pill man">👁 بە دەست</span></h3>
+      <div class="who">${esc(m.who)}</div><div class="num" style="font-size:1rem;text-align:start;direction:rtl">${esc(m.limit)}</div>
+      <div class="note">${esc(m.note)}</div><div class="acts"><a href="${m.link}" target="_blank" rel="noopener">↗ بپشکنە</a></div></div>`;
+  box.innerHTML = `<div class="card muted" style="font-size:.85rem">🟢 کەمتر لە ٧٠٪ · 🟠 ٧٠–٩٠٪ · 🔴 زیاتر لە ٩٠٪. کاتێک یەکێکیان سوور بوو، کاتی ئەوەیە بیگۆڕیت بۆ Pro.
+      <br>نوێکرایەوە: ${esc(new Date(u.checked_at).toLocaleString("en-GB"))}</div>
+    <h3 style="margin:14px 0 6px">📏 خۆی دەیژمێرێت</h3><div class="plans">${MEASURED.map(card).join("")}</div>
+    <div class="card chart-card" style="margin-top:12px"><h3>🎙️ خولەکی دەنگ</h3><div class="sub">هەر ڕۆژێک، ١٤ ڕۆژی ڕابردوو</div>${barChart(u.voice_daily || [], "voice", "خولەکی دەنگ")}</div>
+    <h3 style="margin:16px 0 6px">👁 بە دەست بیپشکنە (داتابەیس ناتوانێت بیبینێت)</h3><div class="plans">${MANUAL.map(man).join("")}</div>`;
+  box.querySelectorAll("[data-lim]").forEach((b) => b.addEventListener("click", async () => {
+    const k = b.dataset.lim, cur = u.limits?.[k];
+    const v = prompt("سنووری نوێ بنووسە (تەنها ژمارە):", cur ?? "");
+    if (v == null) return;
+    const n = Number(String(v).replace(/[^\d.]/g, ""));
+    if (!n) return alert("ژمارەیەکی دروست بنووسە.");
+    const { error } = await sb.rpc("admin_set_limit", { p_key: k, p_lim: n });
+    if (error) return alert(error.message);
+    loadPlans(box);
+  }));
+}
+
 document.querySelector(".tabs").addEventListener("click", (e) => {
   const b = e.target.closest("[data-t]"); if (!b) return;
   tab = b.dataset.t;
@@ -150,6 +240,7 @@ async function start() {
     return;
   }
   load();
+  getUsage().then(showAlert, () => {});   // ⚠️ a warning at the top if a free plan is close to its limit
 }
 
 async function names(ids) {
@@ -163,6 +254,7 @@ async function load() {
   const box = $("#box");
   box.innerHTML = `<div class="empty">…</div>`;
   if (tab === "stats") return loadStats(box);
+  if (tab === "plans") return loadPlans(box);
   if (tab === "open" || tab === "resolved") {
     const { data, error } = await sb.from("reports").select("*").eq("status", tab).order("created_at", { ascending: false }).limit(100);
     if (error) { box.innerHTML = `<div class="card">${esc(error.message)}</div>`; return; }
