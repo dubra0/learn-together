@@ -1092,10 +1092,13 @@ function openSettings() {
     sec(`📄 ${esc(t("st_legal"))}`, `<a href="privacy.html" target="_blank" rel="noopener">📄 ${esc(t("privacy"))}<span class="chev">↗</span></a>`) +
     (isAdmin ? sec(`🛡️ ${esc(t("st_admin"))}`, `
       <a href="admin.html" target="_blank" rel="noopener">🛡️ ${esc(t("adminPanel"))}<span class="chev">↗</span></a>
-      <a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}<span class="chev">↗</span></a>`) : "") +
-    sec(`⚠️ ${esc(t("st_danger"))}`, `<button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>`);
+      <a href="admin-wallet.html" target="_blank" rel="noopener">💰 ${esc(t("w_adminWallet"))}<span class="chev">↗</span></a>
+      <a href="admin-support.html" target="_blank" rel="noopener">💬 Support<span class="chev">↗</span></a>`) : "") +
+    sec(`⚠️ ${esc(t("st_danger"))}`, `<button type="button" id="me-logout">🚪 ${esc(t("logOut"))}<span class="chev">›</span></button>
+      <button type="button" id="me-delete" class="danger">🗑️ ${esc(t("deleteAccount"))}</button>`);
   window.SettingsPlus?.decorate(); // 🌙 the night look + real on / off switches
   window.AppleLogin?.settings();   // 🍏 save my account with Apple (iPhone app only)
+  window.Support?.settings();      // 💬 live chat with the Learn Together team
   $("#me-edit").addEventListener("click", openEditProfile);
   $("#me-wallet")?.addEventListener("click", openWallet);
   $("#me-photos").addEventListener("click", () => {
@@ -1122,6 +1125,7 @@ function openSettings() {
   sb.rpc("public_id_of", { p_user: me.id }).then(({ data }) => { myPid = data ? String(data) : null; if ($("#me-id-v")) $("#me-id-v").textContent = myPid || "—"; }, () => {});
   $("#me-id").addEventListener("click", async () => { if (!myPid) return; try { await navigator.clipboard.writeText(myPid); toast(t("copied")); } catch { prompt(t("yourId"), myPid); } });
   $("#me-nice")?.addEventListener("click", () => PeopleSearch.openNiceIds());
+  $("#me-logout").addEventListener("click", logOut);
   $("#me-delete").addEventListener("click", deleteAccount);
 }
 
@@ -1381,6 +1385,14 @@ async function saveWord(text) {
 }
 
 /* ---------------- Delete account ---------------- */
+// 🚪 log out: the account stays as it is; signing in again (same email / Google / Apple) brings everything back
+async function logOut() {
+  if (!confirm(t("logOutQ"))) return;
+  try { await sb.auth.signOut(); } catch {}
+  me = null; profile = null; following.clear(); blocked.clear();
+  location.reload();   // back to the welcome screen
+}
+
 async function deleteAccount() {
   if (!confirm(t("deleteConfirm"))) return;
   try {

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn Together — پشتگیری (بەڕێوەبەر)</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#6d4aff">
+<link rel="icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* left: every person who wrote to support (unread first, newest first) · right: the chat with the chosen person */
+:root{--bg:#f6f5fb;--card:#fff;--ink:#17142b;--muted:#6e6888;--line:#ebe8f5;--brand:#6d4aff;--soft:#efeaff;--danger:#e11d48;--ok:#16a34a;--gold:#e2b65a}
+@media (prefers-color-scheme: dark){:root{--bg:#0f0d1a;--card:#1a1729;--ink:#f3f1ff;--muted:#a49fbe;--line:#2a2541;--brand:#8b72ff;--soft:#262043}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Arabic",system-ui,sans-serif;line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 16px 30px;height:100vh;display:flex;flex-direction:column}
+h1{margin:0;font-size:1.3rem} .muted{color:var(--muted);font-size:.85rem}
+.app{flex:1;min-height:0;display:grid;grid-template-columns:320px 1fr;gap:12px;margin-top:12px}
+@media (max-width:760px){.app{grid-template-columns:1fr}.app.chatting .list{display:none}.app:not(.chatting) .chat{display:none}}
+.list,.chat{background:var(--card);border:1px solid var(--line);border-radius:16px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.list header,.chat header{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:800;display:flex;align-items:center;gap:8px}
+.threads{flex:1;overflow-y:auto}
+.th{display:flex;gap:10px;align-items:center;width:100%;padding:10px 14px;border:0;border-bottom:1px solid var(--line);background:none;text-align:start;cursor:pointer;font:inherit;color:inherit}
+.th:hover,.th.on{background:var(--soft)}
+.av{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;background:linear-gradient(135deg,#f7d98b,#c9962e);color:#2a1a00;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.th .mid{flex:1;min-width:0}
+.th .nm{font-weight:800;display:flex;gap:6px;align-items:center}
+.th .last{font-size:.82rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th .at{font-size:.7rem;color:var(--muted);white-space:nowrap}
+.badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--danger);color:#fff;font-size:.72rem;font-weight:800;display:inline-grid;place-items:center}
+.pid{font-size:.72rem;color:var(--muted);direction:ltr}
+.msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:75%;padding:9px 12px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.93rem}
+.m small{display:block;font-size:.7rem;opacity:.7;margin-top:3px}
+.m.them{align-self:flex-start;background:var(--soft);border-bottom-left-radius:5px}
+.m.us{align-self:flex-end;background:linear-gradient(180deg,#f7d98b,#e2b65a);color:#2a1a00;border-bottom-right-radius:5px}
+form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+textarea{flex:1;min-height:46px;max-height:140px;resize:none;font:inherit;color:inherit;background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px}
+.btn{border:0;border-radius:12px;padding:0 18px;font:inherit;font-weight:800;cursor:pointer;background:var(--brand);color:#fff}
+.btn.ghost{background:var(--soft);color:var(--brand);padding:4px 10px}
+.empty{margin:auto;text-align:center;color:var(--muted);padding:30px}
+.quick{display:flex;gap:6px;flex-wrap:wrap;padding:8px 10px 0}
+.quick button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 10px;font:inherit;font-size:.78rem;cursor:pointer;color:inherit}
+.live{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.25)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💬 پشتگیری</h1>
+  <div class="muted">نامەی خەڵک بە شێوەی لایڤ دەگات. وەڵامەکانت بە ناوی «پشتگیری Learn Together» دەچن.</div>
+  <div class="app" id="app">
+    <section class="list"><header><span class="live" title="Live"></span> گفتوگۆکان <span class="badge" id="total" hidden></span></header><div class="threads" id="threads"><div class="empty">…</div></div></section>
+    <section class="chat"><header id="chatHead"><span class="muted">کەسێک هەڵبژێرە</span></header><div class="msgs" id="msgs"><div class="empty">👈 لە لیستەکە کەسێک هەڵبژێرە</div></div>
+      <div class="quick" id="quick" hidden></div>
+      <form id="form" hidden><textarea id="in" maxlength="2000" placeholder="وەڵامەکەت بنووسە… (Enter = ناردن، Shift+Enter = هێڵی نوێ)" aria-label="وەڵام"></textarea><button class="btn" type="submit">ناردن</button></form></section>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script>
+"use strict";
+const SUPABASE_URL = "https://vjuqtzhefxpiqsmasfkb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_hs16UKvg16dApnabYQM9Cw_l2S-_XAU";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = (s) => s ? new Date(s).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+const QUICK = ["سڵاو! سوپاس بۆ نامەکەت 🙏", "ئێستا دەیپشکنین و وەڵامت دەدەینەوە.", "کێشەکە چارەسەر کرا ✅", "تکایە وێنەی شاشەکەمان بۆ بنێرە.", "Hello! Thanks for your message 🙏"];
+let threads = [], cur = null;
+
+async function start() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("#threads").innerHTML = `<div class="empty">سەرەتا ئەپەکە لەم وێبگەڕەدا بکەرەوە و بچۆ ژوورەوە.</div>`; return; }
+  const { data: ok } = await sb.rpc("is_admin");
+  if (!ok) { $("#threads").innerHTML = `<div class="empty">⛔ تۆ بەڕێوەبەر نیت.</div>`; return; }
+  $("#quick").innerHTML = QUICK.map((q) => `<button type="button">${esc(q)}</button>`).join("");
+  await loadThreads();
+  // live: every new message from anyone
+  sb.channel("support-admin").on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, (p) => {
+    const m = p.new; if (!m) return;
+    if (cur === m.user_id) { addMsg(m); if (!m.from_admin) sb.rpc("admin_support_seen", { p_user: cur }); }
+    else if (!m.from_admin) ping();
+    loadThreads();
+  }).subscribe();
+}
+async function loadThreads() {
+  const { data, error } = await sb.rpc("admin_support_threads");
+  if (error) { $("#threads").innerHTML = `<div class="empty">هەڵە: ${esc(error.message)}<br><small>ئایا update-46 ت ڕاکردووە؟</small></div>`; return; }
+  threads = data || [];
+  threads.sort((a, b) => (b.o_unread > 0) - (a.o_unread > 0) || new Date(b.o_at) - new Date(a.o_at));
+  const total = threads.reduce((s, x) => s + (x.o_unread || 0), 0);
+  $("#total").textContent = total; $("#total").hidden = !total;
+  document.title = (total ? `(${total}) ` : "") + "Learn Together — پشتگیری";
+  $("#threads").innerHTML = threads.length ? threads.map((x) => `<button type="button" class="th ${x.o_user === cur ? "on" : ""}" data-u="${x.o_user}">
+      <span class="av">${x.o_avatar ? `<img src="${esc(x.o_avatar)}" alt="">` : esc((x.o_name || "?")[0])}</span>
+      <span class="mid"><span class="nm">${esc(x.o_name || "—")} <span class="pid">ID ${esc(x.o_pid ?? "")}</span></span><span class="last">${x.o_last_admin ? "↩️ " : ""}${esc(x.o_last)}</span></span>
+      <span style="display:grid;justify-items:end;gap:4px"><span class="at">${esc(when(x.o_at))}</span>${x.o_unread ? `<span class="badge">${x.o_unread}</span>` : ""}</span></button>`).join("")
+    : `<div class="empty">هێشتا کەس نامەی نەناردووە 🌙</div>`;
+}
+$("#threads").addEventListener("click", (e) => { const b = e.target.closest("[data-u]"); if (b) openChat(b.dataset.u); });
+async function openChat(u) {
+  cur = u; const x = threads.find((t) => t.o_user === u) || {};
+  $("#app").classList.add("chatting");
+  $("#chatHead").innerHTML = `<button type="button" class="btn ghost" id="back">‹</button><span class="av" style="width:32px;height:32px">${x.o_avatar ? `<img src="${esc(x.o_avatar)}" alt="">` : esc((x.o_name || "?")[0])}</span><span>${esc(x.o_name || "—")}</span> <span class="pid">ID ${esc(x.o_pid ?? "")}</span>`;
+  $("#back").onclick = () => { $("#app").classList.remove("chatting"); };
+  $("#msgs").innerHTML = "";
+  const { data } = await sb.from("support_messages").select("id,from_admin,body,created_at").eq("user_id", u).order("created_at", { ascending: true }).limit(500);
+  (data || []).forEach(addMsg);
+  $("#form").hidden = false; $("#quick").hidden = false; $("#in").focus();
+  await sb.rpc("admin_support_seen", { p_user: u });
+  loadThreads();
+}
+function addMsg(m) {
+  if ($("#msgs").querySelector(`[data-id="${m.id}"]`)) return;
+  $("#msgs").insertAdjacentHTML("beforeend", `<div class="m ${m.from_admin ? "us" : "them"}" data-id="${m.id}">${esc(m.body)}<small>${m.from_admin ? "🛡️ پشتگیری · " : ""}${esc(when(m.created_at))}</small></div>`);
+  $("#msgs").scrollTop = $("#msgs").scrollHeight;
+}
+$("#quick").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { $("#in").value = b.textContent; $("#in").focus(); } });
+$("#in").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#form").requestSubmit(); } });
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault(); const body = $("#in").value.trim(); if (!body || !cur) return;
+  const btn = e.target.querySelector("button"); btn.disabled = true;
+  const { data: id, error } = await sb.rpc("admin_support_reply", { p_user: cur, p_body: body });
+  btn.disabled = false;
+  if (error) { alert("نەنێردرا: " + error.message); return; }
+  $("#in").value = "";
+  addMsg({ id, from_admin: true, body, created_at: new Date().toISOString() });
+});
+// a short "ding" when a new message comes from someone else
+function ping() { try { const a = new AudioContext(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.value = .08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + .15); } catch {} }
+start();
+</script>
+</body>
+</html>

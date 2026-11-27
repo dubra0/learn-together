@@ -15,7 +15,8 @@
       ap_resend: "Send code again", ap_resendIn: "Send again ({n})", ap_spam: "💡 No code? Look in your Spam folder.", ap_codeBad: "That code is wrong or expired. Try again.",
       ap_wait: "Too many tries. Please wait a minute and try again.", ap_hello: "👋 Welcome!", ap_via: "Signed in with {how}", ap_dob: "Date of birth", ap_dobDay: "Day", ap_dobMonth: "Month", ap_dobYear: "Year",
       ap_dobNeed: "Please choose your date of birth.", ap_under18: "Sorry, Learn Together is only for people 18 or older.", ap_start: "Get started 🚀", ap_fail: "Something went wrong: ",
-      ageConfirm: "I am 18 or older and I accept the", ageRequired: "Please confirm you are 18 or older." },
+      ageConfirm: "I am 18 or older and I accept the", ageRequired: "Please confirm you are 18 or older.",
+      ap_blocked: "🚫 Account blocked. This account was deleted and can't be used again." },
     ckb: { ap_tag: "فێربوونی زمان بە قسەکردن", ap_live: "🎙️ ژووری لایڤ", ap_call: "📞 کۆڵ", ap_chat: "💬 چات",
       ap_apple: "بەردەوامبە بە Apple", ap_google: "بەردەوامبە بە Google", ap_email: "بەردەوامبە بە ئیمەیڵ", ap_terms: "بە بەردەوامبوون، ڕازیت بە", ap_termsL: "مەرج و تایبەتمەندی",
       ap_emT: "ئیمەیڵەکەت بنووسە", ap_emS: "کۆدێکی ٦ ژمارەییت بۆ دەنێرین، و بەو کۆدە دەچیتە ژوورەوە.", ap_emL: "ئیمەیڵ", ap_send: "ناردنی کۆد", ap_noPass: "🔒 پاسۆرد پێویست نییە", ap_private: "👁️ ئیمەیڵەکەت بە کەس پیشان نادرێت",
@@ -23,7 +24,8 @@
       ap_resend: "ناردنەوەی کۆد", ap_resendIn: "ناردنەوە ({n})", ap_spam: "💡 کۆدەکەت نەگەیشت؟ سەیری بەشی Spam بکە.", ap_codeBad: "کۆدەکە هەڵەیە یان کاتی بەسەرچووە. دووبارە هەوڵ بدەرەوە.",
       ap_wait: "هەوڵی زۆرت دا. تکایە یەک خولەک چاوەڕێ بکە و دووبارە هەوڵ بدەرەوە.", ap_hello: "👋 بەخێربێیت!", ap_via: "چوویتە ژوورەوە بە {how}", ap_dob: "ڕۆژی لەدایکبوون", ap_dobDay: "ڕۆژ", ap_dobMonth: "مانگ", ap_dobYear: "ساڵ",
       ap_dobNeed: "تکایە ڕۆژی لەدایکبوونت هەڵبژێرە.", ap_under18: "ببورە، Learn Together تەنها بۆ کەسانی ١٨ ساڵ و سەرووترە.", ap_start: "دەستپێکردن 🚀", ap_fail: "هەڵەیەک ڕوویدا: ",
-      ageConfirm: "تەمەنم ١٨ ساڵ یان زیاترە و ڕازیم بە", ageRequired: "تکایە دڵنیای بکەرەوە کە تەمەنت ١٨ ساڵ یان زیاترە." },
+      ageConfirm: "تەمەنم ١٨ ساڵ یان زیاترە و ڕازیم بە", ageRequired: "تکایە دڵنیای بکەرەوە کە تەمەنت ١٨ ساڵ یان زیاترە.",
+      ap_blocked: "🚫 ئەکاونت بلۆک کراوە. ئەم ئەکاونتە سڕاوەتەوە و ناتوانرێت دووبارە بەکاربهێنرێتەوە." },
     ar: { ap_tag: "تعلّم اللغات بالمحادثة", ap_live: "🎙️ غرف مباشرة", ap_call: "📞 مكالمات", ap_chat: "💬 دردشة",
       ap_apple: "المتابعة باستخدام Apple", ap_google: "المتابعة باستخدام Google", ap_email: "المتابعة بالبريد الإلكتروني", ap_terms: "بالمتابعة توافق على", ap_termsL: "الشروط والخصوصية",
       ap_emT: "أدخل بريدك الإلكتروني", ap_emS: "سنرسل لك رمزاً من 6 أرقام لتسجيل الدخول.", ap_emL: "البريد الإلكتروني", ap_send: "إرسال الرمز", ap_noPass: "🔒 لا حاجة لكلمة مرور", ap_private: "👁️ لا يظهر بريدك لأحد",
@@ -31,7 +33,8 @@
       ap_resend: "إعادة إرسال الرمز", ap_resendIn: "إعادة الإرسال ({n})", ap_spam: "💡 لم يصل الرمز؟ تحقق من مجلد Spam.", ap_codeBad: "الرمز خاطئ أو منتهي. حاول مجدداً.",
       ap_wait: "محاولات كثيرة. انتظر دقيقة ثم حاول مجدداً.", ap_hello: "👋 أهلاً بك!", ap_via: "سجّلت الدخول عبر {how}", ap_dob: "تاريخ الميلاد", ap_dobDay: "اليوم", ap_dobMonth: "الشهر", ap_dobYear: "السنة",
       ap_dobNeed: "يرجى اختيار تاريخ ميلادك.", ap_under18: "عذراً، Learn Together للأشخاص بعمر 18 سنة فأكثر فقط.", ap_start: "ابدأ 🚀", ap_fail: "حدث خطأ: ",
-      ageConfirm: "عمري 18 سنة أو أكثر وأوافق على", ageRequired: "يرجى تأكيد أن عمرك 18 سنة أو أكثر." },
+      ageConfirm: "عمري 18 سنة أو أكثر وأوافق على", ageRequired: "يرجى تأكيد أن عمرك 18 سنة أو أكثر.",
+      ap_blocked: "🚫 الحساب محظور. هذا الحساب حُذف ولا يمكن استخدامه مجدداً." },
   };
   try { for (const [l, o] of Object.entries(W)) if (I18N[l]) Object.assign(I18N[l], o); } catch {}
   // the 13+ line in other languages becomes 18+ too
@@ -220,11 +223,32 @@
     toProfile(me, name);
   }
 
+  // ---------- 🚫 a deleted account can't come back (the server answers "account_blocked": update-45) ----------
+  const blocked = (err) => /account_blocked/i.test(String(err?.message || err || ""));
+  function showBlocked() {
+    go("ap-start");
+    let bar = $("ap-blocked");
+    if (!bar) {
+      bar = document.createElement("div"); bar.id = "ap-blocked"; bar.setAttribute("role", "alert");
+      bar.style.cssText = "margin:10px auto;max-width:420px;padding:12px 14px;border-radius:14px;background:rgba(127,29,29,.85);border:1px solid #f87171;color:#fff;font-weight:800;font-size:.9rem;line-height:1.6;text-align:center";
+      $("ap-start").prepend(bar);
+    }
+    bar.textContent = t("ap_blocked");
+  }
+  // coming back from Google with "account_blocked" in the address
+  try {
+    const q = new URLSearchParams(location.search + "&" + location.hash.replace(/^#/, ""));
+    if (blocked(q.get("error_description") || q.get("error") || "")) {
+      history.replaceState(null, "", location.pathname);
+      setTimeout(showBlocked, 300);
+    }
+  } catch {}
+
   // ---------- 🍏 Apple ----------
   $("ap-apple")?.addEventListener("click", async (e) => {
     const b = e.currentTarget; b.disabled = true;
     try { const r = await window.AppleLogin.login(); if (r) await signedIn(r.name); }
-    catch (err) { toast(err?.message || String(err)); }
+    catch (err) { blocked(err) ? showBlocked() : toast(err?.message || String(err)); }
     finally { b.disabled = false; }
   });
   // ---------- G Google (leaves the page and comes back signed in) ----------
@@ -242,7 +266,7 @@
     $("ap-em").value = ($("ap-em").value.trim().split("@")[0] || "") + b.textContent; $("ap-em").focus();
   });
   $("ap-em").addEventListener("keydown", (e) => { if (e.key === "Enter") $("ap-send").click(); });
-  const errMsg = (err) => (/rate|too many|seconds/i.test(err?.message || "") ? t("ap_wait") : t("ap_fail") + (err?.message || err));
+  const errMsg = (err) => (blocked(err) ? t("ap_blocked") : /rate|too many|seconds/i.test(err?.message || "") ? t("ap_wait") : t("ap_fail") + (err?.message || err));
   async function sendCode() {
     const v = $("ap-em").value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) { $("ap-em-err").textContent = t("ap_emBad"); return false; }

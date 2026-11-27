@@ -220,7 +220,7 @@ const I18N_V3 = {
     rankingTitle: "Top learners", yourRank: "Your rank: #{n}", badges: "Badges", b10: "First 10 minutes", b60: "1 hour of practice", b600: "10 hours of practice", bStreak7: "7-day streak",
     editProfile: "Edit profile", country: "Country", nativeLang: "My language", learningLangs: "I'm learning", addLanguage: "+ Add language", bio: "About me", bioPh: "A few words about you…",
     profileSaved: "Profile saved ✅", savedWords: "Saved words", noSaved: "Save words from the chat with ⭐", settings: "Settings", appLanguage: "App language", privacy: "Privacy & Terms",
-    deleteAccount: "Delete account", deleteConfirm: "This permanently deletes your account, profile, rooms and saved words. Continue?", deleted: "Your account was deleted.",
+    logOut: "Log out", logOutQ: "Log out? Your account stays safe, and you can sign in again any time.", deleteAccount: "Delete account",deleteConfirm: "This permanently deletes your account, profile, rooms and saved words. Continue?", deleted: "Your account was deleted.",
     yourId: "Your ID", copied: "Copied", adminPanel: "Admin panel", streakUp: "🔥 {n}-day streak!",
   },
   ar: {
@@ -246,7 +246,7 @@ const I18N_V3 = {
     rankingTitle: "أفضل المتعلّمين", yourRank: "ترتيبك: #{n}", badges: "الشارات", b10: "أول 10 دقائق", b60: "ساعة من التدريب", b600: "10 ساعات من التدريب", bStreak7: "7 أيام متتالية",
     editProfile: "تعديل الملف", country: "البلد", nativeLang: "لغتي", learningLangs: "أتعلّم", addLanguage: "+ إضافة لغة", bio: "نبذة عني", bioPh: "كلمات قليلة عنك…",
     profileSaved: "تم حفظ الملف ✅", savedWords: "الكلمات المحفوظة", noSaved: "احفظ كلمات من الدردشة بـ ⭐", settings: "الإعدادات", appLanguage: "لغة التطبيق", privacy: "الخصوصية والشروط",
-    deleteAccount: "حذف الحساب", deleteConfirm: "سيؤدي هذا إلى حذف حسابك وملفك وغرفك وكلماتك المحفوظة نهائياً. هل تريد المتابعة؟", deleted: "تم حذف حسابك.",
+    logOut: "تسجيل الخروج", logOutQ: "تسجيل الخروج؟ يبقى حسابك محفوظاً ويمكنك الدخول مجدداً في أي وقت.", deleteAccount: "حذف الحساب",deleteConfirm: "سيؤدي هذا إلى حذف حسابك وملفك وغرفك وكلماتك المحفوظة نهائياً. هل تريد المتابعة؟", deleted: "تم حذف حسابك.",
     yourId: "معرّفك", copied: "تم النسخ", adminPanel: "لوحة الإدارة", streakUp: "🔥 {n} أيام متتالية!",
   },
   ckb: {
@@ -272,7 +272,7 @@ const I18N_V3 = {
     rankingTitle: "باشترین فێرخوازان", yourRank: "ڕیزبەندیت: #{n}", badges: "نیشانەکان", b10: "یەکەم ١٠ خولەک", b60: "١ کاتژمێر ڕاهێنان", b600: "١٠ کاتژمێر ڕاهێنان", bStreak7: "٧ ڕۆژ لەسەر یەک",
     editProfile: "دەستکاریی پرۆفایل", country: "وڵات", nativeLang: "زمانی خۆم", learningLangs: "فێر دەبم", addLanguage: "+ زیادکردنی زمان", bio: "دەربارەی من", bioPh: "چەند وشەیەک دەربارەی خۆت…",
     profileSaved: "پرۆفایل پاشەکەوت کرا ✅", savedWords: "وشە پاشەکەوتکراوەکان", noSaved: "بە ⭐ وشە لە چاتەوە پاشەکەوت بکە", settings: "ڕێکخستنەکان", appLanguage: "زمانی ئەپ", privacy: "تایبەتمەندی و مەرجەکان",
-    deleteAccount: "سڕینەوەی هەژمار", deleteConfirm: "ئەمە هەژمار و پرۆفایل و ژوور و وشە پاشەکەوتکراوەکانت بە یەکجاری دەسڕێتەوە. بەردەوام دەبیت؟", deleted: "هەژمارەکەت سڕایەوە.",
+    logOut: "چوونەدەرەوە", logOutQ: "دەچیتە دەرەوە؟ هەژمارەکەت وەک خۆی دەمێنێت و هەر کاتێک بتەوێت دەتوانیت دووبارە بچیتەوە ژوورەوە.", deleteAccount: "سڕینەوەی هەژمار",deleteConfirm: "ئەمە هەژمار و پرۆفایل و ژوور و وشە پاشەکەوتکراوەکانت بە یەکجاری دەسڕێتەوە. بەردەوام دەبیت؟", deleted: "هەژمارەکەت سڕایەوە.",
     yourId: "ناسنامەکەت (ID)", copied: "کۆپی کرا", adminPanel: "پانێڵی بەڕێوەبەر", streakUp: "🔥 {n} ڕۆژ لەسەر یەک!",
   },
   tr: {
@@ -298,7 +298,7 @@ const I18N_V3 = {
     rankingTitle: "En iyi öğrenenler", yourRank: "Sıran: #{n}", badges: "Rozetler", b10: "İlk 10 dakika", b60: "1 saat pratik", b600: "10 saat pratik", bStreak7: "7 günlük seri",
     editProfile: "Profili düzenle", country: "Ülke", nativeLang: "Dilim", learningLangs: "Öğreniyorum", addLanguage: "+ Dil ekle", bio: "Hakkımda", bioPh: "Kendin hakkında birkaç kelime…",
     profileSaved: "Profil kaydedildi ✅", savedWords: "Kayıtlı kelimeler", noSaved: "Sohbetten kelimeleri ⭐ ile kaydet", settings: "Ayarlar", appLanguage: "Uygulama dili", privacy: "Gizlilik ve Şartlar",
-    deleteAccount: "Hesabı sil", deleteConfirm: "Bu işlem hesabını, profilini, odalarını ve kayıtlı kelimelerini kalıcı olarak siler. Devam edilsin mi?", deleted: "Hesabın silindi.",
+    logOut: "Çıkış yap", logOutQ: "Çıkış yapılsın mı? Hesabın güvende kalır, istediğin zaman tekrar giriş yapabilirsin.", deleteAccount: "Hesabı sil",deleteConfirm: "Bu işlem hesabını, profilini, odalarını ve kayıtlı kelimelerini kalıcı olarak siler. Devam edilsin mi?", deleted: "Hesabın silindi.",
     yourId: "Kimliğin (ID)", copied: "Kopyalandı", adminPanel: "Yönetim paneli", streakUp: "🔥 {n} günlük seri!",
   },
   fa: {
@@ -324,7 +324,7 @@ const I18N_V3 = {
     rankingTitle: "برترین زبان‌آموزان", yourRank: "رتبهٔ شما: #{n}", badges: "نشان‌ها", b10: "۱۰ دقیقهٔ اول", b60: "۱ ساعت تمرین", b600: "۱۰ ساعت تمرین", bStreak7: "۷ روز پیاپی",
     editProfile: "ویرایش پروفایل", country: "کشور", nativeLang: "زبان من", learningLangs: "یاد می‌گیرم", addLanguage: "+ افزودن زبان", bio: "دربارهٔ من", bioPh: "چند کلمه دربارهٔ خودتان…",
     profileSaved: "پروفایل ذخیره شد ✅", savedWords: "واژه‌های ذخیره‌شده", noSaved: "واژه‌ها را از گفتگو با ⭐ ذخیره کنید", settings: "تنظیمات", appLanguage: "زبان برنامه", privacy: "حریم خصوصی و شرایط",
-    deleteAccount: "حذف حساب", deleteConfirm: "این کار حساب، پروفایل، اتاق‌ها و واژه‌های ذخیره‌شدهٔ شما را برای همیشه حذف می‌کند. ادامه می‌دهید؟", deleted: "حساب شما حذف شد.",
+    logOut: "خروج از حساب", logOutQ: "خارج می‌شوید؟ حساب شما محفوظ می‌ماند و هر زمان بخواهید می‌توانید دوباره وارد شوید.", deleteAccount: "حذف حساب",deleteConfirm: "این کار حساب، پروفایل، اتاق‌ها و واژه‌های ذخیره‌شدهٔ شما را برای همیشه حذف می‌کند. ادامه می‌دهید؟", deleted: "حساب شما حذف شد.",
     yourId: "شناسهٔ شما", copied: "کپی شد", adminPanel: "پنل مدیریت", streakUp: "🔥 {n} روز پیاپی!",
   },
   de: {
@@ -350,7 +350,7 @@ const I18N_V3 = {
     rankingTitle: "Top-Lernende", yourRank: "Dein Rang: #{n}", badges: "Abzeichen", b10: "Erste 10 Minuten", b60: "1 Stunde Übung", b600: "10 Stunden Übung", bStreak7: "7-Tage-Serie",
     editProfile: "Profil bearbeiten", country: "Land", nativeLang: "Meine Sprache", learningLangs: "Ich lerne", addLanguage: "+ Sprache hinzufügen", bio: "Über mich", bioPh: "Ein paar Worte über dich…",
     profileSaved: "Profil gespeichert ✅", savedWords: "Gespeicherte Wörter", noSaved: "Speichere Wörter aus dem Chat mit ⭐", settings: "Einstellungen", appLanguage: "App-Sprache", privacy: "Datenschutz & Bedingungen",
-    deleteAccount: "Konto löschen", deleteConfirm: "Dadurch werden dein Konto, Profil, deine Räume und gespeicherten Wörter dauerhaft gelöscht. Fortfahren?", deleted: "Dein Konto wurde gelöscht.",
+    logOut: "Abmelden", logOutQ: "Abmelden? Dein Konto bleibt erhalten und du kannst dich jederzeit wieder anmelden.", deleteAccount: "Konto löschen",deleteConfirm: "Dadurch werden dein Konto, Profil, deine Räume und gespeicherten Wörter dauerhaft gelöscht. Fortfahren?", deleted: "Dein Konto wurde gelöscht.",
     yourId: "Deine ID", copied: "Kopiert", adminPanel: "Admin-Bereich", streakUp: "🔥 {n}-Tage-Serie!",
   },
   fr: {
@@ -376,7 +376,7 @@ const I18N_V3 = {
     rankingTitle: "Meilleurs apprenants", yourRank: "Ton rang : #{n}", badges: "Badges", b10: "10 premières minutes", b60: "1 heure de pratique", b600: "10 heures de pratique", bStreak7: "7 jours d'affilée",
     editProfile: "Modifier le profil", country: "Pays", nativeLang: "Ma langue", learningLangs: "J'apprends", addLanguage: "+ Ajouter une langue", bio: "À propos de moi", bioPh: "Quelques mots sur toi…",
     profileSaved: "Profil enregistré ✅", savedWords: "Mots enregistrés", noSaved: "Enregistre des mots du chat avec ⭐", settings: "Paramètres", appLanguage: "Langue de l'app", privacy: "Confidentialité et conditions",
-    deleteAccount: "Supprimer le compte", deleteConfirm: "Cela supprime définitivement ton compte, ton profil, tes salons et tes mots enregistrés. Continuer ?", deleted: "Ton compte a été supprimé.",
+    logOut: "Se déconnecter", logOutQ: "Se déconnecter ? Ton compte reste intact et tu peux te reconnecter quand tu veux.", deleteAccount: "Supprimer le compte",deleteConfirm: "Cela supprime définitivement ton compte, ton profil, tes salons et tes mots enregistrés. Continuer ?", deleted: "Ton compte a été supprimé.",
     yourId: "Ton identifiant", copied: "Copié", adminPanel: "Panneau d'administration", streakUp: "🔥 {n} jours d'affilée !",
   },
   es: {
@@ -402,7 +402,7 @@ const I18N_V3 = {
     rankingTitle: "Mejores estudiantes", yourRank: "Tu puesto: #{n}", badges: "Insignias", b10: "Primeros 10 minutos", b60: "1 hora de práctica", b600: "10 horas de práctica", bStreak7: "Racha de 7 días",
     editProfile: "Editar perfil", country: "País", nativeLang: "Mi idioma", learningLangs: "Estoy aprendiendo", addLanguage: "+ Añadir idioma", bio: "Sobre mí", bioPh: "Unas palabras sobre ti…",
     profileSaved: "Perfil guardado ✅", savedWords: "Palabras guardadas", noSaved: "Guarda palabras del chat con ⭐", settings: "Ajustes", appLanguage: "Idioma de la app", privacy: "Privacidad y términos",
-    deleteAccount: "Eliminar cuenta", deleteConfirm: "Esto elimina para siempre tu cuenta, perfil, salas y palabras guardadas. ¿Continuar?", deleted: "Tu cuenta fue eliminada.",
+    logOut: "Cerrar sesión", logOutQ: "¿Cerrar sesión? Tu cuenta queda guardada y puedes volver a entrar cuando quieras.", deleteAccount: "Eliminar cuenta",deleteConfirm: "Esto elimina para siempre tu cuenta, perfil, salas y palabras guardadas. ¿Continuar?", deleted: "Tu cuenta fue eliminada.",
     yourId: "Tu ID", copied: "Copiado", adminPanel: "Panel de administración", streakUp: "🔥 ¡Racha de {n} días!",
   },
 };
