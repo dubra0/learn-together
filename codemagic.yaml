@@ -48,7 +48,8 @@ workflows:
         script: |
           cd native
           mkdir -p assets
-          sips -z 1024 1024 www/icons/icon-512.png --out assets/icon-only.png
+          SRC=www/icons/icon-1024.png; [ -f "$SRC" ] || SRC=www/icons/icon-512.png   # the sharp 1024 px icon when it's there
+          sips -z 1024 1024 "$SRC" --out assets/icon-only.png
           cp assets/icon-only.png assets/splash.png
           cp assets/icon-only.png assets/splash-dark.png
           npx @capacitor/assets generate --ios --iconBackgroundColor '#0a0f2c' --splashBackgroundColor '#0a0f2c' || true
@@ -72,6 +73,14 @@ workflows:
           EOF
           ruby -e 'require "xcodeproj"; p = Xcodeproj::Project.open("native/ios/App/App.xcodeproj"); p.targets.find { |x| x.name == "App" }.build_configurations.each { |c| c.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements"; c.build_settings["TARGETED_DEVICE_FAMILY"] = "1" }; p.save'
           # TARGETED_DEVICE_FAMILY 1 = iPhone only (so the App Store asks for no iPad screenshots)
+      - name: iPhone swipe-back (swipe from the left edge = one step back, like Safari)
+        script: |
+          F=native/ios/App/App/AppDelegate.swift
+          grep -q "allowsBackForwardNavigationGestures" "$F" || {
+            perl -0pi -e 's/import UIKit\n/import UIKit\nimport WebKit\n/' "$F"
+            perl -0pi -e 's|// Override point for customization after application launch\.|// ◀ swipe from the left edge goes one step back inside the app (swipe-back.js keeps the steps)\n        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {\n            if let vc = self.window?.rootViewController as? CAPBridgeViewController {\n                vc.bridge?.webView?.allowsBackForwardNavigationGestures = true\n            }\n        }|' "$F"
+          }
+          grep -n "allowsBackForwardNavigationGestures" "$F" || echo "⚠️ swipe-back was not added (AppDelegate looks different)"
       - name: Signing
         script: |
           xcode-project use-profiles

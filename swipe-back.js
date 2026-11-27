@@ -1,82 +1,73 @@
-/* 👈 Swipe to go back, like on iPhone: drag sideways anywhere on the screen and let go → one step back.
-   In right-to-left languages (Kurdish, Arabic, Persian) you swipe to the LEFT; in left-to-right languages to the RIGHT.
-   One step back means: close the open sheet → or close the photo / story viewer → or leave the page you're on (its ‹ button).
-   It never leaves a live room by itself (that has its own button), and it ignores sliders, text boxes and rows that scroll sideways.
-   On Android the phone's own back button does the same. */
+/* ◀ The phone's own Back works inside the app (Android ◀ button and back gesture, the browser's Back, Safari's edge swipe).
+   Nothing is drawn on the screen: every time you open a sheet or a page, the app leaves a step in the phone's history,
+   so pressing the phone's Back goes one step back — close the sheet, or leave the page, or leave the room —
+   instead of closing the whole app. On the home screen, Back closes the app as usual. */
 (() => {
-  const MIN = 70;              // how far you have to drag (px)
   const visible = (el) => !!el && !el.hidden && el.offsetParent !== null;
-  const rtl = () => (document.documentElement.dir || document.body.dir || getComputedStyle(document.body).direction) === "rtl";
+  const SUB = /^(screen-create|screen-edit|screen-saved|screen-settings|screen-compose|screen-follows|screen-profile|screen-inbox|screen-dm|screen-room)$/;
 
-  // the back button of the page that is showing now (null on the home tabs, in a room, and on the sign-in pages)
-  function backButtonHere() {
-    const scr = [...document.querySelectorAll("body > .screen")].find((s) => !s.hidden);
-    if (!scr || /^(screen-main|screen-room|screen-onboarding|screen-setup|screen-name)$/.test(scr.id)) return null;
-    return [...scr.querySelectorAll("[data-back], #fw-back, #pf-back, #dm-back")].find(visible) || null;
-  }
-  function canGoBack() {
-    if (!document.getElementById("sheet")?.hidden) return true;
-    if (history.state && (history.state.st || history.state.pv)) return true;   // story / post viewer
-    return !!backButtonHere();
-  }
+  // ---------- what "one step back" does ----------
+  function currentScreen() { return [...document.querySelectorAll("body > .screen")].find((s) => !s.hidden) || null; }
   function goBack() {
     const sheet = document.getElementById("sheet");
-    if (sheet && !sheet.hidden) { (typeof closeSheet === "function" ? closeSheet : () => { sheet.hidden = true; document.getElementById("sheet-backdrop").hidden = true; })(); return true; }
-    if (history.state && (history.state.st || history.state.pv)) { history.back(); return true; }
-    const b = backButtonHere(); if (b) { b.click(); return true; }
+    if (sheet && !sheet.hidden) { orig.closeSheet(); return true; }
+    const scr = currentScreen();
+    if (!scr || !SUB.test(scr.id)) return false;
+    const b = scr.id === "screen-room" ? document.getElementById("room-back")
+      : [...scr.querySelectorAll("[data-back], #fw-back, #pf-back, #dm-back")].find(visible);
+    if (b) { b.click(); return true; }
     return false;
   }
 
-  // don't start a swipe on things that use sideways dragging themselves
-  function blocked(el) {
-    for (let n = el; n && n !== document.body; n = n.parentElement) {
-      if (n.matches?.("input, textarea, select, [contenteditable=''], [contenteditable='true'], canvas, video, [data-noswipe], #video-grid")) return true;
-      const cs = getComputedStyle(n);
-      if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && n.scrollWidth > n.clientWidth + 4) return true;
-    }
-    return false;
-  }
+  // ---------- remember steps in the phone's history ----------
+  let cur = history.state, popping = false;
+  const realPush = history.pushState.bind(history);
+  history.pushState = function (state, ...rest) { cur = state; return realPush(state, ...rest); };   // also see the story / photo viewers' steps
+  const step = (kind) => { if (!popping) history.pushState({ lt: kind, at: Date.now() }, ""); };
 
-  // a small round arrow that follows the finger, so you can see the swipe working
-  const css = document.createElement("style");
-  css.textContent = `#swb{position:fixed;top:50%;z-index:9999;width:44px;height:44px;margin-top:-22px;border-radius:50%;display:grid;place-items:center;pointer-events:none;
-    background:rgba(20,20,35,.78);color:#fff;font-size:22px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;transition:opacity .15s;backdrop-filter:blur(6px)}
-    #swb.go{background:linear-gradient(180deg,#f7d98b,#e2b65a);color:#2a1a00}`;
-  document.head.appendChild(css);
-  const arrow = document.createElement("div"); arrow.id = "swb"; arrow.setAttribute("aria-hidden", "true");
-  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(arrow));
-  if (document.body) document.body.appendChild(arrow);
+  // closed with an on-screen button (×, ‹, tapping outside): take our step out of the history too, quietly
+  let quiet = false;
+  const unstep = (kind) => { if (!popping && cur && cur.lt === kind) { quiet = true; history.back(); } };
 
-  let sx = 0, sy = 0, st = 0, on = false, dir = 1;
-  addEventListener("touchstart", (e) => {
-    if (e.touches.length !== 1 || blocked(e.target) || !canGoBack()) { on = false; return; }
-    const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); on = true; dir = rtl() ? -1 : 1;
-  }, { passive: true });
-  addEventListener("touchmove", (e) => {
-    if (!on) return;
-    const t = e.touches[0], dx = (t.clientX - sx) * dir, dy = Math.abs(t.clientY - sy);
-    if (dy > 40 && dy > Math.abs(dx)) { on = false; arrow.style.opacity = 0; return; }   // they are scrolling up/down
-    if (dx > 10) {
-      const p = Math.min(1, dx / MIN);
-      arrow.textContent = dir > 0 ? "‹" : "›";
-      arrow.style[dir > 0 ? "left" : "right"] = Math.min(60, dx * .5) - 10 + "px";
-      arrow.style[dir > 0 ? "right" : "left"] = "auto";
-      arrow.style.opacity = p; arrow.classList.toggle("go", p >= 1);
-    }
-  }, { passive: true });
-  addEventListener("touchend", (e) => {
-    arrow.style.opacity = 0;
-    if (!on) return; on = false;
-    const t = e.changedTouches[0], dx = (t.clientX - sx) * dir, dy = Math.abs(t.clientY - sy);
-    if (dx >= MIN && dx > dy * 1.8 && Date.now() - st < 900) { if (goBack()) try { navigator.vibrate?.(8); } catch {} }
-  }, { passive: true });
-  addEventListener("touchcancel", () => { on = false; arrow.style.opacity = 0; }, { passive: true });
+  const orig = { openSheet: window.openSheet, closeSheet: window.closeSheet, show: window.show };
+  if (typeof orig.openSheet === "function") window.openSheet = function (...a) {
+    const wasOpen = !document.getElementById("sheet")?.hidden;
+    const r = orig.openSheet.apply(this, a);
+    if (!wasOpen) step("sheet");
+    return r;
+  };
+  if (typeof orig.closeSheet === "function") window.closeSheet = function (...a) {
+    const wasOpen = !document.getElementById("sheet")?.hidden;
+    const r = orig.closeSheet.apply(this, a);
+    if (wasOpen) unstep("sheet");
+    return r;
+  };
+  // the backdrop was wired to the old closeSheet before this file loaded
+  document.getElementById("sheet-backdrop")?.addEventListener("click", () => unstep("sheet"));
+  if (typeof orig.show === "function") window.show = function (id, ...a) {
+    const before = currentScreen()?.id;
+    const r = orig.show.call(this, id, ...a);
+    if (id !== before) { if (SUB.test(id)) step("screen"); else if (SUB.test(before || "")) unstep("screen"); }
+    return r;
+  };
 
-  // 🤖 Android: the phone's back button
+  addEventListener("popstate", (e) => {
+    const popped = cur; cur = e.state;
+    if (quiet) { quiet = false; return; }
+    if (popped && (popped.st || popped.pv)) return;          // a story / photo viewer: it closes itself
+    if (!popped || !popped.lt) return;
+    popping = true;
+    let did = false;
+    try { did = goBack(); } finally { popping = false; }
+    // that step was already closed with an on-screen button → skip it so one press still does something
+    if (!did && cur && cur.lt) history.back();
+  });
+
+  // 🤖 the Android app: send the phone's Back button to the same place
   try {
     const App = window.Capacitor?.Plugins?.App;
-    App?.addListener?.("backButton", () => { if (!goBack()) App.minimizeApp?.(); });
+    App?.addListener?.("backButton", () => { if (cur && (cur.lt || cur.st || cur.pv)) history.back(); else if (!goBack()) App.exitApp?.(); });
   } catch {}
 
-  window.SwipeBack = { goBack, canGoBack };
+  window.SwipeBack = { goBack };
 })();
