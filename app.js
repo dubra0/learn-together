@@ -1398,7 +1398,7 @@ async function deleteAccount() {
   try {
     await sb.storage.from("avatars").remove([`${me.id}/avatar.jpg`]).catch(() => {});
     const { error } = await sb.rpc("delete_my_account");
-    if (error) throw error;
+    if (error) { if (/owner_cannot_delete/.test(error.message)) return toast("👑 The owner account can't be deleted."); throw error; }
     await sb.auth.signOut().catch(() => {});
     me = null; profile = null; following.clear(); blocked.clear();
     toast(t("deleted"));
