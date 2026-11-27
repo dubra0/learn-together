@@ -187,6 +187,15 @@ function showAlert(u) {
   $("#planAlert").innerHTML = near.length ? `<div class="alert ${bad ? "" : "warn"}">${bad ? "🚨" : "⚠️"} ئاگاداربە: ${near.map((x) => `${esc(x.m.name)} ${Math.round(x.p)}٪`).join(" · ")} — سەیری «💡 پلانە بەخۆڕاییەکان» بکە.</div>` : "";
   $("#tabPlans").innerHTML = "💡 پلانە بەخۆڕاییەکان" + (near.length ? `<span class="dot"></span>` : "");
 }
+// when a number goes back to 0: monthly ones on the 1st of next month, emails every day, sizes never (they are totals)
+function resetText(key, u) {
+  const ms = new Date(u.month_start + "T00:00:00Z"), next = new Date(Date.UTC(ms.getUTCFullYear(), ms.getUTCMonth() + 1, 1));
+  const nextTxt = next.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const days = Math.max(0, Math.ceil((next - Date.now()) / 86400000));
+  if (key === "mau" || key === "voice_min_month") return `🔄 دەبێتەوە بە سفر: ${nextTxt} (${days} ڕۆژی ماوە)`;
+  if (key === "emails_day") return "🔄 هەموو ڕۆژێک لە کاتژمێر 00:00 (UTC) دەبێتەوە بە سفر";
+  return "📦 ئەمە قەبارەی ئێستایە و سفر نابێتەوە. تەنها کاتێک شت دەسڕیتەوە کەم دەبێتەوە.";
+}
 async function loadPlans(box) {
   let u;
   try { u = await getUsage(); } catch (e) { box.innerHTML = `<div class="card">⚠️ ${esc(e.message)}<br><span class="muted">SQL ـی update-48 Run بکە.</span></div>`; return; }
@@ -201,6 +210,7 @@ async function loadPlans(box) {
       <div class="num">${nf(used)} <small>/ ${nf(lim)} ${esc(m.unit)}</small></div>
       <div class="meter" role="img" aria-label="${Math.round(p)}%"><i style="width:${p.toFixed(1)}%"></i></div>
       <div class="left">${Math.round(p)}٪ بەکارهاتووە · ${nf(Math.round(left))} ${esc(m.unit)} ماوە</div>${extra}
+      <div class="note">${resetText(m.key, u)}</div>
       <div class="note">⬆️ ${esc(m.up)}</div>
       <div class="acts"><a href="${m.link}" target="_blank" rel="noopener">↗ بینین</a><button type="button" data-lim="${m.key}">✏️ گۆڕینی سنوور</button></div></div>`;
   };
